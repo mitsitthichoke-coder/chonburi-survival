@@ -1,9 +1,11 @@
 # Render Blueprint: กด New → Blueprint แล้วเลือก repo นี้
+# ตอนนี้ตั้งเป็นแบบฟรี (ทดลองเล่น): ข้อมูลบัญชี/ตัวละครจะหายเมื่อเซิร์ฟเวอร์รีสตาร์ต และเซิร์ฟเวอร์จะหลับเมื่อไม่มีคนเล่น 15 นาที
+# พร้อมเปิดจริงเมื่อไหร่: เปลี่ยน plan เป็น starter แล้วเอาเครื่องหมาย # หน้า disk ออก เพื่อเก็บข้อมูลถาวร
 services:
   - type: web
     name: chonburi-survival
     runtime: node
-    plan: starter            # ต้องเป็นแบบเสียเงินจึงใช้ดิสก์ถาวรได้ (เก็บบัญชีและตัวละคร)
+    plan: free
     buildCommand: npm ci --omit=dev
     startCommand: node server.js
     healthCheckPath: /healthz
@@ -12,7 +14,7 @@ services:
         value: /var/data
       - key: MAX_PLAYERS
         value: "40"
-    disk:
-      name: game-data
-      mountPath: /var/data
-      sizeGB: 1
+    # disk:
+    #   name: game-data
+    #   mountPath: /var/data
+    #   sizeGB: 1

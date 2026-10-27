@@ -10,11 +10,10 @@ services:
     startCommand: node server.js
     healthCheckPath: /healthz
     envVars:
-      - key: DATA_DIR
-        value: /var/data
       - key: MAX_PLAYERS
         value: "40"
       # รหัสยืนยันเจ้าของ: ไม่ต้องตั้ง เซิร์ฟเวอร์จะสุ่มและแสดงใน Logs ให้เอง
+    # เปิดใช้ดิสก์ถาวร (แบบเสียเงิน): เอา # ด้านล่างออก แล้วเพิ่ม env DATA_DIR=/var/data
     # disk:
     #   name: game-data
     #   mountPath: /var/data

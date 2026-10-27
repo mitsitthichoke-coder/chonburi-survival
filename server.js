@@ -17,7 +17,14 @@ import { Store } from './server/store.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC = path.join(__dirname, 'public');
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// ที่เก็บข้อมูล: ถ้าโฟลเดอร์ที่ตั้งไว้เขียนไม่ได้ (เช่น Render แบบฟรีที่ไม่มีดิสก์) ใช้โฟลเดอร์ data ข้างเซิร์ฟเวอร์แทน
+const DATA_DIR = (() => {
+  const want = process.env.DATA_DIR || path.join(__dirname, 'data'), fallback = path.join(__dirname, 'data');
+  for (const dir of [want, fallback]) {
+    try { fs.mkdirSync(dir, { recursive: true }); fs.accessSync(dir, fs.constants.W_OK); if (dir !== want) console.warn(`⚠️ เขียน ${want} ไม่ได้ ใช้ ${dir} แทน (ข้อมูลอาจหายเมื่อรีสตาร์ต ถ้าไม่มีดิสก์ถาวร)`); return dir; } catch { /* ลองที่ถัดไป */ }
+  }
+  return fallback;
+})();
 const MAX_PLAYERS = Number(process.env.MAX_PLAYERS) || 40;
 const ALLOWED_ORIGINS = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean));
 const ADMINS = new Set((process.env.ADMIN_USERS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));

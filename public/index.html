@@ -70,6 +70,10 @@
   #chat { position: absolute; left: 14px; bottom: 14px; width: 360px; }
   #chat-log { max-height: 170px; overflow-y: auto; font-size: 13px; background: rgba(0,0,0,.35); border-radius: 8px; padding: 6px 8px; margin-bottom: 4px; }
   #chat-log i { color: #b8c0c8; }
+  .chatrow { display: flex; gap: 4px; } .chatrow #chat-input { flex: 1; min-width: 0; } #chat-ch { font-size: 12px; padding: 4px 8px; background: rgba(0,0,0,.55); border-radius: 8px; white-space: nowrap; pointer-events: auto; }
+  #chat-log .c-party { color: #8ecae6; } #chat-log .c-family { color: #e0aaff; } #chat-log .c-pm { color: #ffb4a2; }
+  #party-hud { position: absolute; left: 14px; bottom: 260px; width: 180px; background: rgba(6,10,20,.6); border-left: 3px solid #8ecae6; border-radius: 8px; padding: 6px 8px; font-size: 12px; pointer-events: none; } #party-hud .pm { display: flex; justify-content: space-between; gap: 6px; } #party-hud .hpb { height: 4px; background: #333; border-radius: 2px; margin: 1px 0 4px; } #party-hud .hpb i { display: block; height: 100%; background: #e63946; border-radius: 2px; }
+  body.touch #party-hud { bottom: 150px; width: 150px; font-size: 11px; }
   #chat-input { font-size: 13px; padding: 6px 10px; background: rgba(0,0,0,.55); }
   #vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; box-shadow: inset 0 0 160px 40px rgba(200,0,0,.8); }
   /* ---------- แผงเมนู ---------- */
@@ -95,6 +99,12 @@
   .wslot { display: inline-block; min-width: 130px; color: var(--muted); }
   .inv.dropping .item { border-color: #e63946; }
   h3 button { font-size: 13px; padding: 3px 10px; margin-left: 8px; } h3 small { font-weight: 400; font-size: 13px; color: var(--muted); }
+  body.dragging #hotbar { z-index: 60; } #hotbar .slot.over { outline: 2px solid #ffd166; transform: scale(1.08); }
+  #sleep-fade { position: fixed; inset: 0; background: #050814; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 5; }
+  #ctx-menu { position: fixed; z-index: 80; min-width: 200px; background: rgba(14,17,22,.97); border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; } #ctx-menu[hidden] { display: none; } #ctx-menu b { padding: 2px 4px; } #ctx-menu button { text-align: left; padding: 6px 8px; }
+  #sidequest { pointer-events: auto; background: rgba(6, 14, 20, .6); border-left: 3px solid #4cc9f0; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; } #sidequest .qn { display: block; color: #8ecae6; } #sidequest .sqb { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; align-items: center; } #sidequest button { padding: 3px 8px; font-size: 12px; }
+  #quest { cursor: pointer; pointer-events: auto; } #quest .qtoggle { margin-top: 4px; font-size: 11px; color: #ffd166; }
+  .craft-q { width: 100%; margin: 4px 0 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: inherit; font-size: 14px; }
   .pieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; margin-bottom: 8px; }
   .piece { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; }
   .piece .ic { font-size: 22px; } .piece small { color: var(--muted); font-size: 12px; } .piece.dis { opacity: .55; }
@@ -234,7 +244,7 @@
     <div id="coins" title="เงินจิ (Ji-Coin)">🪙 <b id="v-coin">0</b> <small>เงินจิ</small></div>
     <div id="clock"></div>
   </div>
-  <div id="leftcol"><div id="status"></div><div id="quest" hidden></div></div>
+  <div id="leftcol"><div id="status"></div><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>
@@ -242,8 +252,11 @@
   <div id="crosshair"></div>
   <div id="prompt"></div>
   <div id="hotbar"></div>
+  <div id="ctx-menu" hidden></div>
+  <div id="sleep-fade"></div>
   <button id="hand-btn" title="สลับมือถืออุปกรณ์ ซ้าย ↔ ขวา (ปุ่ม H)">🫱 ขวา ↔</button>
-  <div id="chat"><div id="chat-log"></div><input id="chat-input" type="text" placeholder="กด Enter เพื่อแชท..." maxlength="200"></div>
+  <div id="chat"><div id="chat-log"></div><div class="chatrow"><button id="chat-ch" title="เลือกช่องแชท">📢 ทุกคน</button><input id="chat-input" type="text" placeholder="กด Enter เพื่อแชท... (/p ปาร์ตี้ · /f ครอบครัว · /w ชื่อ ข้อความ = กระซิบ)" maxlength="200"></div></div>
+  <div id="party-hud" hidden></div>
   <div id="vignette"></div>
   <div id="panel"></div>
   <div id="confirm"><div class="card"><p id="confirm-text"></p><div class="go"><button class="primary" id="confirm-yes">ตกลง</button><button id="confirm-no">ไม่ตอนนี้</button></div></div></div>

@@ -57,8 +57,9 @@ function buildLayout() {
       boxes.push({ x, z, w, d, h, y0, rgb: [g + 0.05, g, g - 0.03 + rng() * 0.06], burnt: rng() < 0.25 });
       buildings.push({ x, z, w, d, top: y0 + h + 1 });
       placed++;
-      const nl = rng() < 0.75 ? 1 + (rng() < 0.3) : 0;
-      for (let k = 0; k < nl; k++) {
+      // กล่องเสบียง: ส่วนใหญ่อยู่บนหลังคา (ต้องปีนขึ้นไป) · ตามพื้นมีน้อยลง
+      if (rng() < 0.7) loot.push({ x: x + (rng() - 0.5) * (w - 2), z: z + (rng() - 0.5) * (d - 2), y: +(y0 + h).toFixed(2), kind: 'crate', roof: true });
+      if (rng() < 0.22) {
         const side = rng() * 4 | 0; const off = 1.2;
         const lx = side < 2 ? x + (side ? 1 : -1) * (w / 2 + off) : x + (rng() - 0.5) * w;
         const lz = side >= 2 ? z + (side === 2 ? 1 : -1) * (d / 2 + off) : z + (rng() - 0.5) * d;
@@ -70,6 +71,11 @@ function buildLayout() {
     const [x, z] = roadPts[i]; const ox = (rng() - 0.5) * 3;
     cars.push({ x: x + ox, z, ry: rng() * Math.PI, hue: rng() });
     loot.push({ x: x + ox, z, kind: 'car' });
+  }
+  // จักรยานจอดทิ้งข้างถนน: ครึ่งหนึ่งขี่ได้เลย อีกครึ่งพังต้องซ่อมก่อน
+  for (let i = 0; i < roadPts.length; i++) if (rng() < 0.014) {
+    const [x, z] = roadPts[i]; const ox = (rng() < 0.5 ? -1 : 1) * (2.6 + rng());
+    loot.push({ x: +(x + ox).toFixed(2), z: +(z + (rng() - 0.5) * 2).toFixed(2), kind: 'bike', broken: rng() < 0.5, ry: +(rng() * 6.28).toFixed(2) });
   }
 
   // ค่ายอพยพสัตหีบ: รั้วสี่ด้าน + ประตูทางทิศเหนือ

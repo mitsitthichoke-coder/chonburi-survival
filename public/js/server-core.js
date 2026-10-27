@@ -84,6 +84,58 @@ export class WorldCore {
     const reqs = Object.keys(this.db.freq?.[id] || {}).map((f) => ({ id: f, name: this.db.profiles[f]?.name || '?' }));
     this.send(id, { t: 'friends', list, reqs });
   }
+  // ---------- แชทแยกช่อง: all ทุกคน · party ปาร์ตี้ · family ครอบครัว · pm กระซิบส่วนตัว ----------
+  chatMsg(id, me, m) {
+    const text = String(m.text || '').slice(0, 200), ch = ['party', 'family', 'pm'].includes(m.ch) ? m.ch : 'all';
+    const out = { t: 'chat', from: id, name: me.name, text, ch };
+    if (ch === 'all') return this.broadcast(out);
+    if (ch === 'party') { const P = this.partyOf(id); if (!P) return this.send(id, { t: 'notice', text: 'ยังไม่ได้อยู่ในปาร์ตี้ — ชวนเพื่อนจากหน้าผู้เล่น (👥 ชวนเข้าปาร์ตี้)' }); for (const pid of P.members) this.send(pid, out); return; }
+    if (ch === 'family') {
+      const fam = [...this.players.keys()].filter((o) => o === id || this.getRel(id, o)?.bond === 'family');
+      if (fam.length < 2) return this.send(id, { t: 'notice', text: 'ยังไม่มีครอบครัวที่ออนไลน์ (แต่งงานกันก่อนจึงเป็นครอบครัว)' });
+      for (const o of fam) this.send(o, out); return;
+    }
+    // กระซิบ: ระบุ id หรือชื่อผู้รับ
+    const to = this.players.has(m.to) ? m.to : [...this.players.values()].find((p) => p.name === m.to)?.id;
+    if (!to) return this.send(id, { t: 'notice', text: `ไม่พบผู้เล่น "${m.to || ''}" ที่ออนไลน์` });
+    this.send(to, { ...out, toName: this.players.get(to).name }); if (to !== id) this.send(id, { ...out, toName: this.players.get(to).name });
+  }
+  // ---------- ปาร์ตี้ (สูงสุด 6 คน) ----------
+  partyOf(id) { const pid = (this.partyIdx ||= new Map()).get(id); return pid ? this.parties.get(pid) : null; }
+  partySync(P) {
+    const st = P ? { t: 'party', id: P.id, leader: P.leader, members: [...P.members].map((i) => ({ id: i, name: this.players.get(i)?.name || '?' })) } : null;
+    if (P) for (const i of P.members) this.send(i, st);
+  }
+  partyMsg(id, m) {
+    this.parties ||= new Map(); this.partyIdx ||= new Map();
+    const me = this.players.get(id); if (!me) return;
+    const say = (who, text) => this.send(who, { t: 'notice', text });
+    let P = this.partyOf(id);
+    switch (m.a) {
+      case 'invite': {
+        const to = String(m.to || ''), other = this.players.get(to); if (!other || to === id) return;
+        if (this.partyOf(to)) return say(id, `${other.name} อยู่ในปาร์ตี้อื่นแล้ว`);
+        if (!P) { P = { id: 'P' + Date.now().toString(36) + id.slice(-3), leader: id, members: new Set([id]), inv: new Set() }; this.parties.set(P.id, P); this.partyIdx.set(id, P.id); this.partySync(P); }
+        if (P.members.size >= 6) return say(id, 'ปาร์ตี้เต็มแล้ว (6 คน)');
+        P.inv.add(to); this.send(to, { t: 'partyinv', from: id, name: me.name, pid: P.id }); return say(id, `📨 ชวน ${other.name} เข้าปาร์ตี้แล้ว`);
+      }
+      case 'accept': {
+        const Q = this.parties.get(m.pid); if (!Q || !Q.inv.has(id)) return say(id, 'คำชวนหมดอายุแล้ว');
+        if (P) this.partyMsg(id, { a: 'leave' });
+        if (Q.members.size >= 6) return say(id, 'ปาร์ตี้เต็มแล้ว');
+        Q.inv.delete(id); Q.members.add(id); this.partyIdx.set(id, Q.id); this.partySync(Q);
+        for (const i of Q.members) say(i, `👥 ${me.name} เข้าร่วมปาร์ตี้`); return;
+      }
+      case 'kick': if (!P || P.leader !== id || !P.members.has(m.to) || m.to === id) return; say(m.to, '👋 คุณถูกนำออกจากปาร์ตี้'); return this.partyMsg(m.to, { a: 'leave', quiet: true });
+      case 'leave': {
+        if (!P) return;
+        P.members.delete(id); this.partyIdx.delete(id); this.send(id, { t: 'party', id: null });
+        if (P.members.size <= 1) { for (const i of P.members) { this.partyIdx.delete(i); this.send(i, { t: 'party', id: null }); say(i, '👥 ปาร์ตี้ถูกยุบ (เหลือคนเดียว)'); } this.parties.delete(P.id); return; }
+        if (P.leader === id) P.leader = [...P.members][0];
+        this.partySync(P); if (!m.quiet) for (const i of P.members) say(i, `👋 ${me.name} ออกจากปาร์ตี้`); return;
+      }
+    }
+  }
   friendMsg(id, m) {
     const me = this.players.get(id), to = String(m.to || ''), F = (this.db.freq ||= {}), say = (who, text) => this.send(who, { t: 'friendmsg', text });
     const other = this.players.get(to)?.name || this.db.profiles[to]?.name;
@@ -140,7 +192,8 @@ export class WorldCore {
     this.dirty();
   }
   leave(id) {
-    if (!this.players.delete(id)) return;
+    if (!this.players.has(id)) return;
+    this.partyMsg(id, { a: 'leave' }); this.players.delete(id);
     { const t = this.tradeOf?.(id); if (t) this.tradeEnd(t, 'อีกฝ่ายออกจากเกม ยกเลิกการแลกของ'); }
     for (const f of this.friendIds(id)) this.sendFriends(f);
     if (this.relayState) this.broadcast({ t: 'leave', id });
@@ -159,9 +212,8 @@ export class WorldCore {
         Object.assign(me, { p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: m.pets || [], safe: !!m.sf, sk: Math.min(1, Math.max(0.3, +m.sk || 1)) });
         if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
-      case 'chat':
-        this.broadcast({ t: 'chat', from: id, name: me.name, text: String(m.text).slice(0, 200) });
-        break;
+      case 'chat': return this.chatMsg(id, me, m);
+      case 'party': return this.partyMsg(id, m);
       case 'announce':
         if (m.kind === 'quest') this.broadcast({ t: 'chat', from: 'system', name: '📻', text: `📻 ${me.name} ติดต่อศูนย์อพยพสัตหีบสำเร็จ! ประตูค่ายเปิดรับผู้รอดชีวิตแล้ว` });
         break;

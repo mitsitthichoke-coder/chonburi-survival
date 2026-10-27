@@ -17,7 +17,7 @@ export class Builder {
     this.stop(); this.type = type; g.ui.closeAll();
     g.ui.toast(`🔨 ${PIECES[type].name}: ${g.touch ? '✅ วาง · ↻ หมุน · ✖ ออก' : 'คลิกซ้าย = วาง · Q = หมุน · X = โหมดรื้อ · Esc = ออก'}`);
   }
-  startDemolish() { this.stop(); this.demolish = true; this.g.ui.closeAll(); this.g.ui.toast('🗑️ โหมดรื้อ: เล็งไปที่สิ่งที่คุณสร้างแล้วคลิก/กด ✅ เพื่อรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)'); }
+  startDemolish() { this.stop(); this.demolish = true; this.g.ui.closeAll(); this.g.ui.toast('🗑️ โหมดรื้อ: เล็งไปที่สิ่งที่คุณสร้างแล้วคลิก/กด ✅ เพื่อรื้อ (ได้วัสดุคืนครบ)'); }
   stop() { if (this.ghost) this.g.scene.remove(this.ghost); this.ghost = null; this.ghostKey = ''; this.type = null; this.demolish = false; this.cand = null; this.target = null; }
   rotateNext() { this.rot = (this.rot + 1) & 3; this.ghostKey = ''; }
 
@@ -66,7 +66,9 @@ export class Builder {
     if (!why && W.structures.some((o) => PIECES[o.type] && slotKey(o) === key)) why = 'มีชิ้นส่วนอยู่ตรงนี้แล้ว';
     if (!why && type === 'roof' && level.kind === 'ground' && !W.structures.some((o) => ['wall', 'window', 'door'].includes(o.type) && Math.hypot(o.x - pos.x, o.z - pos.z) < 1.7)) why = 'หลังคาต้องมีผนังรองรับอย่างน้อย 1 ด้าน';
     if (!why && Math.abs(y - P.y) > 4.5) why = 'อยู่สูง/ต่ำเกินไป';
-    const missing = Object.entries(buildCost(g.auth.ch, def.cost)).filter(([k, q]) => !g.hasItem(k, q));
+    // ซื้อด้วยเงินจิ = ไม่ต้องมีวัสดุ ใช้แค่เงินจิ
+    const cost = this.coin || def.cost.jicoin ? { jicoin: coinCost(def, ITEMS) } : buildCost(g.auth.ch, def.cost);
+    const missing = Object.entries(cost).filter(([k, q]) => !g.hasItem(k, q));
     if (!why && missing.length) why = 'วัสดุไม่พอ: ' + missing.map(([k, q]) => `${ITEMS[k].name} ${g.inv[k] || 0}/${q}`).join(', ');
     return { s, ok: !why, why };
   }

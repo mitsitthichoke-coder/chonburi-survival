@@ -30,6 +30,7 @@ export function installEconomy(core) {
       wild: (fid) => { const f = self.fauna.get(+fid); return f && WILD[f.k] ? { k: f.k, x: f.x, z: f.z, hp: f.hp, maxHp: WILD[f.k].hp } : null; },
       npcPos: (nid) => { const i = NPCS.findIndex((n) => n.id === nid), f = self.fauna.get(100000 + i); return f ? { x: f.x, z: f.z } : null; },
       structs: () => self.db.structures, myId: id,
+      isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
       loot: (lid) => { const i = +String(lid).slice(1), L = self.lootList[i]; return L ? { ...L, until: self.db.loot[lid] || 0 } : null; },
@@ -56,7 +57,7 @@ export function installEconomy(core) {
   };
 
   // ส่งผลลัพธ์ + สถานะกระเป๋าจริงกลับไปให้ผู้เล่น
-  core.charView = function (ch) { return { inv: ch.inv, wear: ch.wear, skills: ch.skills, equipped: ch.equipped, lefty: !!ch.lefty, boxes: ch.boxes || {}, trade: ch.trade || {}, jp: ch.jp || null, quest: ch.quest, pets: ch.pets, kills: ch.stats?.kills || 0 }; };
+  core.charView = function (ch) { return { inv: ch.inv, wear: ch.wear, skills: ch.skills, equipped: ch.equipped, lefty: !!ch.lefty, boxes: ch.boxes || {}, trade: ch.trade || {}, jp: ch.jp || null, sq: ch.sq || null, quest: ch.quest, pets: ch.pets, kills: ch.stats?.kills || 0 }; };
   core.sendEcon = function (id, r) {
     const ch = this.chars.get(id); if (!ch) return;
     const slim = r && { err: r.err, silent: r.silent, msg: r.msg, give: r.give, take: r.quietTake ? null : r.take, quietGive: r.quietGive, fx: r.fx, res: r.res, loot: r.loot, pet: r.pet, tame: r.tame, quest: r.quest, questMsg: r.questMsg, levelUp: r.levelUp, fish: r.fish, raw: r.raw, giveBack: r.giveBack, sfx: r.sfx, placed: r.placed?.id, wore: r.wore, held: r.held, seq: r.seq };
@@ -108,7 +109,7 @@ export function installEconomy(core) {
         ch.chatT.push(now);
         const text = cleanText(m.text).trim(); if (!text) return;
         if (text.startsWith('/') && this.onCommand) return this.onCommand(id, text);
-        return baseMessage(id, { t: 'chat', text });
+        return baseMessage(id, { t: 'chat', text, ch: m.ch, to: m.to });
       }
       // ข้อความแบบเก่าที่เชื่อไคลเอนต์ — ปิดในโหมดนี้
       case 'res': case 'loot': case 'place': case 'mfeed': case 'give': return;

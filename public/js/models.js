@@ -195,7 +195,14 @@ export function setOutfit(g, wear, ITEMS) {
   const so = W('socks'); if (so) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.2, 0.12, 0.22, so.color, 0, -0.8, 0));
   const sh = W('shoes'); if (sh) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.21, wear.shoes === 'boots' ? 0.24 : 0.1, 0.3, sh.color, 0, wear.shoes === 'boots' ? -0.82 : -0.88, 0.04));
   const of = W('off');
-  if (of) {
+  u.offFlame = null; u.offLight = null;
+  if (of && wear.off === 'torch') {
+    // คบเพลิงในมือรอง (คู่กับอาวุธมือหลัก) — ส่องสว่างรอบตัว
+    const t = TOOL_MESH.torch(), grp = new THREE.Group(); grp.position.set(-0.13, -0.6, 0.05); grp.add(t);
+    if (GFX.mode !== 'low') { const L = new THREE.PointLight('#ffa94d', 2.2, 16, 1.5); L.position.y = 0.7; t.add(L); u.offLight = L; }
+    u.offFlame = t.userData.flame || null;
+    put(u.lArm, grp); u.shield = grp; placeShield(u);
+  } else if (of) {
     // โล่บนแขนซ้าย หันออกด้านนอก
     const s = of.size || 1, sh = new THREE.Group(); sh.position.set(-0.13, -0.42, 0.06);
     if (of.round) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.3 * s, 0.05, 14), new THREE.MeshLambertMaterial({ color: of.color })); m.rotation.z = Math.PI / 2; sh.add(m); }
@@ -208,9 +215,23 @@ export function setOutfit(g, wear, ITEMS) {
   if (bk) { const s = 0.7 + bk.lvl * 0.15; put(u.inner, box(0.42 * s, 0.5 * s, 0.22 * s, bk.color, 0, 1.25, -0.27)); if (bk.lvl > 1) put(u.inner, box(0.36 * s, 0.12, 0.26 * s, '#333', 0, 1.25 + 0.27 * s, -0.27)); }
 }
 
+// ท่าปั่นจักรยาน: ขาปั่นสลับตามความเร็ว · แขนจับแฮนด์ · ตัวโน้มไปข้างหน้า (ยานพาหนะอื่น = นั่งเฉย ๆ มือจับ)
+export function ridePose(g, dt, speed, vt) {
+  const u = g.userData; u.ride = (u.ride || 0) + dt * Math.min(14, Math.abs(speed) * 1.1);
+  if (vt === 'bicycle') {
+    const a = Math.sin(u.ride) * 0.55;
+    u.lLeg.rotation.x = -1.05 + a; u.rLeg.rotation.x = -1.05 - a;
+    u.lArm.rotation.x = u.rArm.rotation.x = -1.15; u.inner.rotation.x = 0.28;
+  } else if (vt === 'raft') {
+    u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; const a = Math.sin(u.ride * 0.6) * 0.6; u.lArm.rotation.x = -0.9 + a; u.rArm.rotation.x = -0.9 - a;
+  } else { u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; u.lArm.rotation.x = u.rArm.rotation.x = -1.0; u.inner.rotation.x = 0.12; }
+}
+// ท่านอนบนเตียง
+export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
 export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
   const u = g.userData;
   if (u.flame) { const f = 0.85 + Math.random() * 0.3; u.flame.scale.set(f, 0.8 + Math.random() * 0.5, f); if (u.torchLight) u.torchLight.intensity = 1.8 + Math.random() * 0.8; }
+  if (u.offFlame) { const f = 0.85 + Math.random() * 0.3; u.offFlame.scale.set(f, 0.8 + Math.random() * 0.5, f); if (u.offLight) u.offLight.intensity = 1.8 + Math.random() * 0.8; }
   if (mode === 'climb' || mode === 'down') {
     // ท่าปีน: มือเอื้อมขึ้นสลับซ้ายขวา ขาถีบกำแพงสลับกัน ตัวเอนเข้าหากำแพง
     u.phase += dt * (mode === 'climb' ? 7 : 9);

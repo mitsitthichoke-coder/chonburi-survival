@@ -4,7 +4,7 @@ import { TOWNS, LOOT_TABLE, QUEST_SPOTS } from './data.js';
 import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX } from './models.js';
-import { makeStructureMesh, updateStructureMesh } from './structures3d.js';
+import { makeStructureMesh, updateStructureMesh, makeVehicle } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
 import { mat as tintMat } from './models.js';
 import { collidersFor } from './building-core.js';
@@ -107,7 +107,7 @@ export class World {
     const L = this.layout;
     this.baseBuildings = [...L.buildings, ...L.fence, L.gate];
     this.buildings = [...this.baseBuildings];
-    let ci = 0; for (const l of L.loot) { this.addLoot(l.x, l.z, l.kind); if (l.kind === 'car') this.loot[this.loot.length - 1].carIdx = ci++; }
+    let ci = 0; for (const l of L.loot) { this.addLoot(l.x, l.z, l.kind, l); if (l.kind === 'car') this.loot[this.loot.length - 1].carIdx = ci++; }
     const boxes = L.boxes.map((b) => ({ ...b, color: new THREE.Color(...b.rgb) }));
     const cars = L.cars.map((c) => ({ ...c, color: new THREE.Color().setHSL(c.hue, 0.4, 0.35) }));
     // อาคาร (instanced)
@@ -128,8 +128,14 @@ export class World {
     // กล่องเสบียง
     const crates = this.loot.filter((l) => l.kind === 'crate');
     this.lootMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), mat('#8c6a3f'), crates.length);
-    crates.forEach((l, i) => { l.idx = i; M.makeTranslation(l.x, heightAt(l.x, l.z) + 0.35, l.z); l.m = M.clone(); this.lootMesh.setMatrixAt(i, M); });
+    crates.forEach((l, i) => { l.idx = i; M.makeTranslation(l.x, (l.y ?? heightAt(l.x, l.z)) + 0.35, l.z); l.m = M.clone(); this.lootMesh.setMatrixAt(i, M); });
     this.lootMesh.castShadow = true; this.scene.add(this.lootMesh);
+    // จักรยานข้างถนน (คันที่พังล้มตะแคง สีสนิม)
+    for (const l of this.loot.filter((x) => x.kind === 'bike')) {
+      const m = makeVehicle('bicycle'); m.position.set(l.x, heightAt(l.x, l.z) + (l.broken ? 0.12 : 0), l.z); m.rotation.y = l.ry || 0;
+      if (l.broken) { m.rotation.z = 1.35; m.traverse((o) => { if (o.isMesh) o.material = mat('#' + new THREE.Color(o.material.color).lerp(new THREE.Color('#8d5524'), 0.6).getHexString()); }); }
+      this.scene.add(m); l.mesh = m;
+    }
     this.buildQuestSites();
   }
 
@@ -199,8 +205,8 @@ export class World {
     if (this.gateMesh) this.gateMesh.position.x += g.w;
   }
 
-  addLoot(x, z, kind) {
-    const l = { id: 'L' + this.loot.length, x, z, kind, until: 0 };
+  addLoot(x, z, kind, src = {}) {
+    const l = { id: 'L' + this.loot.length, x, z, kind, until: 0, y: src.y, broken: src.broken, ry: src.ry };
     this.loot.push(l);
     const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
     if (!this.lootGrid.has(k)) this.lootGrid.set(k, []);
@@ -221,6 +227,7 @@ export class World {
     const l = this.loot[+id.slice(1)]; if (!l) return;
     l.until = until;
     if (l.idx !== undefined) { this.lootMesh.setMatrixAt(l.idx, until > Date.now() ? ZERO : l.m); this.lootMesh.instanceMatrix.needsUpdate = true; }
+    if (l.mesh) l.mesh.visible = !(until > Date.now());
     // รถที่ถูกซ่อมไปแล้ว: ซ่อนรถร้างคันนั้น (กลายเป็นรถกระบะที่ขับได้แทน)
     if (l.carIdx !== undefined && this.carMeshes) { const gone = until > Date.now() + 864e5; for (const im of this.carMeshes) { if (!im.userData.base) im.userData.base = []; if (!im.userData.base[l.carIdx]) { const M = new THREE.Matrix4(); im.getMatrixAt(l.carIdx, M); im.userData.base[l.carIdx] = M; } im.setMatrixAt(l.carIdx, gone ? ZERO : im.userData.base[l.carIdx]); im.instanceMatrix.needsUpdate = true; } }
   }
@@ -239,14 +246,22 @@ export class World {
     }
     const parts = {
       tree: [[new THREE.CylinderGeometry(0.2, 0.3, 3, 5).translate(0, 1.5, 0), '#6b4f2c'], [new THREE.ConeGeometry(1.6, 3.6, 6).translate(0, 4.2, 0), '#2d6a4f'], [new THREE.ConeGeometry(1.2, 2.6, 6).translate(0, 5.6, 0), '#40916c']],
-      palm: [[new THREE.CylinderGeometry(0.15, 0.25, 6, 5).translate(0, 3, 0), '#8d6e4a'], [new THREE.ConeGeometry(2.2, 1.0, 7).translate(0, 6.1, 0), '#4f9d3a'], [new THREE.SphereGeometry(0.35, 5, 4).translate(0.3, 5.5, 0), '#7a5c2e']],
+      // มะพร้าว 2 ลูกใต้ทางมะพร้าว (ตรงกับที่ได้เมื่อล้มต้น)
+      palm: [[new THREE.CylinderGeometry(0.15, 0.25, 6, 5).translate(0, 3, 0), '#8d6e4a'], [new THREE.ConeGeometry(2.2, 1.0, 7).translate(0, 6.1, 0), '#4f9d3a'], [new THREE.SphereGeometry(0.3, 7, 5).translate(0.32, 5.45, 0.05), '#6b4226'], [new THREE.SphereGeometry(0.3, 7, 5).translate(-0.2, 5.4, 0.28), '#7a5c2e']],
       rock: [[new THREE.DodecahedronGeometry(0.9, 0).translate(0, 0.4, 0), '#8a8a85']],
       bush: [[new THREE.DodecahedronGeometry(0.7, 0).translate(0, 0.5, 0), '#3f7d20'], [new THREE.SphereGeometry(0.4, 4, 3).translate(0.25, 0.75, 0.3), '#5b2a86']],
       herb: [[new THREE.ConeGeometry(0.25, 0.6, 5).translate(0, 0.3, 0), '#80b918']],
       grass: [[new THREE.ConeGeometry(0.35, 0.9, 4).translate(0, 0.45, 0), '#a7c957']],
       twig: [[new THREE.CylinderGeometry(0.04, 0.05, 1.1, 4).rotateZ(Math.PI / 2).translate(0, 0.05, 0), '#8b5e34'], [new THREE.CylinderGeometry(0.03, 0.04, 0.8, 4).rotateZ(Math.PI / 2).rotateY(0.9).translate(0.1, 0.1, 0.05), '#a47148']],
-      orange_tree: [[new THREE.CylinderGeometry(0.16, 0.24, 2.2, 5).translate(0, 1.1, 0), '#6b4f2c'], [new THREE.IcosahedronGeometry(1.5, 0).translate(0, 3.1, 0), '#2d6a4f'], [new THREE.SphereGeometry(0.2, 5, 4).translate(0.9, 2.8, 0.6), '#f77f00'], [new THREE.SphereGeometry(0.2, 5, 4).translate(-0.7, 3.3, -0.8), '#f77f00'], [new THREE.SphereGeometry(0.2, 5, 4).translate(0.2, 2.5, -1.1), '#f77f00']],
-      pineapple: [[new THREE.ConeGeometry(0.45, 0.6, 6).translate(0, 0.3, 0), '#40916c'], [new THREE.SphereGeometry(0.22, 6, 5).scale(1, 1.4, 1).translate(0, 0.75, 0), '#e9c46a'], [new THREE.ConeGeometry(0.15, 0.35, 5).translate(0, 1.15, 0), '#52b788']],
+      // ส้ม 4 ลูกรอบพุ่ม (ตรงกับที่ได้)
+      orange_tree: [[new THREE.CylinderGeometry(0.16, 0.24, 2.2, 5).translate(0, 1.1, 0), '#6b4f2c'], [new THREE.IcosahedronGeometry(1.5, 0).translate(0, 3.1, 0), '#2d6a4f'], ...[[1.05, 2.8, 0.55], [-0.85, 3.3, -0.75], [0.25, 2.45, -1.15], [-0.5, 2.6, 1.05]].map(([x, y, z]) => [new THREE.SphereGeometry(0.24, 7, 5).translate(x, y, z), '#f77f00'])],
+      // สับปะรด: กอใบแหลมรอบโคน · ผลทรงรีสีเหลืองทองมีลายตาสีน้ำตาล · จุกใบตั้งชี้บนหัว
+      pineapple: [
+        ...[0, 1, 2, 3, 4, 5, 6].map((i) => [new THREE.ConeGeometry(0.09, 0.9, 4).translate(0, 0.45, 0).rotateZ(0.75).rotateY((i / 7) * Math.PI * 2), i % 2 ? '#2d6a4f' : '#40916c']),
+        [new THREE.SphereGeometry(0.23, 8, 7).scale(1, 1.45, 1).translate(0, 0.62, 0), '#d4a017'],
+        ...[0.5, 0.64, 0.78].map((y, j) => [new THREE.TorusGeometry(0.2 - (j === 2 ? 0.05 : 0), 0.022, 4, 10).rotateX(Math.PI / 2).translate(0, y, 0), '#8a5a12']),
+        ...[0, 1, 2, 3, 4].map((i) => [new THREE.ConeGeometry(0.05, 0.38, 4).translate(0, 0.19, 0).rotateZ(i ? 0.35 : 0).rotateY((i / 5) * Math.PI * 2).translate(0, 0.92, 0), '#52b788']),
+      ],
       pebble: [[new THREE.DodecahedronGeometry(0.22, 0).translate(0, 0.08, 0), '#9a9a92'], [new THREE.DodecahedronGeometry(0.14, 0).translate(0.3, 0.05, 0.15), '#7d7d76']],
     };
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();

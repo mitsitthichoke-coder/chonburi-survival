@@ -101,8 +101,16 @@ const RAW_ITEMS = {
   slingshot: { name: 'หนังสติ๊ก', icon: '🪃', value: 6, tool: { gather: 0.5, dmg: 12, range: 14, ranged: true, ammo: 'pebble' } },
   bow: { name: 'ธนูไม้ไผ่', icon: '🏹', value: 14, tool: { gather: 0.5, dmg: 24, range: 20, ranged: true, ammo: 'arrow' } },
   crossbow: { name: 'หน้าไม้เหล็ก', icon: '🏹', value: 34, tool: { gather: 0.5, dmg: 40, range: 26, ranged: true, ammo: 'bolt' } },
-  arrow: { name: 'ลูกธนู', icon: '➶', value: 1 },
-  bolt: { name: 'ลูกดอกหน้าไม้', icon: '➹', value: 2 },
+  // กระสุนแต่ละระดับ: ammo.g = ใช้กับอาวุธที่ ammo ตรงกัน · ammo.dmg = ดาเมจเพิ่มจากอาวุธ · ยิงจะใช้ระดับที่เลือกไว้ (คลิกในกระเป๋า) หรือระดับดีสุดที่มี
+  arrow: { name: 'ลูกธนูไม้', icon: '➶', value: 1, ammo: { g: 'arrow', dmg: 0, tier: 1 } },
+  arrow_stone: { name: 'ลูกธนูหัวหิน', icon: '➶', value: 2, ammo: { g: 'arrow', dmg: 6, tier: 2 } },
+  arrow_bone: { name: 'ลูกธนูหัวกระดูก', icon: '➶', value: 3, ammo: { g: 'arrow', dmg: 11, tier: 3 } },
+  arrow_iron: { name: 'ลูกธนูหัวเหล็ก', icon: '➶', value: 4, ammo: { g: 'arrow', dmg: 17, tier: 4 } },
+  arrow_fire: { name: 'ลูกธนูไฟ', icon: '🔥', value: 7, ammo: { g: 'arrow', dmg: 26, tier: 5, burn: true } },
+  bolt: { name: 'ลูกดอกหน้าไม้', icon: '➹', value: 2, ammo: { g: 'bolt', dmg: 0, tier: 1 } },
+  bolt_steel: { name: 'ลูกดอกเหล็กกล้า', icon: '➹', value: 5, ammo: { g: 'bolt', dmg: 16, tier: 2 } },
+  bolt_heavy: { name: 'ลูกดอกหัวเจาะเกราะ', icon: '➹', value: 9, ammo: { g: 'bolt', dmg: 30, tier: 3 } },
+  steel_ball: { name: 'ลูกเหล็กหนังสติ๊ก', icon: '⚫', value: 2, ammo: { g: 'pebble', dmg: 8, tier: 2 } },
   // ---- ชิ้นส่วนรถ (คราฟท์แล้วประกอบเป็นยานพาหนะ) ----
   wheel: { name: 'ล้อรถยนต์', icon: '🛞', value: 8 },
   engine: { name: 'เครื่องยนต์รถยนต์', icon: '⚙️', value: 30 },
@@ -153,7 +161,7 @@ const RAW_ITEMS = {
   hammer: { name: 'ค้อนช่างไม้', icon: '🔨', value: 6, builds: true },
   wood_hammer: { name: 'ค้อนไม้', icon: '🪵', value: 3, builds: true, tool: { gather: 1, dmg: 7, range: 2.2, hammer: true } },
   stone_hammer: { name: 'ค้อนหินพื้นฐาน', icon: '🪨', value: 5, tool: { gather: 2.2, dmg: 12, range: 2.4, mine: true, hammer: true } },
-  torch: { name: 'คบเพลิง', icon: '🔥', value: 4, tool: { gather: 0.5, dmg: 16, range: 2.4, light: true, fire: true } },
+  torch: { name: 'คบเพลิง', icon: '🔥', value: 4, tool: { gather: 0.5, dmg: 16, range: 2.4, light: true, fire: true }, wear: { slot: 'off', light: true, color: '#bc6c25' }, desc: 'ถือมือหลักเป็นอาวุธ หรือลากไปถือมือรองคู่กับดาบ (ส่องสว่าง)' },
   net: { name: 'แหทอดปลา', icon: '🕸️', value: 6, tool: { gather: 0.3, dmg: 1, range: 5, net: true } },
   watering_can: { name: 'บัวรดน้ำ', icon: '🚿', value: 6, tool: { gather: 0.5, dmg: 3, range: 2, water: true } },
   rod: { name: 'เบ็ดตกปลาพื้นฐาน', icon: '🎣', value: 6, tool: { gather: 1, dmg: 4, range: 2, rod: true } },
@@ -368,6 +376,13 @@ export const RECIPES = [
   { out: 'arrow', need: { twig: 2, fiber: 1, pebble: 1 }, skill: 'crafting', lvl: 1, qty: 5, label: 'ลูกธนู ×5' },
   { out: 'crossbow', need: { scrap: 8, wood: 3, fiber: 4, zipper: 1 }, skill: 'crafting', lvl: 4, label: 'หน้าไม้เหล็ก (ยิงแรงมาก)' },
   { out: 'bolt', need: { scrap: 1, twig: 2 }, skill: 'crafting', lvl: 3, qty: 4, label: 'ลูกดอกหน้าไม้ ×4' },
+  { out: 'arrow_stone', need: { twig: 2, fiber: 1, stone: 1 }, skill: 'crafting', lvl: 1, qty: 5, label: 'ลูกธนูหัวหิน ×5 (+6 ดาเมจ)' },
+  { out: 'arrow_bone', need: { twig: 2, fiber: 1, hide: 1 }, skill: 'crafting', lvl: 2, qty: 5, label: 'ลูกธนูหัวกระดูก ×5 (+11 ดาเมจ)' },
+  { out: 'arrow_iron', need: { twig: 2, fiber: 1, scrap: 1 }, skill: 'crafting', lvl: 3, qty: 5, station: 'fire', label: 'ลูกธนูหัวเหล็ก ×5 (+17 ดาเมจ · ตีที่กองไฟ)' },
+  { out: 'arrow_fire', need: { arrow_iron: 3, rag: 1, fuel: 1 }, skill: 'crafting', lvl: 4, qty: 3, label: 'ลูกธนูไฟ ×3 (+26 ดาเมจ · ติดไฟ)' },
+  { out: 'bolt_steel', need: { scrap: 2, twig: 2 }, skill: 'crafting', lvl: 4, qty: 4, station: 'fire', label: 'ลูกดอกเหล็กกล้า ×4 (+16 ดาเมจ)' },
+  { out: 'bolt_heavy', need: { bolt_steel: 2, scrap: 2, copper_wire: 1 }, skill: 'crafting', lvl: 5, qty: 2, station: 'fire', label: 'ลูกดอกหัวเจาะเกราะ ×2 (+30 ดาเมจ)' },
+  { out: 'steel_ball', need: { scrap: 1 }, skill: 'crafting', lvl: 2, qty: 6, label: 'ลูกเหล็กหนังสติ๊ก ×6 (+8 ดาเมจ)' },
   // ชิ้นส่วนรถ + ประกอบยานพาหนะ
   { out: 'wheel', need: { scrap: 3, rag: 2 }, skill: 'crafting', lvl: 2, label: '🚗 ล้อรถยนต์' },
   { out: 'engine', need: { scrap: 10, zipper: 2, fuel: 1 }, skill: 'crafting', lvl: 3, label: '🚗 เครื่องยนต์รถยนต์' },
@@ -479,7 +494,7 @@ export const SPAWN_TOWN = 'bangsaen';
 
 // ช่องสวมใส่ และกระเป๋า
 export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้อ', legs: '👖 กางเกง/กระโปรง', hands: '🧤 ถุงมือ', socks: '🧦 ถุงเท้า', shoes: '👟 รองเท้า', back: '🎒 กระเป๋า', off: '🛡️ มือซ้าย' };
-export const BASE_SLOTS = 48;
+export const BASE_SLOTS = 72; // กระเป๋าตั้งต้น (เพิ่ม 50% จาก 48)
 // กองไฟที่ผู้เล่นก่อ: ผู้ติดเชื้อและสัตว์นักล่าไม่กล้าเข้าใกล้ในรัศมีนี้
 export const FIRE_SAFE = 8;
 export const nearFireOf = (fires, x, z, r = FIRE_SAFE) => { for (const f of fires) { const d = Math.hypot(f.x - x, f.z - z); if (d < r) return { f, d }; } return null; };
@@ -539,6 +554,13 @@ export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] && !JOBS[ch.prof
 export const isFreelancer = (ch) => ch?.profile?.job === 'freelancer';
 // 😊 ความสุข 0–100: ยิ่งสุขยิ่งมีภูมิคุ้มกัน (ติดเชื้อยาก/ลุกลามช้า) และกระฉับกระเฉง (สตามิน่ามากขึ้น ฟื้นเร็ว)
 // เพิ่มเองทุก 1 ชั่วโมงที่เล่น (ฟรีแลนซ์ทุก 15 นาที) เฉพาะตอนร่างกายปกติ — ถ้าเจ็บ/ป่วย/ติดเชื้อ/หิว/เครียด จะหยุดนับ
+// กระสุนที่ใช้กับอาวุธ (ระดับสูงสุดก่อน) · pref = ชนิดที่ผู้เล่นเลือกไว้
+export const AMMO_OF = (g) => Object.keys(RAW_ITEMS).filter((k) => RAW_ITEMS[k].ammo?.g === g || (g === 'pebble' && k === 'pebble')).sort((a, b) => (RAW_ITEMS[b].ammo?.tier || 1) - (RAW_ITEMS[a].ammo?.tier || 1));
+export const ammoDmg = (k) => RAW_ITEMS[k]?.ammo?.dmg || 0;
+export function pickAmmo(inv, group, pref) {
+  if (pref && (inv[pref] || 0) > 0 && AMMO_OF(group).includes(pref)) return pref;
+  return AMMO_OF(group).find((k) => (inv[k] || 0) > 0) || null;
+}
 export const HAPPY_EVERY = 3600, HAPPY_EVERY_FREE = 900;
 export const happyPower = (ch, happy) => Math.min(1.25, (happy || 0) / 100 * (isFreelancer(ch) ? 1.25 : 1));
 export const charLvl = (ch) => Object.keys(ch?.skills || {}).reduce((s, k) => s + skillLevel(ch.skills[k]) - 1, 0) + 1;

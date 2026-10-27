@@ -4,10 +4,10 @@ import { TOWNS, QUEST_SPOTS } from './data.js';
 import { getLayout, inCamp } from './citygen.js';
 
 export const RES_TYPES = {
-  // ล้มต้นไม้ได้ไม้ 2 ชิ้น + ผลของต้นนั้น (ถ้ามี)
-  tree: { name: 'ต้นไม้', hp: 5, drops: [['wood', 2, 2], ['fiber', 0, 1]], respawn: 8, r: 0.6, needTool: false },
-  palm: { name: 'ต้นมะพร้าว', hp: 4, drops: [['wood', 2, 2], ['coconut', 1, 1]], respawn: 6, r: 0.5 },
-  orange_tree: { name: 'ต้นส้ม', hp: 4, drops: [['wood', 2, 2], ['orange', 2, 2]], respawn: 7, r: 0.5 },
+  // ล้มต้นไม้ได้ไม้ 5 ชิ้น + ผลที่เห็นบนต้น (มะพร้าว 2 ลูก · ส้ม 4 ลูก)
+  tree: { name: 'ต้นไม้', hp: 5, drops: [['wood', 5, 5], ['fiber', 0, 1]], respawn: 8, r: 0.6, needTool: false },
+  palm: { name: 'ต้นมะพร้าว (🥥×2)', hp: 4, drops: [['wood', 5, 5], ['coconut', 2, 2]], respawn: 6, r: 0.5 },
+  orange_tree: { name: 'ต้นส้ม (🍊×4)', hp: 4, drops: [['wood', 5, 5], ['orange', 4, 4]], respawn: 7, r: 0.5 },
   pineapple: { name: 'ต้นสับปะรด', hp: 1, drops: [['pineapple', 1, 1], ['fiber', 0, 1]], respawn: 5, r: 0 },
   rock: { name: 'ก้อนหิน', hp: 5, drops: [['stone', 1, 2], ['scrap', 0, 0]], respawn: 10, r: 0.9 },
   bush: { name: 'พุ่มผลไม้ป่า', hp: 1, drops: [['berry', 2, 3], ['fiber', 1, 2]], respawn: 4, r: 0 },

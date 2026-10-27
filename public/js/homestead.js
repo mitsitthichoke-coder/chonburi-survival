@@ -1,6 +1,7 @@
 // บ้าน ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ บ้านสัตว์เลี้ยง และยานพาหนะ (ฝั่งผู้เล่น)
 import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
+import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
@@ -105,10 +106,14 @@ export class Homestead {
   }
   sleep(s) {
     const g = this.g;
-    g.spawnPoint = { x: s.x, z: s.z, y: baseY(s) + 0.6 };
-    g.stats.stamina = g.maxStamina();
-    if (g.isNight() && !g.net.online) return g.sleepToMorning();
-    g.ui.toast('🛏️ พักผ่อนแล้ว — บ้านหลังนี้เป็นจุดเกิดของคุณ');
+    if (g.sleeping) return;
+    // ขึ้นไปนอนบนเตียง (อนิเมชั่นนอน + จอค่อย ๆ มืด) แล้วค่อยพัก / ข้ามไปเช้า
+    g.startSleep({ x: s.x, z: s.z, y: baseY(s) + 0.55, ry: (s.rot & 3) * Math.PI / 2 }, () => {
+      g.spawnPoint = { x: s.x, z: s.z, y: baseY(s) + 0.6 };
+      g.stats.stamina = g.maxStamina();
+      if (g.isNight() && !g.net.online) return g.sleepToMorning();
+      g.ui.toast('🛏️ พักผ่อนแล้ว — บ้านหลังนี้เป็นจุดเกิดของคุณ');
+    });
   }
 
   // แผงข้อมูลเล้าไก่/บ่อปลา/บ้านสัตว์เลี้ยง/หีบ (เรียกจาก UI)
@@ -245,7 +250,7 @@ export class Homestead {
     // กล้องหมุนตามหลังยานพาหนะ
     let d = p.ry - Math.PI - g.camYaw; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     if (Math.abs(v.speed) > 1) g.camYaw += d * Math.min(1, dt * 1.5);
-    const u = p.mesh.userData; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3;
+    ridePose(p.mesh, dt, v.speed, s.vt);
     p.mesh.rotation.y = p.ry;
     // เดินทางไปที่เกาะ = ประสบการณ์เอาตัวรอด
     this.distT = (this.distT || 0) + Math.abs(v.speed) * dt; if (this.distT > 300) { this.distT = 0; g.gainXp('survival', 2); }

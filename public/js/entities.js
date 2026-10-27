@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS, setInjury, tickInjury } from './models.js';
+import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS, setInjury, tickInjury, ridePose, sleepPose } from './models.js';
 import { ITEMS, WEAR_SLOTS, PET_SLOTS } from './data.js';
 import { makeVehicle } from './structures3d.js';
 import { NPCS as NPC_LIST } from './data.js';
@@ -552,7 +552,8 @@ export class Entities {
       if (r.tRy !== undefined) { let dr = r.tRy - r.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; r.ry += dr * Math.min(1, dt * 10); }
       r.mesh.rotation.y = r.ry;
       tickInjury(r.mesh, dt); animateHuman(r.mesh, dt, r.vmesh ? 0 : r.speed, 0, r.climb === 1 ? 'climb' : r.climb === 2 ? 'down' : ['', 'crouch', 'crawl'][r.stance] || null);
-      if (r.vmesh) { r.vmesh.position.set(r.pos.x, r.pos.y - 0.55, r.pos.z); r.vmesh.rotation.y = r.ry; r.mesh.userData.lLeg.rotation.x = r.mesh.userData.rLeg.rotation.x = -1.3; }
+      if (r.vmesh) { r.vmesh.position.set(r.pos.x, r.pos.y - 0.55, r.pos.z); r.vmesh.rotation.y = r.ry; ridePose(r.mesh, dt, r.speed || 0, r.vt); }
+      if (r.stance === 3) sleepPose(r.mesh);
       const pg = g.social.preg[r.id]; r.mesh.userData.belly.visible = !!pg;
       r.label.userData.set(`${r.name} · ${relName(g.social.rel(r.id))}${pg ? ' 🤰' : ''}`, relColor(g.social.rel(r.id)));
       for (const m of r.petMeshes) { const t = m.userData.target; if (!t) continue; const nx = m.position.x + (t.x - m.position.x) * Math.min(1, dt * 6), nz = m.position.z + (t.z - m.position.z) * Math.min(1, dt * 6); const sp = Math.hypot(nx - m.position.x, nz - m.position.z) / dt; m.position.set(nx, t.y, nz); m.rotation.y = t.ry || 0; animateAnimal(m, dt, sp); }

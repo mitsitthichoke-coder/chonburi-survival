@@ -3,9 +3,9 @@ import { World, RES_TYPES } from './world.js';
 import { Entities } from './entities.js';
 import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
-import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits } from './models.js';
+import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
+import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
@@ -16,6 +16,7 @@ import { Sfx } from './audio.js';
 import { TouchControls, isTouchDevice } from './touch.js';
 import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, equipPet } from './pets.js';
 import { Builder } from './building.js';
+import { PIECES, baseY } from './building-core.js';
 import { Fishing } from './fishing.js';
 import { Homestead } from './homestead.js';
 import { Authority } from './authority.js';
@@ -177,7 +178,8 @@ export class Game {
   }
   // ลูกธนู/กระสุนบินไปข้างหน้า (แค่ภาพ)
   fireProjectile(dir, dist, ammo) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, ammo === 'pebble' ? 0.08 : 0.55), new THREE.MeshBasicMaterial({ color: ammo === 'pebble' ? '#8d8d8d' : '#d4a373' }));
+    const small = ammo === 'pebble' || ammo === 'steel_ball', fire = ITEMS[ammo]?.ammo?.burn;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(small ? 0.08 : 0.04, small ? 0.08 : 0.04, small ? 0.08 : 0.55), new THREE.MeshBasicMaterial({ color: fire ? '#ff7b00' : small ? (ammo === 'steel_ball' ? '#495057' : '#8d8d8d') : ammo?.includes('iron') || ammo?.includes('steel') || ammo?.includes('heavy') ? '#adb5bd' : '#d4a373' }));
     const P = this.player.pos; m.position.set(P.x + dir.x * 0.6, P.y + 1.45, P.z + dir.z * 0.6); m.rotation.y = Math.atan2(dir.x, dir.z); this.scene.add(m);
     const t0 = performance.now(), dur = Math.min(400, dist * 18), from = m.position.clone();
     const step = () => { const k = (performance.now() - t0) / dur; if (k >= 1) return this.scene.remove(m); m.position.copy(from).addScaledVector(dir, dist * k); m.position.y -= k * k * 0.3; requestAnimationFrame(step); };
@@ -208,6 +210,12 @@ export class Game {
     if (!this.hasItem(k) || this.dead) return;
     const it = ITEMS[k], s = this.stats;
     if (it.tool) return this.holdItem(this.equipped === k ? null : k);
+    if (it.ammo || k === 'pebble') {
+      // เลือกชนิดกระสุนที่จะยิง (คลิกซ้ำ = กลับไปใช้ระดับดีสุดอัตโนมัติ)
+      const grp = it.ammo?.g || 'pebble', P = (this.ammoPref ||= {});
+      P[grp] = P[grp] === k ? null : k; this.ui.refreshPanels();
+      return this.ui.toast(P[grp] ? `🏹 เลือกยิง ${it.icon} ${it.name} (+${it.ammo?.dmg || 0} ดาเมจ)` : '🏹 ใช้กระสุนระดับดีสุดที่มีอัตโนมัติ');
+    }
     if (it.wear) return this.equip(k);
     if (it.place) return this.place(k);
     if (it.petGear) {
@@ -303,6 +311,7 @@ export class Game {
     if (c.boxes) this.boxes = c.boxes;
     if (c.jp) this.jp = c.jp;
     if (c.trade) this.trade = c.trade;
+    if ('sq' in c) this.sq = c.sq;
     if (c.kills !== undefined) this.stats.kills = c.kills;
     for (const sp of c.pets || []) {
       const p = this.pets.find((x) => x.id === sp.id);
@@ -406,14 +415,14 @@ export class Game {
       return { type: 'person', e, text: `คุยกับ ${e.name}` };
     }
     const bx = this.boxUI.prompt(P); if (bx) return bx;
-    const l = this.world.nearLoot(P.x, P.z, 3.6).filter((x) => x.kind === 'car' || Math.hypot(x.x - P.x, x.z - P.z) < 2.6)[0]; // รถคันยาว ค้นได้จากรอบคัน
+    const l = this.world.nearLoot(P.x, P.z, 3.6).filter((x) => x.kind === 'car' || (Math.hypot(x.x - P.x, x.z - P.z) < 2.6 && (x.y === undefined || Math.abs(P.y - x.y) < 2.2)))[0]; // กล่องบนหลังคาต้องขึ้นไปค้น // รถคันยาว ค้นได้จากรอบคัน
     const sc = !l && this.world.nearSearchedCar(P.x, P.z, 3.6);
     if (sc) {
       // รถที่ค้นไปแล้ว: ซ่อมให้ขับได้ (ถ้ามีวัสดุ)
       const has = (C) => Object.entries(C).every(([k, q]) => this.hasItem(k, q)), gas = repairCost(this.ch, false), ev = repairCost(this.ch, true), useEv = has(ev) && !has(gas), C = useEv ? ev : gas, ok = has(C);
       return { type: 'quest', q: { act: () => (has(ev) && has(gas) ? this.ui.confirm('มีชิ้นส่วนครบทั้ง 2 แบบ — ประกอบเป็น ⚡ รถ EV ไหม? (กด "ไม่" = รถน้ำมัน)', (yes) => this.auth.do('repaircar', { id: sc.id, ev: yes })) : this.auth.do('repaircar', { id: sc.id, ev: useEv })) }, text: `${has(ev) && has(gas) ? '🔧⚡ ซ่อมรถ (เลือกได้: น้ำมัน หรือ EV)' : useEv ? '⚡ ประกอบเป็นรถ EV' : '🔧 ซ่อมเป็นรถน้ำมัน'} (${Object.entries(C).map(([k, q]) => `${ITEMS[k].icon}${this.inv[k] || 0}/${q}`).join(' ')})${ok ? '' : ' — ของไม่ครบ (หรือใช้ชุด EV: ล้อ มอเตอร์ไฟฟ้า พวงมาลัย แบต EV)'}` };
     }
-    if (l) return { type: 'loot', l, text: l.kind === 'car' ? '🚗 ค้นรถร้าง (ค้นแล้วซ่อมให้ขับได้)' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
+    if (l) return { type: 'loot', l, text: l.kind === 'bike' ? (l.broken ? `🔧 ซ่อมจักรยานพัง (🔩${this.inv.scrap || 0}/2 🧻${this.inv.rag || 0}/1)` : '🚲 เก็บจักรยาน (ขี่ได้เลย)') : l.kind === 'car' ? '🚗 ค้นรถร้าง (ค้นแล้วซ่อมให้ขับได้)' : l.y !== undefined ? '🟫 ค้นกล่องเสบียงบนหลังคา' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
     const sh = this.world.nearStructure(P.x, P.z, 'shelter', 3);
     if (sh) return { type: 'shelter', s: sh, text: this.isNight() && !this.net.online ? 'นอนหลับถึงเช้า' : 'พักผ่อน (ตั้งจุดเกิด)' };
     if (ITEMS[this.equipped]?.tool?.rod && this.fishing.spot()) return { type: 'cast', text: '🎣 เหวี่ยงเบ็ดตกปลา' };
@@ -423,13 +432,59 @@ export class Game {
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
+    const dm = this.myPiece(); if (dm) return { type: 'demo', text: `${PIECES[dm.type].icon} ${PIECES[dm.type].name} · ${this.touch ? 'แตะ ✋' : 'กด E หรือ <kbd>X</kbd>'} = 🗑️ รื้อชิ้นนี้ (ได้วัสดุคืนครบ)` };
     if (this.weather.rain) return { type: 'rain', text: this.hasItem('bottle') ? 'รองน้ำฝนใส่ขวด' : 'ดื่มน้ำฝน' };
     return null;
+  }
+  // นอนบนเตียง: ตัวละครนอนราบ ม่านมืดลง มี 💤 ลอย · ขยับตัวเพื่อลุก
+  startSleep(bed, done) {
+    this.sleeping = { ...bed, t: 0, done, back: { x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z } };
+    this.ui.toast('😴 ขึ้นนอนบนเตียง... (กดเดินเพื่อลุก)');
+    if (!this.zzz) { this.zzz = makeLabel('💤 Zzz', '#caf0f8'); this.zzz.scale.set(1.6, 0.4, 1); this.scene.add(this.zzz); }
+  }
+  updateSleep(dt, moving) {
+    const S = this.sleeping, fade = document.getElementById('sleep-fade');
+    if (!S) { if (this.zzz) this.zzz.visible = false; if (fade) fade.style.opacity = 0; return false; }
+    S.t += dt; const p = this.player;
+    p.pos.set(S.x, S.y, S.z); p.ry = S.ry; p.vy = 0; p.speedNow = 0;
+    sleepPose(p.mesh); p.mesh.rotation.y = S.ry;
+    this.zzz.visible = true; this.zzz.position.set(S.x, S.y + 1.3 + Math.sin(S.t * 2) * 0.15, S.z);
+    if (fade) fade.style.opacity = Math.min(0.75, S.t / 2.5);
+    if (S.t > 3 && !S.fired) { S.fired = true; S.done?.(); }
+    if ((moving && S.t > 0.6) || S.t > 7) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; }
+    return true;
+  }
+  // ลูกศรนำทาง 3 มิติ: ลอยเหนือหัว หมุนชี้ไปยังเป้าหมายภารกิจ (เปิดโดยแตะกล่องภารกิจ)
+  navTarget() { return this.sq?.type === 'visit' ? { x: this.sq.x, z: this.sq.z, name: this.sq.name } : this.quest.target(); }
+  updateNav(dt) {
+    const t = this.navOn && !this.dead ? this.navTarget() : null;
+    if (!this.navArrow) {
+      const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: '#ffd60a', depthTest: false, transparent: true, opacity: 0.95 });
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.6, 4), m); head.rotation.x = Math.PI / 2; head.position.z = 0.55;
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.6), m);
+      g.add(head, tail); g.renderOrder = 20; g.children.forEach((c) => (c.renderOrder = 20)); this.scene.add(g); this.navArrow = g;
+    }
+    const A = this.navArrow; A.visible = !!t; if (!t) return;
+    const P = this.player.pos; this.navT = (this.navT || 0) + dt;
+    A.position.set(P.x, P.y + 2.6 + Math.sin(this.navT * 3) * 0.08, P.z);
+    A.rotation.y = Math.atan2(t.x - P.x, t.z - P.z);
+    const d = Math.hypot(t.x - P.x, t.z - P.z); A.children.forEach((c) => c.material.color.set(d < 6 ? '#52b788' : '#ffd60a'));
+  }
+  // ชิ้นส่วนบ้าน/รั้วของเราที่หันหน้าเข้าหา (รื้อได้ทันทีด้วย X ไม่ต้องเข้าโหมดรื้อ)
+  myPiece() {
+    const P = this.player.pos, f = this.facingPoint(1.4);
+    return this.world.nearestStructure(f.x, f.z, 1.9, (s) => PIECES[s.type] && s.type !== 'vehicle' && (!s.owner || s.owner === this.id) && Math.abs(baseY(s) - P.y) < 3.2);
+  }
+  quickDemolish() {
+    const s = this.myPiece(); if (!s) return false;
+    this.ui.confirm(`รื้อ ${PIECES[s.type].icon} ${PIECES[s.type].name} ชิ้นนี้? (ได้วัสดุคืนครบ)`, (yes) => { if (yes) this.demolishStructure(s); });
+    return true;
   }
 
   interact() {
     if (this.dead) return;
     const t = this.findTarget(); if (!t) return;
+    if (t.type === 'demo') return this.quickDemolish();
     const s = this.stats;
     switch (t.type) {
       case 'quest': return t.q.act();
@@ -507,12 +562,14 @@ export class Game {
     const dir = new THREE.Vector3(Math.sin(this.player.ry), 0, Math.cos(this.player.ry));
     // อาวุธยิงไกล: ยิงเป้าที่อยู่ในแนวเล็งใกล้สุด ใช้กระสุน 1 นัด
     if (tool?.ranged) {
-      if (!this.hasItem(tool.ammo)) return this.ui.toast(`ไม่มี${ITEMS[tool.ammo].icon} ${ITEMS[tool.ammo].name} — ประดิษฐ์ในแท็บกระเป๋า`, 'warn');
-      this.auth.do('shoot', {}); this.atkCd = 0.7;
+      const ammo = pickAmmo(this.inv, tool.ammo, this.ammoPref?.[tool.ammo]);
+      if (!ammo) return this.ui.toast(`ไม่มี${ITEMS[tool.ammo].icon} ${ITEMS[tool.ammo].name} — ประดิษฐ์ในแท็บกระเป๋า`, 'warn');
+      this.auth.do('shoot', { ammo }); this.atkCd = 0.7;
+      const adm = tool.dmg + ammoDmg(ammo);
       let best = null, bd = tool.range;
       for (const e of this.ents.list) { if (e.dead || !(e.kind === 'zombie' || e.kind === 'animal')) continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.93) { bd = d; best = e; } }
-      this.fireProjectile(dir, best ? bd : tool.range, tool.ammo);
-      if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, tool.dmg * this.dmgMul() * this.handMul(), this.player.pos); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
+      this.fireProjectile(dir, best ? bd : tool.range, ammo);
+      if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, adm * this.dmgMul() * this.handMul(), this.player.pos); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
       return;
     }
     // แห: ทอดลงน้ำตรงหน้าเพื่อหาปลา
@@ -532,9 +589,16 @@ export class Game {
     } else if (ITEMS[this.equipped]?.tool?.fish && waterAt(f.x, f.z)) this.interact();
   }
 
+  // แชท: ช่อง all/party/family/pm · คำสั่งลัด /p ปาร์ตี้ · /f ครอบครัว · /w ชื่อ ข้อความ = กระซิบ
   sendChat(text) {
-    if (this.net.online) this.net.send({ t: 'chat', text });
-    else this.ui.chat(this.profile.name, text);
+    let ch = this.chatCh || 'all', to = this.chatTo || null, m;
+    if ((m = text.match(/^\/(p|party)\s+(.+)/i))) { ch = 'party'; text = m[2]; }
+    else if ((m = text.match(/^\/(f|fam|family)\s+(.+)/i))) { ch = 'family'; text = m[2]; }
+    else if ((m = text.match(/^\/(w|pm|msg)\s+(\S+)\s+(.+)/i))) { ch = 'pm'; to = m[2]; text = m[3]; }
+    else if ((m = text.match(/^\/(a|all)\s+(.+)/i))) { ch = 'all'; text = m[2]; }
+    if (ch === 'pm' && !to) return this.ui.toast('กระซิบ: พิมพ์ /w ชื่อผู้เล่น ข้อความ', 'warn');
+    if (this.net.online) this.net.send({ t: 'chat', text, ch, to });
+    else this.ui.chat(this.profile.name, text, false, ch);
   }
 
   // ---------------- input ----------------
@@ -556,7 +620,7 @@ export class Game {
       if (k === 'escape') { if (this.builder.active) this.builder.stop(); this.ui.closeAll(); return; }
       if (k === 'b' && !e.repeat) { if (this.builder.active) { this.builder.stop(); return; } return this.ui.togglePanel('build'); }
       if (k === 'q' && !e.repeat && this.builder.type) return this.builder.rotateNext();
-      if (k === 'x' && !e.repeat) { if (this.builder.demolish) this.builder.stop(); else if (canBuild(this.inv)) this.builder.startDemolish(); return; }
+      if (k === 'x' && !e.repeat) { if (this.builder.demolish) this.builder.stop(); else if (!this.builder.active && !this.ui.open && this.quickDemolish()) return; else if (canBuild(this.inv)) this.builder.startDemolish(); return; }
       if (k === 'l' && !e.repeat && !this.ui.open) return this.home.toggleLock();
       if (k === 'enter') { this.ui.chatting = true; document.exitPointerLock?.(); document.getElementById('chat-input').focus(); e.preventDefault(); return; }
       if (k === 'r' && !e.repeat) return this.ui.togglePanel('rel');
@@ -603,7 +667,9 @@ export class Game {
         case 'join': this.ents.upsertRemote(m.player); break;
         case 'leave': this.ents.removeRemote(m.id); break;
         case 'state': this.ents.upsertRemote(m); break;
-        case 'chat': this.ui.chat(m.name, m.text, m.from === 'system'); break;
+        case 'chat': if (m.ch === 'pm' && m.from !== this.id) this.lastPm = m.name; this.ui.chat(m.name, m.text, m.from === 'system', m.ch, m.toName, m.from === this.id); break;
+        case 'party': this.party = m.id ? m : null; this.ui.refreshPanels(); break;
+        case 'partyinv': this.sfx.play('love'); this.ui.confirm(`👥 ${m.name} ชวนคุณเข้าปาร์ตี้ ตกลงไหม?`, (ok) => { if (ok) this.net.send({ t: 'party', a: 'accept', pid: m.pid }); }); break;
         case 'res': this.world.setResState(m.id, m.until - this.timeOffset); break;
         case 'loot': this.world.setLootState(m.id, m.until - this.timeOffset); break;
         case 'place': this.world.addStructure({ ...m.s }); this.home.onPlaced(m.s); break;
@@ -653,7 +719,7 @@ export class Game {
       return this.net.send({ t: 'csave', stats: this.stats, hotbar: this.hotbar, social: this.social.toJSON(), pets: this.pets.map((p) => ({ id: p.id, hp: p.hp, xp: p.xp, loyal: p.loyal, stay: p.stay, home: p.home, down: p.down, name: p.name })) });
     }
     const d = {
-      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, trade: this.trade, jp: this.jp, skills: this.skills,
+      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, trade: this.trade, jp: this.jp, sq: this.sq || null, skills: this.skills,
       pets: this.pets, wear: this.wear, pos: this.player.pos.toArray(), spawn: this.spawnPoint, social: this.social.toJSON(), quest: this.quest.toJSON(),
     };
     if (!this.net.online) Object.assign(d, {
@@ -683,7 +749,7 @@ export class Game {
     // เซฟเก่า: เสื้อเกราะผ้าเคยใส่อัตโนมัติจากกระเป๋า → สวมให้เลย
     if (!this.wear.body && this.inv.cloth_armor) { this.removeItem('cloth_armor'); this.wear.body = 'cloth_armor'; }
     setOutfit(this.player.mesh, this.wear, ITEMS);
-    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; this.trade = d.trade || {}; this.jp = d.jp || null; setHeldTool(this.player.mesh, this.equipped, this.lefty);
+    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; this.trade = d.trade || {}; this.jp = d.jp || null; this.sq = d.sq || null; setHeldTool(this.player.mesh, this.equipped, this.lefty);
     if (d.pos) this.player.pos.fromArray(d.pos);
     this.social.load(d.social);
     this.quest.load(d.quest);
@@ -718,6 +784,7 @@ export class Game {
     if (this._bClass !== this.builder.active) { this._bClass = this.builder.active; document.body.classList.toggle('building', this.builder.active); }
     S('สภาพแวดล้อม', () => this.updateEnv(dt));
     S('กล้อง', () => this.updateCamera());
+    this.updateNav(dt);
     S('ปุ่มโต้ตอบ', () => {
       const t = this.ui.open || this.dead ? null : this.findTarget();
       if (!this.ui.open) this.ui.setPrompt(this.builder.active ? this.builder.prompt() : this.hitInfo && this.hitInfo.until > performance.now() ? this.hitInfo.text : t ? `${this.touch ? '✋' : '<kbd>E</kbd>'} ${t.text}` : '');
@@ -741,6 +808,7 @@ export class Game {
     }
     const jump = (k.Space || this.touch?.consumeJump()) && !this.ui.open;
     if (this.vehicle) { animateHuman(p.mesh, dt, 0, 0); this.home.drive(dt, fx, fz); return; }
+    if (this.updateSleep(dt, !!(fx || fz) || jump)) return;
     const moving = fx || fz;
     const w = waterAt(p.pos.x, p.pos.z);
     p.swim = !!w && p.pos.y < w.level - 0.9;
@@ -978,7 +1046,7 @@ export class Game {
     if (this.net.online && this.netT <= 0) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
-      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
+      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping ? 3 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
     }
   }
 }

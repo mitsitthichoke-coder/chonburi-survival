@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf } from './data.js';
+import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { PIECES, FEEDS, CROPS, PENS, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
@@ -37,6 +37,34 @@ function roll(table, rand, boost = null) {
   let r = rand() * total;
   for (const [k, w] of table) { r -= w * (boost && k !== 'raw_fish' ? boost : 1); if (r <= 0) return k; }
   return table[0][0];
+}
+// ---------- ภารกิจสุ่ม (รับได้ทีละ 1 · หมดเวลา 30 นาที) ----------
+export const SQ_LIFE = 30 * 60000;
+const SQ_GATHER = ['wood', 'stone', 'fiber', 'herb', 'raw_fish', 'corn', 'veg', 'coconut', 'orange', 'scrap', 'cloth', 'pineapple', 'egg'];
+const SQ_CRAFT = ['bandage', 'arrow', 'campfire', 'cooked_meat', 'clean_water', 'spear', 'grilled_fish', 'herbal_med'];
+export function sqText(q) {
+  if (!q) return '';
+  if (q.type === 'kill') return `กำจัดผู้ติดเชื้อ ${q.n} ตัว`;
+  if (q.type === 'gather') return `เก็บ ${ITEMS[q.k].icon} ${ITEMS[q.k].name} ${q.n} ชิ้น มาส่ง`;
+  if (q.type === 'craft') return `ประดิษฐ์ ${ITEMS[q.k].icon} ${ITEMS[q.k].name} ${q.n} ชิ้น มาส่ง`;
+  if (q.type === 'visit') return `เดินทางไปสำรวจ ${q.name}`;
+  return '';
+}
+export function sqProgress(ch, q, pos) {
+  if (!q) return [0, 1];
+  if (q.type === 'kill') return [Math.min(q.n, (ch.stats?.kills || 0) - q.k0), q.n];
+  if (q.type === 'gather' || q.type === 'craft') return [Math.min(q.n, ch.inv[q.k] || 0), q.n];
+  if (q.type === 'visit') return [pos && Math.hypot(pos.x - q.x, pos.z - q.z) < 25 ? 1 : 0, 1];
+  return [0, 1];
+}
+export function salvageOf(k) {
+  const it = ITEMS[k], b = baseOf(k); if (!it || it.quest || it.coin || it.food || it.med || it.flower || b.startsWith('seeds_')) return null;
+  const r = RECIPES.find((x) => x.out === b);
+  if (r) { const g = {}; for (const [i, n] of Object.entries(r.need)) { if (ITEMS[i]?.coin) continue; const v = Math.floor(n / 2); if (v) g[i] = v; } if (!Object.keys(g).length) { const [i] = Object.keys(r.need); if (i && !ITEMS[i].coin) g[i] = 1; } return Object.keys(g).length ? g : null; }
+  if (it.wear) return it.wear.slot === 'off' ? { wood: 1, scrap: 1 } : { rag: 1, cloth: 1 };
+  if (it.tool) return { scrap: 1, wood: 1 };
+  if (it.petGear) return { rag: 1, scrap: 1 };
+  return null;
 }
 export function rollLoot(rand) {
   const total = LOOT_TABLE.reduce((s, [, w]) => s + w, 0), out = {};
@@ -86,6 +114,12 @@ const A = {
     const L = env.loot(p.id); if (!L) return { err: 'ไม่พบกล่องนี้' };
     if (dist(env, ch, L.x, L.z) > 4.5) return { err: 'อยู่ไกลเกินไป' };
     if (L.until > env.now()) return { err: 'ค้นไปแล้ว รอของใหม่อีกสักพัก', silent: true };
+    if (L.kind === 'bike') {
+      // จักรยานข้างถนน: ขี่ได้เลย หรือซ่อมก่อน (เศษเหล็ก 2 + ผ้าขี้ริ้ว 1) · หายไป 2 ชั่วโมงแล้วจะมีคันใหม่
+      const fix = { scrap: 2, rag: 1 };
+      if (L.broken) { for (const [k, q] of Object.entries(fix)) if (!has(ch, k, q)) return { err: '🚲 จักรยานคันนี้พัง ต้องซ่อม: 🔩 เศษเหล็ก 2 + 🧻 ผ้าขี้ริ้ว 1' }; }
+      return { take: L.broken ? fix : null, give: { bicycle: 1 }, xp: { crafting: L.broken ? 8 : 0, survival: 3 }, loot: { id: p.id, until: env.now() + 2 * 3600000 }, msg: L.broken ? '🔧 ซ่อมจักรยานเสร็จ! ได้ 🚲 จักรยาน (วางจากกระเป๋าเพื่อขี่)' : '🚲 ได้จักรยาน! วางจากกระเป๋าเพื่อขี่', sfx: 'craft' };
+    }
     const give = rollLoot(env.rand);
     if (L.kind === 'car') { delete give.canned; give.scrap = (give.scrap || 0) + 1; for (const [k, c] of [['wheel', 0.3], ['moto_wheel', 0.2], ['steering_wheel', 0.15], ['spark_plug', 0.25], ['copper_wire', 0.35], ['car_seat', 0.15], ['battery_pack', 0.12], ['engine', 0.04], ['moto_engine', 0.05]]) if (env.rand() < c) give[k] = (give[k] || 0) + 1; } // ถอดชิ้นส่วนจากรถร้าง
     if (lucky(ch) && env.rand() < 0.3) { const ex = Object.keys(rollLoot(env.rand))[0]; give[ex] = (give[ex] || 0) + 1; }
@@ -141,6 +175,28 @@ const A = {
     ch.trade[key] = { d: day, n: used + 1 };
     return { take, give: { [row[0]]: 1 }, xp: { survival: 2 }, msg: `🤝 แลก ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} กับ${n.name}สำเร็จ`, traded: true };
   },
+
+  sqnew(ch, p, env) {
+    if (ch.sq && ch.sq.exp > env.now()) return { err: 'ทำภารกิจสุ่มที่รับไว้ให้เสร็จก่อน (หรือยกเลิก)' };
+    const r = env.rand, kind = ['kill', 'gather', 'craft', 'visit'][Math.floor(r() * 4)], lv = charLevelOf(ch.skills);
+    let q;
+    if (kind === 'kill') { const n = 5 + Math.floor(r() * (6 + lv)); q = { type: 'kill', n, k0: ch.stats?.kills || 0, coin: n * 3 + 10 }; }
+    else if (kind === 'gather') { const k = SQ_GATHER[Math.floor(r() * SQ_GATHER.length)], n = 3 + Math.floor(r() * 8); q = { type: 'gather', k, n, coin: Math.ceil((ITEMS[k].value || 1) * n * 1.5) + 10 }; }
+    else if (kind === 'craft') { const k = SQ_CRAFT[Math.floor(r() * SQ_CRAFT.length)], n = 1 + Math.floor(r() * 3); q = { type: 'craft', k, n, coin: Math.ceil((ITEMS[k].value || 2) * n * 2) + 15 }; }
+    else { const P = env.pos(ch), far = TOWNS.filter((t) => Math.hypot(t.x - P.x, t.z - P.z) > 80), t = (far.length ? far : TOWNS)[Math.floor(r() * (far.length || TOWNS.length))]; q = { type: 'visit', x: t.x, z: t.z, name: t.name, coin: 30 + Math.floor(Math.hypot(t.x - P.x, t.z - P.z) / 12) }; }
+    q.exp = env.now() + SQ_LIFE; q.xp = 15 + lv * 3;
+    ch.sq = q;
+    return { msg: `🎲 รับภารกิจสุ่ม: ${sqText(q)} — รางวัล 🪙 ${q.coin} (ภายใน 30 นาที)`, sq: q, sfx: 'quest' };
+  },
+  sqdone(ch, p, env) {
+    const q = ch.sq; if (!q) return { err: 'ยังไม่ได้รับภารกิจสุ่ม' };
+    if (q.exp < env.now()) { ch.sq = null; return { err: '⌛ ภารกิจหมดเวลาแล้ว รับใหม่ได้เลย', sq: null }; }
+    const [a, b] = sqProgress(ch, q, env.pos(ch)); if (a < b) return { err: `ยังไม่เสร็จ (${a}/${b})` };
+    const take = q.type === 'gather' || q.type === 'craft' ? { [q.k]: q.n } : null;
+    ch.sq = null; (ch.boxes ||= {}).sqn = (ch.boxes.sqn || 0) + 1;
+    return { take, give: { jicoin: q.coin }, xp: { survival: q.xp }, msg: `✅ ภารกิจสุ่มสำเร็จ! ได้ 🪙 ${q.coin} เงินจิ (สำเร็จแล้ว ${ch.boxes.sqn} ภารกิจ)`, sq: null, sfx: 'level' };
+  },
+  sqdrop(ch) { if (!ch.sq) return { err: 'ไม่มีภารกิจ' }; ch.sq = null; return { msg: 'ยกเลิกภารกิจสุ่มแล้ว', sq: null }; },
 
   // ขายของให้ NPC รับเงินจิ (ราคาครึ่งหนึ่งของมูลค่า · NPC แต่ละคนรับซื้อได้วันละไม่เกิน SELL_DAY_CAP)
   npcsell(ch, p, env) {
@@ -231,6 +287,12 @@ const A = {
     if (p.k && (!has(ch, p.k) || !ITEMS[p.k]?.tool)) return { err: 'ไม่มีเครื่องมือนี้' };
     ch.equipped = p.k || null; return { held: true };
   },
+  // ยิงอาวุธระยะไกล: ใช้กระสุน 1 นัด (ชนิดที่เลือก หรือระดับดีสุดที่มี)
+  shoot(ch, p) {
+    const t = ITEMS[ch.equipped]?.tool; if (!t?.ranged) return { err: 'ต้องถืออาวุธยิงไกล', silent: true };
+    const k = pickAmmo(ch.inv, t.ammo, p.ammo); if (!k) return { err: 'ไม่มีกระสุน' };
+    return { take: { [k]: 1 }, quietTake: true, ammo: k, xp: { combat: 1 } };
+  },
   hands(ch, p) { ch.lefty = !!p.lefty; return { held: true }; },
   equip(ch, p) {
     const w = ITEMS[p.k]?.wear; if (!w || !has(ch, p.k)) return { err: 'ไม่มีเสื้อผ้าชิ้นนี้' };
@@ -240,6 +302,16 @@ const A = {
   unequip(ch, p) {
     const k = ch.wear[p.slot]; if (!k) return { err: 'ช่องนี้ว่าง' };
     delete ch.wear[p.slot]; return { give: { [k]: 1 }, quietGive: true, wore: true };
+  },
+  // ย่อยไอเท็ม: ได้วัตถุดิบคืนประมาณครึ่งหนึ่งของสูตรประดิษฐ์ (ของที่ไม่มีสูตร: เสื้อผ้า → ผ้า, เครื่องมือ → เศษเหล็ก/ไม้)
+  salvage(ch, p) {
+    const k = p.k, it = ITEMS[k]; if (!it || !has(ch, k)) return { err: 'ไม่มีของชิ้นนี้' };
+    const give = salvageOf(k); if (!give) return { err: `${it.name} ย่อยไม่ได้` };
+    const r = RECIPES.find((x) => x.out === baseOf(k)), q = Math.max(1, r?.qty || 1);
+    if (!has(ch, k, q)) return { err: `ต้องมีอย่างน้อย ${q} ชิ้นเพื่อย่อย` };
+    if (ch.equipped === k && (ch.inv[k] || 0) <= q) ch.equipped = null;
+    if (Object.values(ch.wear || {}).includes(k) && (ch.inv[k] || 0) <= q) return { err: 'ถอดออกก่อนย่อย' };
+    return { take: { [k]: q }, give, xp: { crafting: 2 }, msg: `♻️ ย่อย ${it.icon} ${it.name}${q > 1 ? ` ×${q}` : ''} ได้ ${Object.entries(give).map(([i, n]) => `${ITEMS[i].icon}${ITEMS[i].name} ×${n}`).join(', ')}`, sfx: 'craft' };
   },
   drop(ch, p) {
     const q = Math.max(1, p.q | 0); if (!has(ch, p.k, q)) return { err: 'ของไม่พอ' };
@@ -260,6 +332,13 @@ const A = {
       if (!role || !roleAllows(role === 'resident' ? null : role, { type: ptype }, ptype === 'pot' || ptype.startsWith('plot_') ? 'plant' : 'breed')) return { err: '🔒 ต้องเป็นเจ้าบ้าน/รองเจ้าบ้าน หรือผู้ดูแลสัตว์/พืชของฐานนี้' };
     }
     if (s.type === 'basecore' && (env.ownCount?.('basecore') || 0) >= 1) return { err: 'มีหลักบ้านได้คนละ 1 หลัง' };
+    // กันคนอื่นมาสร้างในฐาน/ติดบ้านของเรา: ต้องเป็นสมาชิกบ้านหรือเป็นเพื่อนกับเจ้าของก่อน
+    if (env.structs && ptype && ptype !== 'vehicle') {
+      const ST = env.structs(), me = env.myId, b = baseAt(ST, s.x, s.z);
+      if (b && b.owner !== me && !roleIn(b, me) && !env.isFriend?.(b.owner)) return { err: `🔒 ที่นี่คือฐาน "${b.name}" ของผู้เล่นอื่น — ต้องเป็นเพื่อนหรือสมาชิกบ้านก่อนจึงจะสร้างได้` };
+      const near = ST.find((o) => o.owner && o.owner !== me && PIECES[o.type] && o.type !== 'vehicle' && Math.hypot(o.x - s.x, o.z - s.z) < 6);
+      if (near && !env.isFriend?.(near.owner) && !(b && roleIn(b, me))) return { err: '🔒 ติดกับบ้านของผู้เล่นอื่น — ต้องแอดเพื่อนกับเจ้าของก่อนจึงจะสร้างตรงนี้ได้' };
+    }
     if (PIECES[s.type]) {
       const P = PIECES[s.type];
       if (P.hidden) return { err: 'สร้างชิ้นนี้ไม่ได้แล้ว' };

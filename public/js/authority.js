@@ -20,6 +20,7 @@ export class Authority {
       get lefty() { return g.lefty; }, set lefty(v) { g.lefty = v; },
       get profile() { return g.profile; }, get jp() { return g.jp; }, set jp(v) { g.jp = v; }, get social() { return { rels: g.social.rels }; }, get trade() { return g.trade || (g.trade = {}); }, set trade(v) { g.trade = v; }, get jobKit() { return g.jobKit; }, set jobKit(v) { g.jobKit = v; },
       get boxes() { return g.boxes || (g.boxes = {}); }, set boxes(v) { g.boxes = v; },
+      get sq() { return g.sq || null; }, set sq(v) { g.sq = v; },
       get quest() { return g.quest; }, get stats() { return g.stats; }, t: {},
     };
   }
@@ -31,9 +32,10 @@ export class Authority {
       now: () => g.now(), rand: Math.random,
       npcPos: (nid) => { const e = g.ents.list.find((x) => !x.dead && x.id === nid); return e ? { x: e.pos.x, z: e.pos.z } : null; },
       structs: () => W.structures, myId: g.id,
+      isFriend: (id) => (g.friends || []).some((f) => f.id === id) || (g.social.rels?.[id]?.pts || 0) >= 60,
       ownCount: (type) => W.structures.filter((s) => s.type === type && (!s.owner || s.owner === g.id)).length,
       pos: () => g.player.pos,
-      loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, until: L.until ? L.until + g.timeOffset : 0 }; },
+      loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, broken: L.broken, until: L.until ? L.until + g.timeOffset : 0 }; },
       res: (id) => W.resources[id] || null,
       resUntil: (id) => (W.resources[id]?.until ? W.resources[id].until + g.timeOffset : 0),
       resHp: (id) => W.resources[id]?.hpLeft, setResHp: (id, v) => { const r = W.resources[id]; if (r) r.hpLeft = v === null ? undefined : v; },

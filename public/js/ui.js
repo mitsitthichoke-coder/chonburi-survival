@@ -2,7 +2,7 @@ import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, 
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV } from './building-core.js';
 import { pieceInfo } from './homestead.js';
-import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP } from './economy.js';
+import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { VOL_CH } from './audio.js';
@@ -19,7 +19,7 @@ export function statText(k) {
   const it = ITEMS[k]; if (!it) return '';
   const t = it.tool, w = it.wear, f = it.food, m = it.med, p = it.petGear;
   return [
-    t && t.dmg && `⚔️${t.dmg}`, t && t.range && `📏${t.range}`, t && t.gather && `🪓×${t.gather}`,
+    it.ammo && `🏹+${it.ammo.dmg} ดาเมจ (ระดับ ${it.ammo.tier})`, it.ammo?.burn && '🔥ติดไฟ', t && t.dmg && `⚔️${t.dmg}`, t && t.range && `📏${t.range}`, t && t.gather && `🪓×${t.gather}`,
     w && w.def && `🛡️-${pct(w.def)}%ดาเมจ`, w && w.block && `🔰กัน${pct(w.block)}%`, w && w.bite && `🦠-${pct(w.bite)}%`, w && w.spd && `${w.spd > 0 ? '💨+' : '🐢'}${pct(w.spd)}%`,
     w && w.stam && `⚡+${pct(w.stam)}%`, w && w.gather && `✊+${w.gather}`, w && w.carry && `🎒+${w.carry}ช่อง`,
     f && f.hunger && `🍗+${f.hunger}`, f && f.thirst && `💧+${f.thirst}`, f && f.hp && `❤️+${f.hp}`, f && f.infection && `🦠${f.infection}`, f && f.sick && `⚠️ท้องเสีย ${pct(f.sick)}%`, f && f.stress && `😌${f.stress} เครียด`, f && f.stamina && `⚡+${f.stamina}`, it.instrument && !it.chant && !it.device && '🎶 ลดความเครียดรอบตัว', it.chant && '🙏 สวดมนต์: ลดตื่นตระหนก + กำลังใจ', it.device?.loot && `📍 เห็นกล่องเสบียงบนแผนที่ ${it.device.loot}`, it.device?.zombie && `🧟 เห็นผู้ติดเชื้อบนแผนที่ ${it.device.zombie}`, it.device?.scout && '🛸 ส่องรอบตัว 60 วิ', it.morale && '💪 กำลังใจ 5 นาที', m && m.immune && `🛡️ภูมิคุ้มกัน ${m.immune / 60} นาที`,
@@ -45,13 +45,20 @@ export class UI {
     document.querySelectorAll('#hud .stat[data-stat]').forEach((el) => el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showStatHelp(el.dataset.stat); }));
     addEventListener('click', () => { const h = $('#stat-help'); if (h) h.style.display = 'none'; this.statHelp = null; });
     this.initDrag();
+    // ค้นหาสูตรประดิษฐ์: พิมพ์แล้วกรองทันที (คงเคอร์เซอร์ไว้ในช่อง)
+    $('#panel').addEventListener('input', (ev) => {
+      if (ev.target.id !== 'craft-q') return;
+      this.craftQ = ev.target.value; const pos = ev.target.selectionStart;
+      this.refreshPanels(); const el = $('#craft-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+    });
+    $('#panel').addEventListener('keydown', (ev) => { if (ev.target.id === 'craft-q') ev.stopPropagation(); });
     $('#panel').addEventListener('contextmenu', (ev) => {
       const pv = ev.target.closest('[data-pdep],[data-pwd]');
       if (pv && this.struct) { ev.preventDefault(); const s0 = this.g.world.structures.find((x) => x.id === this.struct.id) || this.struct; if (pv.dataset.pdep) this.g.home.op(s0, { o: 'pitem', item: pv.dataset.pdep, qty: this.g.inv[pv.dataset.pdep] || 0 }); else this.g.home.op(s0, { o: 'pitem', item: pv.dataset.pwd, qty: -(s0.pi?.[this.g.id]?.[pv.dataset.pwd] || 0) }); return this.refreshPanels(); }
       const st = ev.target.closest('[data-dep],[data-wd]');
       if (st && this.struct) { ev.preventDefault(); const s0 = this.g.world.structures.find((x) => x.id === this.struct.id); if (st.dataset.dep) this.g.home.deposit(this.struct, st.dataset.dep, this.g.inv[st.dataset.dep] || 0); else this.g.home.withdraw(this.struct, st.dataset.wd, s0?.items?.[st.dataset.wd] || 0); return this.refreshPanels(); }
       const el = ev.target.closest('[data-item]'); if (!el) return;
-      ev.preventDefault(); this.g.pinHotbar(el.dataset.item); this.refreshPanels();
+      ev.preventDefault(); this.itemMenu(el.dataset.item, ev.clientX, ev.clientY);
     });
     $('#chat-input').addEventListener('keydown', (ev) => {
       ev.stopPropagation();
@@ -59,7 +66,17 @@ export class UI {
       if (ev.key === 'Escape') { ev.target.blur(); this.chatting = false; }
     });
     $('#respawn-btn').onclick = () => this.g.respawn();
+    $('#sidequest').addEventListener('click', (ev) => { ev.stopPropagation(); const a = ev.target.dataset.sq; if (a) this.g.auth.do('sq' + a); });
+    // ปุ่มเลือกช่องแชท: ทุกคน → ปาร์ตี้ → ครอบครัว → กระซิบ (ถามชื่อ)
+    $('#chat-ch').addEventListener('click', (ev) => {
+      ev.stopPropagation(); const g = this.g, order = ['all', 'party', 'family', 'pm'];
+      let c = order[(order.indexOf(g.chatCh || 'all') + 1) % order.length];
+      if (c === 'pm') { const n = prompt('กระซิบถึงใคร? (พิมพ์ชื่อผู้เล่น)', g.lastPm || g.chatTo || ''); if (n) g.chatTo = n.trim(); else c = 'all'; }
+      g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
+    });
     $('#hand-btn').onclick = (ev) => { ev.stopPropagation(); this.g.swapHands(); };
+    // แตะกล่องภารกิจ = เปิด/ปิดลูกศรนำทาง 3 มิติเหนือหัวตัวละคร
+    $('#quest').addEventListener('click', (ev) => { ev.stopPropagation(); this.g.navOn = !this.g.navOn; this.toast(this.g.navOn ? '🧭 เปิดลูกศรนำทางไปยังเป้าหมายภารกิจ' : '🧭 ปิดลูกศรนำทาง'); });
     const mute = $('#mute-btn');
     const syncMute = () => { mute.textContent = this.g.sfx.muted ? '🔇' : '🔊'; mute.setAttribute('aria-label', this.g.sfx.muted ? 'เปิดเสียง' : 'ปิดเสียง'); };
     // ปุ่ม 🔊: เปิดแผงปรับระดับเสียง (ฝน ลม คลื่น กองไฟ ผู้ติดเชื้อ ดนตรี ฯลฯ)
@@ -85,8 +102,10 @@ export class UI {
     $('#toasts').prepend(d); setTimeout(() => d.classList.add('fade'), 4500); setTimeout(() => d.remove(), 5200);
     while ($('#toasts').children.length > 6) $('#toasts').lastChild.remove();
   }
-  chat(name, text, sys) {
-    const d = document.createElement('div'); d.innerHTML = sys ? `<i>${esc(text)}</i>` : `<b>${esc(name)}:</b> ${esc(text)}`;
+  chat(name, text, sys, ch = 'all', toName, mine) {
+    const d = document.createElement('div'), tag = { party: '[👥 ปาร์ตี้] ', family: '[🏠 ครอบครัว] ', pm: mine ? `[🤫 ถึง ${toName || ''}] ` : '[🤫 กระซิบ] ' }[ch] || '';
+    if (ch !== 'all') d.className = 'c-' + ch;
+    d.innerHTML = sys ? `<i>${esc(text)}</i>` : `${esc(tag)}<b>${esc(name)}:</b> ${esc(text)}`;
     $('#chat-log').append(d); $('#chat-log').scrollTop = 1e9;
     while ($('#chat-log').children.length > 60) $('#chat-log').firstChild.remove();
   }
@@ -144,13 +163,15 @@ export class UI {
     if (g.weather.rain) chips.push('<span class="chip blue">🌧️ ฝนตก</span>');
     $('#status').innerHTML = chips.join('');
     const qh = g.quest.trackerHTML(), qel = $('#quest');
-    if (qel._h !== qh) { qel._h = qh; qel.innerHTML = qh; qel.hidden = !qh; }
+    this.drawSideQuest(); this.drawPartyHud();
+    const qh2 = qh + (qh ? `<div class="qtoggle">${g.navOn ? '🧭 ลูกศรนำทาง: เปิด (แตะเพื่อปิด)' : '🧭 แตะเพื่อเปิดลูกศรนำทาง'}</div>` : '');
+    if (qel._h !== qh2) { qel._h = qh2; qel.innerHTML = qh2; qel.hidden = !qh; }
     const tod = g.timeOfDay(), hh = Math.floor(tod * 24), mm = Math.floor((tod * 24 - hh) * 60);
     $('#clock').innerHTML = `วันที่ <b>${g.dayNum()}</b> ของการล่มสลาย · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${g.isNight() ? '🌙' : '☀️'}<br><small>เลเวล ${g.charLevel()} · ${esc(g.areaName())} · 🎒 <span class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()}</span> · ${g.net.online ? '🟢 ออนไลน์ ' + (g.ents.remotes.size + 1) + ' คน' : '⚪ ออฟไลน์'}</small>`;
     // hotbar
     $('#hotbar').innerHTML = g.hotbar.map((k, i) => {
       const it = k && ITEMS[k], q = k ? g.inv[k] || 0 : 0;
-      return `<div class="slot ${k && g.equipped === k ? 'eq' : ''} ${k && !q ? 'empty' : ''}" data-slot="${i}"><span class="n">${i + 1}</span>${it ? `${it.icon}<span class="q">${q}</span>` : ''}</div>`;
+      return `<div class="slot ${k && g.equipped === k ? 'eq' : ''} ${k && !q ? 'empty' : ''}" data-slot="${i}" data-drop="hb:${i}"><span class="n">${i + 1}</span>${it ? `${it.icon}<span class="q">${q}</span>` : ''}</div>`;
     }).join('');
     this.drawMinimap();
     if (this.open === 'panel' && this.tab === 'struct') { this.structT = (this.structT || 0) + 0.15; if (this.structT > 1) { this.structT = 0; this.refreshPanels(); } }
@@ -221,7 +242,7 @@ export class UI {
     }
     const dot = (x, z, col, r) => { const [a, b] = this.worldToMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };
     for (const s of g.world.structures) dot(s.x, s.z, '#f4a261', 3);
-    for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, '#4cc9f0', 4);
+    for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, g.party?.members?.some((m) => m.id === r.id) ? '#00f5d4' : '#4cc9f0', g.party?.members?.some((m) => m.id === r.id) ? 6 : 4);
     dot(g.player.pos.x, g.player.pos.z, '#ff006e', 5);
     const qt = g.quest.target();
     for (const [x, z, k] of g.boxUI.markers()) { const [a, b] = this.worldToMap(x, z, W, H); boxMark(c, a, b, k, 1.2); }
@@ -251,7 +272,7 @@ export class UI {
     $('#panel').style.display = 'block'; document.exitPointerLock?.();
     this.refreshPanels();
   }
-  closeAll() { this.open = null; this.person = null; this.struct = null; $('#panel').style.display = 'none'; }
+  closeAll() { this.dropMode = false; this.salvMode = false; this.open = null; this.person = null; this.struct = null; $('#panel').style.display = 'none'; }
   openStructure(s) { this.closeAll(); this.struct = s; this.tab = 'struct'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); this.refreshPanels(); }
 
   buildHTML() {
@@ -266,7 +287,7 @@ export class UI {
     return `<p class="hint">${hammer ? '' : '<b class="miss">ต้องมีค้อนก่อน — ประดิษฐ์ 🪵 ค้อนไม้ ได้จากรายการด้านล่างของหน้านี้</b><br>'}สร้างบ้านทีละชิ้นบนกริด: วาง <b>ฐานราก</b> → <b>ผนัง/ประตู/หน้าต่าง</b> รอบขอบ → <b>หลังคา</b> (ขึ้นไปยืนบนหลังคาแล้ววางผนังต่อเป็นชั้นสองได้) · วาง <b>เตียง</b> เพื่อตั้งเป็นจุดเกิด
       <br>${g.touch ? '✅ วาง · ↻ หมุน · 🗑 รื้อ · ✖ ออก' : 'คลิกซ้าย = วาง · Q = หมุน · X = โหมดรื้อ · L = ล็อกประตู/หีบ · Esc = ออก'} · ทักษะก่อสร้าง Lv${lvl}</p>
       ${Object.entries(cats).map(([c, list]) => `<h4>${esc(c)}</h4><div class="pieces">${list.map(card).join('')}</div>`).join('')}
-      <div class="acts"><button data-demolish="1" ${hammer ? '' : 'class="dis"'}>🗑️ โหมดรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)</button></div>
+      <div class="acts"><button data-demolish="1" ${hammer ? '' : 'class="dis"'}>🗑️ โหมดรื้อ (ได้วัสดุคืนครบ)</button></div>
       ${this.buildCraftHTML()}
       <p class="hint">🚲 จักรยาน 🏍️ มอเตอร์ไซค์ 🛶 แพ และ 🎣 เบ็ดตกปลา ประดิษฐ์ได้ในแท็บกระเป๋า · ทุกอย่างที่สร้างจะเห็นร่วมกันเมื่อเล่นออนไลน์</p>`;
   }
@@ -324,7 +345,7 @@ export class UI {
 
   refreshPanels() {
     if (this.open !== 'panel') return;
-    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านฐาน'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]']];
+    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]']];
     let html = `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${this.tab === k ? 'on' : ''}">${n}</button>`).join('')}<button data-close="1" class="x">✕</button></div><div class="body">`;
     if (this.person) html += this.personHTML();
     else if (this.tab === 'inv') html += this.invHTML();
@@ -350,8 +371,8 @@ export class UI {
     const items = all0.filter(([k]) => ic === 'all' || catOf(k) === ic).sort((a, b) => ORD.indexOf(catOf(a[0])) - ORD.indexOf(catOf(b[0])));
     const inv = items.length ? items.map(([k, q]) => {
       const it = ITEMS[k];
-      const tag = it.tool ? (g.equipped === k ? 'ถืออยู่' : 'ถือ') : it.instrument ? 'เล่น' : it.food ? 'กิน' : it.med ? 'ใช้' : it.place ? 'วาง' : it.wear ? 'สวม' : it.petGear ? 'ให้สัตว์' : '';
-      return `<div class="item" data-item="${k}" title="คลิก = ${tag || 'ดู'} · คลิกขวา = ใส่ช่องลัด"><span class="ic">${it.icon}</span><span ${it.rarity ? `style="color:${RARITY[it.rarity].color}"` : ''}>${it.name}${it.bonus ? ` <small>(${it.bonus})</small>` : ''}${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</span><b>×${q}</b>${tag ? `<em>${tag}</em>` : ''}${g.hotbar.includes(k) ? '<i>📌</i>' : ''}</div>`;
+      const tag = it.ammo ? (g.ammoPref?.[it.ammo.g] === k ? 'เลือกอยู่' : 'เลือกยิง') : it.tool ? (g.equipped === k ? 'ถืออยู่' : 'ถือ') : it.instrument ? 'เล่น' : it.food ? 'กิน' : it.med ? 'ใช้' : it.place ? 'วาง' : it.wear ? 'สวม' : it.petGear ? 'ให้สัตว์' : '';
+      return `<div class="item" data-item="${k}" data-drag="item:${k}" title="คลิก = ${tag || 'ดู'} · ลากไปวางที่ช่องลัด 1–6 · คลิกขวา = เมนู (ปักช่องลัด / ♻️ ย่อย)"><span class="ic">${it.icon}</span><span ${it.rarity ? `style="color:${RARITY[it.rarity].color}"` : ''}>${it.name}${it.bonus ? ` <small>(${it.bonus})</small>` : ''}${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</span><b>×${q}</b>${tag ? `<em>${tag}</em>` : ''}${g.hotbar.includes(k) ? '<i>📌</i>' : ''}</div>`;
     }).join('') : '<p class="hint">กระเป๋าว่างเปล่า — ลองเก็บไม้ หิน หญ้า หรือค้นกล่องเสบียงในเมือง</p>';
     const fire = g.nearFire;
     const myJob = g.profile.job;
@@ -364,13 +385,14 @@ export class UI {
     const rc = this.rcat || 'all', inCat = all.filter((x) => rc === 'all' || catOf(x.r.out) === rc);
     const rcount = { all: all.length }; for (const x of all) rcount[catOf(x.r.out)] = (rcount[catOf(x.r.out)] || 0) + 1;
     const nReady = inCat.filter((x) => x.ok).length, f = this.rfilter || 'all';
-    const shown = inCat.filter((x) => f === 'all' || (f === 'ready') === x.ok).sort((a, b) => b.ok - a.ok);
-    const fbar = `<div class="rfilter">${[['all', `📋 ทั้งหมด ${inCat.length}`], ['ready', `✅ พร้อมคราฟท์ ${nReady}`], ['miss', `⏳ ยังไม่ครบ ${inCat.length - nReady}`]].map(([k, n]) => `<button data-rfilter="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
-    const rec = (shown.length ? '' : `<p class="hint">${f === 'ready' ? 'ยังไม่มีสูตรที่วัตถุดิบครบ — ลองเก็บของเพิ่ม' : 'คราฟท์ได้ครบทุกสูตรแล้ว!'}</p>`) + shown.map(({ r, i, missing, lock, noSt, ok }) => {
+    const q = (this.craftQ || '').trim().toLowerCase(), hit = (x) => !q || [x.r.label, ITEMS[x.r.out].name, x.r.out, ...Object.keys(x.r.need).map((k) => ITEMS[k].name)].some((t) => String(t || '').toLowerCase().includes(q));
+    const shown = inCat.filter((x) => (f === 'all' || (f === 'ready') === x.ok) && hit(x)).sort((a, b) => b.ok - a.ok);
+    const fbar = `<div class="rfilter">${[['all', `📋 ทั้งหมด ${inCat.length}`], ['ready', `✅ พร้อมคราฟท์ ${nReady}`], ['miss', `⏳ ยังไม่ครบ ${inCat.length - nReady}`]].map(([k, n]) => `<button data-rfilter="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div><input id="craft-q" class="craft-q" type="search" placeholder="🔍 ค้นหาสูตร เช่น ลูกธนู, ดาบ, ไม้" value="${esc(this.craftQ || '')}" autocomplete="off">`;
+    const rec = (shown.length ? '' : `<p class="hint">${q ? `ไม่พบสูตรที่ตรงกับ "${esc(q)}"` : f === 'ready' ? 'ยังไม่มีสูตรที่วัตถุดิบครบ — ลองเก็บของเพิ่ม' : 'คราฟท์ได้ครบทุกสูตรแล้ว!'}</p>`) + shown.map(({ r, i, missing, lock, noSt, ok }) => {
       const need = Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${ITEMS[k].name} ${g.inv[k] || 0}/${q}</span>`).join(' ');
       return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ok ? '✅' : '⏳'} ${ITEMS[r.out].icon} ${r.label || ITEMS[r.out].name}</b>${r.job ? ` <span class="chip jobchip">${JOBS[r.job].icon} ขั้นสูง</span>` : ''} <small>${SKILLS[r.skill]} Lv${r.lvl}${r.station ? ' · 🔥 ใกล้กองไฟ' : ''}</small>${statText(r.out) ? `<small class="st">${statText(r.out)}</small>` : ''}<div class="need">${need}</div>${lock ? `<small class="miss">🔒 ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}</small>` : noSt ? '<small class="miss">ต้องอยู่ใกล้กองไฟ</small>' : ''}</div><button data-craft="${i}" ${ok ? '' : 'disabled'}>ประดิษฐ์</button></div>`;
     }).join('');
-    return `<div class="cols"><div><h3>กระเป๋า <small class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()} ช่อง${g.wear.back ? ` · ${ITEMS[g.wear.back].name}` : ' · ยังไม่มีกระเป๋า'}</small> <button data-dropmode="1" class="${this.dropMode ? 'on' : ''}">${this.dropMode ? '✋ เลิกทิ้งของ' : '🗑️ ทิ้งของ'}</button></h3>${catBar(ic, icount, 'icat')}<div class="inv ${this.dropMode ? 'dropping' : ''}">${inv}</div><p class="hint">${this.dropMode ? '<b class="miss">โหมดทิ้งของ: คลิกที่ไอเท็มเพื่อทิ้งทั้งกอง</b>' : 'คลิกเพื่อใช้/ถือ/สวม · คลิกขวาเพื่อปักไว้ที่ช่องลัด 1–6'} · ของชนิดเดียวกันซ้อนได้ 30 ชิ้น/ช่อง (อาหาร/ยา 10, เครื่องมือและเสื้อผ้า 1)</p></div><div><h3>ประดิษฐ์ ${fire ? '<span class="chip orange">🔥 ใกล้กองไฟ</span>' : ''}</h3>${catBar(rc, rcount, 'rcat')}${fbar}<div class="recipes">${rec}</div></div></div>`;
+    return `<div class="cols"><div><h3>กระเป๋า <small class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()} ช่อง${g.wear.back ? ` · ${ITEMS[g.wear.back].name}` : ' · ยังไม่มีกระเป๋า'}</small> <button data-dropmode="1" class="${this.dropMode ? 'on' : ''}">${this.dropMode ? '✋ เลิกทิ้งของ' : '🗑️ ทิ้งของ'}</button> <button data-salvmode="1" class="${this.salvMode ? 'on' : ''}">${this.salvMode ? '✋ เลิกย่อย' : '♻️ ย่อยของ'}</button></h3>${catBar(ic, icount, 'icat')}<div class="inv ${this.dropMode ? 'dropping' : ''}">${inv}</div><p class="hint">${this.dropMode ? '<b class="miss">โหมดทิ้งของ: คลิกที่ไอเท็มเพื่อทิ้งทั้งกอง</b>' : this.salvMode ? '<b class="miss">♻️ โหมดย่อย: คลิกที่ไอเท็มเพื่อย่อยเป็นวัตถุดิบ</b>' : 'คลิกเพื่อใช้/ถือ/สวม · ลากไปวางที่ช่องลัด 1–6 · คลิกขวา = เมนู (ปักช่องลัด / ♻️ ย่อยเป็นวัตถุดิบ)'} · ของชนิดเดียวกันซ้อนได้ 30 ชิ้น/ช่อง (อาหาร/ยา 10, เครื่องมือและเสื้อผ้า 1)</p></div><div><h3>ประดิษฐ์ ${fire ? '<span class="chip orange">🔥 ใกล้กองไฟ</span>' : ''}</h3>${catBar(rc, rcount, 'rcat')}${fbar}<div class="recipes">${rec}</div></div></div>`;
   }
 
   // สเตตัสสายอาชีพ: ลงแต้มได้เอง ความสามารถปลดล็อกตามแต้มของแต่ละสาย
@@ -447,7 +469,7 @@ export class UI {
       if (!d.ghost) {
         if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < 8) return;
         d.ghost = document.createElement('div'); d.ghost.className = 'dghost'; d.ghost.textContent = d.el.firstChild?.textContent || d.el.textContent;
-        document.body.appendChild(d.ghost); panel.classList.add('dragging');
+        document.body.appendChild(d.ghost); panel.classList.add('dragging'); document.body.classList.add('dragging');
       }
       ev.preventDefault();
       d.ghost.style.left = ev.clientX + 'px'; d.ghost.style.top = ev.clientY + 'px';
@@ -458,12 +480,36 @@ export class UI {
     const end = (ev) => {
       if (!d) return; const cur = d; d = null;
       if (!cur.ghost) return;
-      cur.ghost.remove(); panel.classList.remove('dragging'); cur.over?.classList.remove('over');
+      cur.ghost.remove(); panel.classList.remove('dragging'); document.body.classList.remove('dragging'); cur.over?.classList.remove('over');
       this.dragEndT = performance.now();
       const z = ev.type === 'pointerup' && zone(ev.clientX, ev.clientY);
       if (z) { this.onDrop(cur.src, z.dataset.drop); this.refreshPanels(); }
     };
     addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  }
+  // 🎲 ภารกิจสุ่ม (แสดงใต้ภารกิจหลัก)
+  drawSideQuest() {
+    const g = this.g, q = g.sq, el = $('#sidequest'); if (!el) return;
+    let h;
+    if (!q || q.exp < g.now()) h = '<button data-sq="new">🎲 รับภารกิจสุ่ม (ได้เงินจิ)</button>';
+    else {
+      const [a, b] = sqProgress(g.ch, q, g.player.pos), left = Math.max(0, Math.ceil((q.exp - g.now()) / 60000));
+      h = `<small class="qn">🎲 ภารกิจสุ่ม · เหลือ ${left} นาที · รางวัล 🪙 ${q.coin}</small><b>${esc(sqText(q))}</b> <small>(${a}/${b})</small><div class="sqb"><button data-sq="done" ${a >= b ? '' : 'disabled'}>✅ ส่งภารกิจ</button><button data-sq="drop">✖ ยกเลิก</button>${q.type === 'visit' ? '<small>แตะกล่องภารกิจหลักเพื่อเปิดลูกศรนำทาง</small>' : ''}</div>`;
+    }
+    if (el._h !== h) { el._h = h; el.innerHTML = h; }
+  }
+  // เมนูคลิกขวาที่ไอเท็มในกระเป๋า
+  itemMenu(k, x, y) {
+    const g = this.g, it = ITEMS[k], m = $('#ctx-menu'), sv = salvageOf(k), pinned = g.hotbar.includes(k);
+    m.innerHTML = `<b>${it.icon} ${esc(it.name)}</b><button data-cm="use">▶️ ใช้ / ถือ / สวม</button>${it.tool && it.wear?.slot === 'off' ? '<button data-cm="off">🫲 ถือมือรอง (คู่กับอาวุธมือหลัก)</button>' : ''}<button data-cm="pin">${pinned ? '📌 เอาออกจากช่องลัด' : '📌 ปักไว้ที่ช่องลัด'}</button>${sv ? `<button data-cm="salvage">♻️ ย่อย → ${Object.entries(sv).map(([i, n]) => `${ITEMS[i].icon}${n}`).join(' ')}</button>` : '<button disabled>♻️ ย่อยไม่ได้</button>'}${it.quest ? '' : '<button data-cm="drop">🗑️ ทิ้ง 1 ชิ้น</button>'}`;
+    m.hidden = false; m.style.left = Math.min(x, innerWidth - 230) + 'px'; m.style.top = Math.min(y, innerHeight - 190) + 'px';
+    m.onclick = (ev) => {
+      ev.stopPropagation(); const a = ev.target.dataset.cm; if (!a) return; m.hidden = true;
+      if (a === 'use') g.useItem(k); else if (a === 'off') g.equip(k); else if (a === 'pin') g.pinHotbar(k); else if (a === 'salvage') g.auth.do('salvage', { k }); else if (a === 'drop') g.dropItem(k, 1);
+      this.refreshPanels();
+    };
+    const close = (ev) => { if (!m.contains(ev.target)) { m.hidden = true; removeEventListener('pointerdown', close, true); } };
+    setTimeout(() => addEventListener('pointerdown', close, true), 0);
   }
   onDrop(src, dst) {
     const g = this.g, [kind, v] = src.split(':'), toolSide = g.lefty ? 'L' : 'R';
@@ -474,8 +520,11 @@ export class UI {
       return;
     }
     const it = ITEMS[v]; if (!it) return;
+    if (dst.startsWith('hb:')) { const i = +dst.slice(3), j = g.hotbar.indexOf(v); if (j >= 0) g.hotbar[j] = g.hotbar[i] ?? null; g.hotbar[i] = v; this.toast(`📌 ${it.icon} ${it.name} → ช่องลัด ${i + 1}`); return; }
     if (hands) {
       const isShield = it.wear?.slot === 'off';
+      // คบเพลิง: วางที่มือรอง = ถือมือรอง (คู่กับดาบ) · วางที่มือหลัก = ถือเป็นอาวุธ
+      if (it.tool && isShield && dst !== toolSide) { if (g.wear.off !== v) g.equip(v); return; }
       if (!it.tool && !isShield) return this.toast(`${it.name} ถือในมือไม่ได้ — ลากไปที่ช่องเครื่องแต่งกาย`, 'warn');
       const want = it.tool ? toolSide : toolSide === 'R' ? 'L' : 'R';
       if (dst !== want) g.setLefty(!g.lefty); // วางผิดข้าง = สลับมือให้เลย
@@ -505,10 +554,23 @@ export class UI {
       return `<div class="person"><div><b>${p.sex === 'f' ? '👩' : p.sex === 'x' ? '🧑' : '👨'} ${esc(p.name)}</b> <span class="chip" style="background:${L.color}">${L.name}</span>${g.social.preg[p.id] ? ' 🤰' : ''}<br><small>${esc(p.bio)}${p.npc ? '' : ' · 🟢'}</small><div class="pbar"><i style="width:${pct}%;background:${L.color}"></i></div></div><small>${Math.floor(r.pts)} แต้ม</small></div>`;
     }).join('');
     const kids = g.social.children.map((c) => `<li>${c.sex === 'f' ? '👧' : '👦'} ${esc(c.name)} ${c.adopted ? '(รับเลี้ยง)' : ''} — อายุ ${Math.floor((Date.now() - c.born) / 60000)} นาที</li>`).join('');
-    return this.friendsHTML() + `<h3>💞 ความสัมพันธ์</h3><p class="hint">ความผูกพันเพิ่มขึ้นเมื่อ: อยู่ใกล้กัน · พูดคุย · ให้ของขวัญ (NPC ชอบของบางอย่างเป็นพิเศษ) · ทำแผลให้ · กอด<br>ลำดับ: ไม่รู้จัก → คุ้นเคย → เพื่อน → เพื่อนสนิท → คนรัก (สารภาพรัก) → ครอบครัว (แต่งงานด้วยแหวน) — เดินไปหาแล้วกด <b>E</b> เพื่อโต้ตอบ</p>${rows}
+    return this.partyHTML() + this.friendsHTML() + `<h3>💞 ความสัมพันธ์</h3><p class="hint">ความผูกพันเพิ่มขึ้นเมื่อ: อยู่ใกล้กัน · พูดคุย · ให้ของขวัญ (NPC ชอบของบางอย่างเป็นพิเศษ) · ทำแผลให้ · กอด<br>ลำดับ: ไม่รู้จัก → คุ้นเคย → เพื่อน → เพื่อนสนิท → คนรัก (สารภาพรัก) → ครอบครัว (แต่งงานด้วยแหวน) — เดินไปหาแล้วกด <b>E</b> เพื่อโต้ตอบ</p>${rows}
       <h3>👨‍👩‍👧 ลูก ๆ</h3>${kids ? `<ul>${kids}</ul>` : '<p class="hint">ยังไม่มีลูก (ต้องเป็นคนรัก/ครอบครัว และอยู่ใกล้เพิงพัก)</p>'}`;
   }
 
+  partyHTML() {
+    const g = this.g, P = g.party;
+    if (!g.net.online) return '';
+    if (!P) return '<h3>👥 ปาร์ตี้</h3><p class="hint">ยังไม่มีปาร์ตี้ — เดินไปหาผู้เล่นแล้วกด E → "👥 ชวนเข้าปาร์ตี้" (สูงสุด 6 คน) · คุยในปาร์ตี้: กดปุ่มช่องแชทเป็น 👥 หรือพิมพ์ /p ข้อความ</p>';
+    const lead = P.leader === g.id;
+    return `<h3>👥 ปาร์ตี้ (${P.members.length}/6)</h3><div class="recipes">${P.members.map((m) => `<div class="recipe"><div><b>${m.id === P.leader ? '👑 ' : ''}${esc(m.name)}</b>${m.id === g.id ? ' <small>(คุณ)</small>' : ''}</div>${lead && m.id !== g.id ? `<button data-pkick="${esc(m.id)}">นำออก</button>` : ''}</div>`).join('')}</div><p><button data-pleave="1">🚪 ออกจากปาร์ตี้</button> <span class="hint">เห็นเลือดเพื่อนในปาร์ตี้มุมซ้าย · ตำแหน่งบนแผนที่ (สีฟ้า)</span></p>`;
+  }
+  drawPartyHud() {
+    const g = this.g, P = g.party, el = $('#party-hud'); if (!el) return;
+    if (!P || P.members.length < 2) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = '<b>👥 ปาร์ตี้</b>' + P.members.filter((m) => m.id !== g.id).map((m) => { const r = g.ents.remotes.get(m.id), hp = r ? Math.max(0, Math.min(100, r.hp ?? 100)) : 0, d = r ? Math.round(r.pos.distanceTo(g.player.pos) * 50) : null; return `<div class="pm"><span>${esc(m.name)}</span><small>${d === null ? 'ไกล' : d >= 1000 ? (d / 1000).toFixed(1) + 'กม.' : d + 'ม.'}</small></div><div class="hpb"><i style="width:${hp}%"></i></div>`; }).join('');
+  }
   petsHTML() {
     const g = this.g;
     const gearInv = Object.keys(g.inv).filter((k) => ITEMS[k].petGear && g.inv[k] > 0);
@@ -593,7 +655,7 @@ export class UI {
     return `<button data-back="1">← กลับ</button><h3>${other.sex === 'f' ? '👩' : other.sex === 'x' ? '🧑' : '👨'} ${esc(other.name)} <span class="chip" style="background:${L.color}">${L.name}</span></h3>
       <p><small>${npc ? esc(e.def.bio) + ` · ${JOBS[e.def.job]?.icon || ''} อาชีพ${JOBS[e.def.job]?.name || ''} · ชอบ: ${ITEMS[e.def.likes].icon}?` : 'ผู้เล่นออนไลน์'}</small></p>
       <div class="pbar big"><i style="width:${pct}%;background:${L.color}"></i></div><small>${Math.floor(r.pts)} แต้ม ${next ? `→ ${next.name} ที่ ${next.min}` : ''}</small>
-      <div class="acts">${acts}${npc ? '' : this.friendBtn(e.id) + `<button data-treq="${esc(e.id)}">🔄 แลกของ</button>`}</div><h4>🎁 ให้ของขวัญ</h4><div class="gifts">${gifts || '<span class="hint">ไม่มีของ</span>'}</div>
+      <div class="acts">${acts}${npc ? '' : this.friendBtn(e.id) + `<button data-treq="${esc(e.id)}">🔄 แลกของ</button><button data-pinv="${esc(e.id)}">👥 ชวนเข้าปาร์ตี้</button><button data-pmto="${esc(other.name)}">🤫 กระซิบ</button>`}</div><h4>🎁 ให้ของขวัญ</h4><div class="gifts">${gifts || '<span class="hint">ไม่มีของ</span>'}</div>
       ${npc && SHOPS[e.def.job] ? this.shopHTML(e.def, r) : ''}
       <p class="hint">ปุ่มสีจาง = ยังทำไม่ได้ (ชี้เมาส์เพื่อดูเหตุผล) · การกระทำสำคัญต้องได้รับความยินยอมจากอีกฝ่าย</p>`;
   }
@@ -605,8 +667,9 @@ export class UI {
     if (d.close) return this.closeAll();
     if (d.tab) { this.person = null; this.tab = d.tab; return this.refreshPanels(); }
     if (d.back) { this.person = null; return this.refreshPanels(); }
-    if (d.dropmode) { this.dropMode = !this.dropMode; return this.refreshPanels(); }
-    if (d.item) { if (this.dropMode) g.dropItem(d.item, g.inv[d.item]); else g.useItem(d.item); return this.refreshPanels(); }
+    if (d.dropmode) { this.dropMode = !this.dropMode; this.salvMode = false; return this.refreshPanels(); }
+    if (d.salvmode) { this.salvMode = !this.salvMode; this.dropMode = false; return this.refreshPanels(); }
+    if (d.item) { if (this.dropMode) g.dropItem(d.item, g.inv[d.item]); else if (this.salvMode) g.auth.do('salvage', { k: d.item }); else g.useItem(d.item); return this.refreshPanels(); }
     if (d.hold !== undefined) { g.holdItem(d.hold || null); return this.refreshPanels(); }
     if (d.swap) { g.setLefty(!g.lefty); return this.refreshPanels(); }
     if (d.icat) { this.icat = d.icat; return this.refreshPanels(); }
@@ -637,6 +700,10 @@ export class UI {
     if (d.statup) { g.auth.do('statup', { job: d.statup }); return this.refreshPanels(); }
     if (d.petsup) { g.callPetsUp(); return; }
     if (d.treq) { g.net.send({ t: 'trade', a: 'req', to: d.treq }); return; }
+    if (d.pinv) { if (!g.net.online) return this.toast('ปาร์ตี้ใช้ได้เมื่อเล่นออนไลน์', 'warn'); g.net.send({ t: 'party', a: 'invite', to: d.pinv }); return; }
+    if (d.pkick) { g.net.send({ t: 'party', a: 'kick', to: d.pkick }); return; }
+    if (d.pleave) { g.net.send({ t: 'party', a: 'leave' }); return; }
+    if (d.pmto) { g.chatCh = 'pm'; g.chatTo = d.pmto; $('#chat-ch').textContent = `🤫 ${d.pmto}`; this.closeAll(); this.chatting = true; const i = $('#chat-input'); i.classList.add('show'); i.focus(); return; }
     if (d.tadd || d.toff) { const o = { ...(g.tradeSt?.mine || {}) }; if (d.tadd) o[d.tadd] = (o[d.tadd] || 0) + 1; else if (--o[d.toff] <= 0) delete o[d.toff]; g.net.send({ t: 'trade', a: 'offer', items: o }); return; }
     if (d.tok) { g.net.send({ t: 'trade', a: 'ok' }); return; }
     if (d.tcancel) { g.net.send({ t: 'trade', a: 'cancel' }); return; }

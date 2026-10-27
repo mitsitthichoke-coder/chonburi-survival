@@ -244,10 +244,10 @@ const A = {
     // ก้อนหินใหญ่: ต้องใช้ค้อนหิน (หรือเครื่องมือที่ทุบหินได้)
     if (R.type === 'rock' && !(ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool?.mine)) {
       const t = (ch.t ||= {}), quiet = env.now() - (t.rockWarn || 0) < 4000; t.rockWarn = env.now();
-      return { err: '🪨 ก้อนหินใหญ่ต้องถือค้อนหินพื้นฐาน (ไม้ 2 + หิน 3 + เส้นใย 2) — ก้อนกรวดเล็ก ๆ เก็บด้วยมือได้', silent: quiet };
+      return { err: '🪨 ก้อนหินใหญ่ต้องถือค้อนหิน หรือ ⛏️ อีเต้อ (ขุดไวกว่า: ไม้ 2 + หิน 4 + เส้นใย 2) — ก้อนกรวดเล็ก ๆ เก็บด้วยมือได้', silent: quiet };
     }
     const tool = !p.hand && ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool;
-    const power = (tool ? tool.gather * (hasPerk(ch, 'engineer', 1) ? 1.3 : 1) : (R.type === 'rock' ? 0.5 : 1) + wearStats(ch.wear).gather);
+    const power = (tool ? tool.gather * (hasPerk(ch, 'engineer', 1) ? 1.3 : 1) * (R.type === 'rock' && tool.rock ? tool.rock : 1) : (R.type === 'rock' ? 0.5 : 1) + wearStats(ch.wear).gather);
     const hp = (env.resHp(p.id) ?? T.hp) - power;
     if (hp > 0) { env.setResHp(p.id, hp); return { res: { id: p.id, hp } }; }
     env.setResHp(p.id, null);
@@ -256,7 +256,8 @@ const A = {
       const q = Math.floor((a + env.rand() * (b - a + 1)) * (env.rand() < bonus - 1 ? 2 : 1));
       if (q > 0) { const kk = !tool && RAW[k] ? RAW[k] : k; give[kk] = (give[kk] || 0) + q; }
     }
-    if (R.type === 'rock' && env.rand() < 0.15) give.scrap = (give.scrap || 0) + 1;
+    if (R.type === 'rock' && env.rand() < (tool?.rock >= 2.5 ? 0.35 : 0.15)) give.scrap = (give.scrap || 0) + 1;
+    if (R.type === 'rock' && tool?.rock >= 2.5) give.stone = (give.stone || 0) + 1; // อีเต้อเหล็กได้หินเพิ่ม
     if (R.type === 'grass' && env.rand() < 0.12) give.seeds_veg = (give.seeds_veg || 0) + 1;
     return { give, xp: { gathering: R.type === 'tree' || R.type === 'rock' || R.type === 'orange_tree' || R.type === 'palm' ? 6 : 2 }, res: { id: p.id, until: env.now() + T.respawn * 60000 }, raw: !tool && T.drops.some(([k]) => RAW[k]) };
   },

@@ -13,7 +13,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 // หมวดหมู่ไอเท็ม (ใช้กรองกระเป๋าและสูตรประดิษฐ์)
 const CATS = [['all', '📦 ทั้งหมด'], ['surv', '🏕️ อุปกรณ์ดำรงชีพ'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี/อุปกรณ์'], ['pet', '🐾 สัตว์เลี้ยง'], ['farm', '🌱 เมล็ด/ดอกไม้'], ['quest', '📜 ภารกิจ']];
 // อุปกรณ์ดำรงชีพ: เครื่องมือหาอยู่หากิน ก่อไฟ ที่พัก ภาชนะ (ไม่ใช่อาวุธต่อสู้หลัก)
-const SURVIVAL = new Set(['stone_axe', 'steel_axe', 'stone_hammer', 'wood_hammer', 'hammer', 'hoe', 'sickle', 'rod', 'rod_pro', 'net', 'watering_can', 'torch', 'bottle', 'campfire', 'shelter', 'watchtower', 'cage', 'flower_pot', 'raft']);
+const SURVIVAL = new Set(['pickaxe', 'iron_pickaxe', 'stone_axe', 'steel_axe', 'stone_hammer', 'wood_hammer', 'hammer', 'hoe', 'sickle', 'rod', 'rod_pro', 'net', 'watering_can', 'torch', 'bottle', 'campfire', 'shelter', 'watchtower', 'cage', 'flower_pot', 'raft']);
 const catOf = (k) => { const it = ITEMS[k]; return SURVIVAL.has(String(k).split('~')[0]) ? 'surv' : k.startsWith('seeds_') || it.flower ? 'farm' : it.coin ? 'mat' : it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
 const pct = (v) => Math.round(v * 100);
 // สเตตัสของไอเท็ม (อาวุธ เสื้อผ้า อาหาร ยา อุปกรณ์สัตว์)
@@ -21,7 +21,7 @@ export function statText(k) {
   const it = ITEMS[k]; if (!it) return '';
   const t = it.tool, w = it.wear, f = it.food, m = it.med, p = it.petGear;
   return [
-    it.ammo && `🏹+${it.ammo.dmg} ดาเมจ (ระดับ ${it.ammo.tier})`, it.ammo?.burn && '🔥ติดไฟ', t && t.dmg && `⚔️${t.dmg}`, t && t.range && `📏${t.range}`, t && t.gather && `🪓×${t.gather}`,
+    it.ammo && `🏹+${it.ammo.dmg} ดาเมจ (ระดับ ${it.ammo.tier})`, it.ammo?.burn && '🔥ติดไฟ', t && t.dmg && `⚔️${t.dmg}`, t && t.range && `📏${t.range}`, t && t.gather && `🪓×${t.gather}`, t && t.rock && `⛏️หิน×${t.rock}`,
     w && w.def && `🛡️-${pct(w.def)}%ดาเมจ`, w && w.block && `🔰กัน${pct(w.block)}%`, w && w.bite && `🦠-${pct(w.bite)}%`, w && w.spd && `${w.spd > 0 ? '💨+' : '🐢'}${pct(w.spd)}%`,
     w && w.stam && `⚡+${pct(w.stam)}%`, w && w.gather && `✊+${w.gather}`, w && w.carry && `🎒+${w.carry}ช่อง`,
     f && f.hunger && `🍗+${f.hunger}`, f && f.thirst && `💧+${f.thirst}`, f && f.hp && `❤️+${f.hp}`, f && f.infection && `🦠${f.infection}`, f && f.sick && `⚠️ท้องเสีย ${pct(f.sick)}%`, f && f.stress && `😌${f.stress} เครียด`, f && f.stamina && `⚡+${f.stamina}`, it.instrument && !it.chant && !it.device && '🎶 ลดความเครียดรอบตัว', it.chant && '🙏 สวดมนต์: ลดตื่นตระหนก + กำลังใจ', it.device?.loot && `📍 เห็นกล่องเสบียงบนแผนที่ ${it.device.loot}`, it.device?.zombie && `🧟 เห็นผู้ติดเชื้อบนแผนที่ ${it.device.zombie}`, it.device?.scout && '🛸 ส่องรอบตัว 60 วิ', it.morale && '💪 กำลังใจ 5 นาที', m && m.immune && `🛡️ภูมิคุ้มกัน ${m.immune / 60} นาที`,
@@ -429,7 +429,7 @@ export class UI {
   // หน้าอุปกรณ์: ลากของจากกระเป๋าไปใส่มือ/ตัว · ลากมือหนึ่งไปอีกมือ = สลับมือ · ลากออกไปที่กระเป๋า = เก็บ
   equipHTML() {
     const g = this.g, ws = wearStats(g.wear);
-    const tdesc = (t) => [t.dmg && `⚔️ ${t.dmg}`, t.range && `📏 ${t.range}`, t.gather && `🪓 ×${t.gather}`, t.fish && '🐟 แทงปลา', t.rod && '🎣 ตกปลา'].filter(Boolean).join(' ');
+    const tdesc = (t) => [t.dmg && `⚔️ ${t.dmg}`, t.range && `📏 ${t.range}`, t.gather && `🪓 ×${t.gather}`, t.fish && '🐟 แทงปลา', t.rod && '🎣 ตกปลา', t.rock && `⛏️ ขุดหิน ×${t.rock}`].filter(Boolean).join(' ');
     const T = g.equipped && ITEMS[g.equipped], S = g.wear.off && ITEMS[g.wear.off];
     const toolSide = g.lefty ? 'L' : 'R';
     const dom = g.profile.hand === 'l' ? 'L' : 'R';

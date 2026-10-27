@@ -43,7 +43,7 @@ export class World {
     }
     for (const t of TOWNS) {
       const dx = x - t.x, dz = z - t.z;
-      if (dx * dx + dz * dz < t.r * t.r * 0.8 && h > 0.6) { out.lerp(new THREE.Color(0.45, 0.43, 0.4), 0.7); break; }
+      if (dx * dx + dz * dz < t.r * t.r * 0.8 && h > 0.6) { out.lerp(new THREE.Color(0.33, 0.31, 0.27), 0.7); break; }
     }
     return out;
   }
@@ -81,26 +81,30 @@ export class World {
     }
   }
 
-  ribbon(points, width, color) {
+  ribbon(points, width, color, emissive = '#000000', lift = 0.18) {
     const verts = [], idx = [];
     for (let i = 0; i < points.length; i++) {
       const [x, z] = points[i];
       const [nx, nz] = points[Math.min(i + 1, points.length - 1)], [px, pz] = points[Math.max(i - 1, 0)];
       let dx = nx - px, dz = nz - pz; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
       const ox = -dz * width / 2, oz = dx * width / 2;
-      verts.push(x + ox, heightAt(x + ox, z + oz) + 0.18, z + oz, x - ox, heightAt(x - ox, z - oz) + 0.18, z - oz);
+      verts.push(x + ox, heightAt(x + ox, z + oz) + lift, z + oz, x - ox, heightAt(x - ox, z - oz) + lift, z - oz);
       if (i > 0) { const b = i * 2; idx.push(b - 2, b - 1, b, b - 1, b + 1, b); }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, emissive, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
     m.receiveShadow = true; this.scene.add(m);
   }
 
   buildRoads() {
     this.layout = getLayout();
     this.roadPts = this.layout.roadPts;
-    for (const r of this.layout.roads) this.ribbon(r.pts, r.width, r.main ? '#3a3a3c' : '#444446');
+    // ถนนสีเทาอ่อน + เรืองแสงเล็กน้อย ให้เห็นชัดตอนกลางคืน · ถนนสายหลักมีเส้นกลางถนนสีเหลือง
+    for (const r of this.layout.roads) {
+      this.ribbon(r.pts, r.width, r.main ? '#8d9196' : '#9ea2a6', r.main ? '#23262a' : '#272a2e');
+      if (r.main) this.ribbon(r.pts, 0.3, '#e9c46a', '#5c4a14', 0.2);
+    }
   }
 
   buildTowns() {

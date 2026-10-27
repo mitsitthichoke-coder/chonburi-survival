@@ -296,7 +296,7 @@ export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
 }
 
 // ท่าโจมตี/ใช้งานตามชนิดอุปกรณ์
-const ATK_STYLE = { club: 'smash', nail_bat: 'smash', sickle: 'slash', iron_sword: 'slash', slingshot: 'shoot', bow: 'shoot', crossbow: 'shoot', spear: 'thrust', steel_spear: 'thrust', bone_spear: 'thrust', machete: 'slash', stone_axe: 'slash', steel_axe: 'slash', torch: 'slash',
+const ATK_STYLE = { pickaxe: 'smash', iron_pickaxe: 'smash', club: 'smash', nail_bat: 'smash', sickle: 'slash', iron_sword: 'slash', slingshot: 'shoot', bow: 'shoot', crossbow: 'shoot', spear: 'thrust', steel_spear: 'thrust', bone_spear: 'thrust', machete: 'slash', stone_axe: 'slash', steel_axe: 'slash', torch: 'slash',
   hammer: 'smash', wood_hammer: 'smash', stone_hammer: 'smash', king_hammer: 'smash', rod: 'flick', rod_pro: 'flick', net: 'throw', watering_can: 'pour' };
 const TOOL_MESH = {
   stone_axe: () => { const g = new THREE.Group(); g.add(box(0.06, 0.7, 0.06, '#7f5539', 0, -0.2, 0.1)); g.add(box(0.08, 0.18, 0.22, '#8a8a8a', 0, -0.5, 0.2)); g.rotation.x = Math.PI / 2; return g; },
@@ -311,6 +311,8 @@ const TOOL_MESH = {
   rod: () => rodMesh('#c9a227'), rod_pro: () => rodMesh('#1d3557'),
   net: () => { const g = new THREE.Group(); g.add(box(0.04, 0.6, 0.04, '#9c6644', 0, 0, 0)); const n = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#e9d8a6', wireframe: true })); n.position.y = 0.4; n.rotation.x = Math.PI; g.add(n); g.rotation.x = Math.PI / 2; return g; },
   // คบเพลิง: ไม้ + ผ้าพัน + เปลวไฟ (แสงจริงตั้งใน setHeldTool)
+  pickaxe: () => pickMesh('#8d6e4a', '#8a8a85'),
+  iron_pickaxe: () => pickMesh('#5c3d2e', '#adb5bd'),
   torch: () => {
     const g = new THREE.Group(); g.add(box(0.06, 0.6, 0.06, '#7f5539', 0, 0.1, 0)); g.add(box(0.1, 0.12, 0.1, '#6c584c', 0, 0.42, 0));
     const fl = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 6), new THREE.MeshBasicMaterial({ color: '#ffb703' })); fl.position.y = 0.6; g.add(fl);
@@ -326,6 +328,7 @@ const TOOL_MESH = {
   watering_can: () => { const g = new THREE.Group(); g.add(box(0.22, 0.22, 0.3, '#2a9d8f', 0, -0.05, 0.12)); const sp = box(0.05, 0.05, 0.32, '#2a9d8f', 0, 0.02, 0.38); sp.rotation.x = -0.5; g.add(sp); g.add(box(0.04, 0.16, 0.04, '#264653', 0, 0.12, 0)); return g; },
   guitar: () => { const g = new THREE.Group(); g.add(box(0.28, 0.34, 0.08, '#bc6c25', 0, -0.1, 0)); g.add(box(0.06, 0.5, 0.04, '#6f4518', 0, 0.3, 0)); return g; },
 };
+function pickMesh(handle, head) { const g = new THREE.Group(); g.add(box(0.05, 0.75, 0.05, handle, 0, 0.1, 0)); const h = box(0.7, 0.08, 0.08, head, 0, 0.46, 0); g.add(h); for (const sx of [-1, 1]) { const tip = box(0.14, 0.06, 0.06, head, sx * 0.4, 0.42, 0); tip.rotation.z = sx * -0.5; g.add(tip); } g.rotation.x = Math.PI / 2; return g; }
 function clubMesh(c, nails) { const g = new THREE.Group(); g.add(box(0.06, 0.4, 0.06, c, 0, -0.05, 0)); g.add(box(0.12, 0.5, 0.12, c, 0, 0.38, 0)); if (nails) for (let i = 0; i < 6; i++) g.add(box(0.16, 0.02, 0.02, '#adb5bd', 0, 0.2 + i * 0.07, 0)); g.rotation.x = Math.PI / 2; return g; }
 function hammerMesh(handle, head, size) { const g = new THREE.Group(); g.add(box(0.05, 0.55, 0.05, handle, 0, -0.1, 0.08)); g.add(box(size * 0.8, size, size * 1.6, head, 0, -0.42, 0.14)); g.rotation.x = Math.PI / 2; return g; }
 function rodMesh(c) { const g = new THREE.Group(); g.add(box(0.035, 1.6, 0.035, c, 0, 0.6, 0)); g.add(box(0.01, 0.6, 0.01, '#eeeeee', 0, 1.1, 0.25)); g.rotation.x = Math.PI / 2.6; return g; }

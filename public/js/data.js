@@ -173,6 +173,9 @@ const RAW_ITEMS = {
   stir_veg: { name: 'ผัดผักบุ้งไฟแดง', icon: '🥗', value: 10, food: { hunger: 32, thirst: 5, hp: 8 } },
   egg: { name: 'ไข่ไก่', icon: '🥚', value: 3, food: { hunger: 8, sick: 0.25 } },
   // ---------- ฟาร์ม: เมล็ดพันธุ์ ผลผลิต สัตว์ ผึ้ง ดอกไม้ ----------
+  // อีเต้อ: ขุดก้อนหินใหญ่ได้ไวกว่าค้อน (rock = ตัวคูณพลังกับก้อนหิน)
+  pickaxe: { name: 'อีเต้อหิน', icon: '⛏️', value: 8, tool: { gather: 1.5, dmg: 13, range: 2.4, mine: true, rock: 2 }, desc: 'ขุดก้อนหินใหญ่ได้ไว (2 ครั้งแตก)' },
+  iron_pickaxe: { name: 'อีเต้อเหล็ก', icon: '⛏️', value: 22, tool: { gather: 2, dmg: 20, range: 2.5, mine: true, rock: 2.6 }, desc: 'ขุดหินใหญ่ทีเดียวแตก ได้หินเพิ่ม และเจอเศษเหล็กบ่อยขึ้น' },
   hoe: { name: 'จอบ', icon: '⛏️', value: 5, tool: { gather: 0.6, dmg: 6, range: 2.2 }, desc: 'พรวนดินแปลงผักก่อนปลูก (เก็บไว้ในกระเป๋าก็ใช้ได้)' },
   flower_pot: { name: 'กระถางดอกไม้', icon: '🪴', value: 5, place: 'pot', desc: 'วางแล้วปลูกดอกไม้สวยงาม เก็บดอกไปให้เพื่อนได้' },
   manure: { name: 'ปุ๋ยคอก', icon: '💩', value: 2, desc: 'ใส่แปลงผักให้โตเร็วขึ้น 30%' },
@@ -312,6 +315,8 @@ export const RECIPES = [
   { out: 'bottle', need: { wood: 2 }, skill: 'crafting', lvl: 1, label: 'กระบอกไม้ไผ่ (ขวด)' },
   { out: 'campfire', need: { wood: 5, stone: 3 }, skill: 'crafting', lvl: 1 },
   // ฟาร์ม
+  { out: 'pickaxe', need: { wood: 2, stone: 4, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'อีเต้อหิน (ขุดหินใหญ่ไว ×2)' },
+  { out: 'iron_pickaxe', need: { scrap: 5, wood: 2, hide: 1 }, skill: 'crafting', lvl: 3, station: 'fire', label: 'อีเต้อเหล็ก (ขุดหินใหญ่ทีเดียวแตก · ตีที่กองไฟ)' },
   { out: 'hoe', need: { wood: 2, stone: 2 }, skill: 'farming', lvl: 1, label: 'จอบ (พรวนดินแปลงผัก)' },
   { out: 'flower_pot', need: { stone: 3, fiber: 1 }, skill: 'crafting', lvl: 1, label: 'กระถางดอกไม้ (ปลูกดอกไม้สวยงาม)' },
   { out: 'cooked_rice', need: { rice: 2, clean_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
@@ -664,7 +669,7 @@ export const SHOPS = {
   it: [['respec_potion', 250, 1], ['phone', 40, 1], ['zradar', 60, 1], ['drone', 80, 1], ['scrap', 5, 6]],
   farmer: [['seeds_corn', 3, 8], ['seeds_veg', 3, 8], ['seeds_tomato', 3, 6], ['seeds_chili', 3, 6], ['seeds_potato', 4, 6], ['seeds_cabbage', 3, 6], ['seeds_carrot', 3, 6], ['seeds_eggplant', 3, 6], ['seeds_pumpkin', 4, 4], ['seeds_watermelon', 4, 4], ['seeds_rice', 3, 6], ['seeds_sunflower', 4, 4], ['seeds_marigold', 4, 4], ['seeds_rose', 8, 2], ['seeds_orchid', 10, 2], ['seeds_jasmine', 6, 3], ['seeds_tulip', 10, 2], ['hoe', 6, 2], ['flower_pot', 6, 3], ['egg', 4, 4], ['duck_egg', 5, 3], ['duck_feather', 3, 6], ['honey', 12, 2], ['corn', 4, 6], ['veg', 4, 6]],
   athlete: [['energy_drink', 10, 3], ['protein_meal', 14, 2], ['sneakers', 14, 1], ['socks_wool', 8, 2]],
-  engineer: [['stone_axe', 10, 2], ['stone_hammer', 8, 2], ['hammer', 10, 2], ['steel_axe', 36, 1], ['torch', 5, 4]],
+  engineer: [['pickaxe', 10, 2], ['iron_pickaxe', 30, 1], ['stone_axe', 10, 2], ['stone_hammer', 8, 2], ['hammer', 10, 2], ['steel_axe', 36, 1], ['torch', 5, 4]],
   builder: [['wood', 2, 20], ['stone', 2, 20], ['wood_hammer', 5, 2], ['hammer', 10, 1]],
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
   electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],

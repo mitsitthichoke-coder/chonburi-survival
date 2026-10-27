@@ -12,8 +12,6 @@ services:
         value: /var/data
       - key: MAX_PLAYERS
         value: "40"
-      - key: ADMIN_USERS
-        sync: false          # ใส่ชื่อผู้ใช้แอดมิน คั่นด้วย , เช่น mitsit
     disk:
       name: game-data
       mountPath: /var/data

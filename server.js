@@ -104,7 +104,9 @@ async function api(req, res, route) {
     const key = username.toLowerCase();
     if (U.byName[key]) return json(409, { error: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว' });
     const id = 'u' + crypto.randomBytes(8).toString('hex'), salt = crypto.randomBytes(16).toString('hex');
-    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null };
+    // ไม่ได้ตั้ง ADMIN_USERS: คนแรกที่สมัครเป็นแอดมินอัตโนมัติ
+    const first = !ADMINS.size && !Object.values(U.users).some((x) => x.admin);
+    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null, admin: first || undefined };
     U.byName[key] = id; U.byEmail[email] = id; store.saveUsers();
     return json(200, { token: newSession(id), user: publicUser(U.users[id]) });
   }

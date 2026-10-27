@@ -433,16 +433,17 @@ export class UI {
     const dom = g.profile.hand === 'l' ? 'L' : 'R';
     const hand = (side) => {
       const isTool = side === toolSide, it = isTool ? T : S;
-      const stat = !it ? (isTool ? '✊ มือเปล่า: ต่อยได้ · เก็บของ' : 'ว่าง — ลากโล่มาใส่') : isTool ? tdesc(it.tool) : `🛡️ กัน ${Math.round(it.wear.block * 100)}% · ลดดาเมจ ${Math.round(it.wear.def * 100)}%`;
+      const stat = !it ? (isTool ? '✊ มือเปล่า: ต่อยได้ · เก็บของ' : 'ว่าง — ลากโล่หรือคบเพลิงมาใส่') : isTool ? tdesc(it.tool) : it.wear.light ? '🔥 ส่องสว่างรอบตัว (มือรอง)' : `🛡️ กัน ${Math.round((it.wear.block || 0) * 100)}% · ลดดาเมจ ${Math.round((it.wear.def || 0) * 100)}%`;
       const un = it ? (isTool ? '<button data-hold="">เก็บ</button>' : '<button data-unwear="off">ถอด</button>') : '';
-      return `<div class="hand" data-drop="${side}"><h4>${side === 'R' ? '🫱 มือขวา' : '🫲 มือซ้าย'} <small>${isTool ? 'อาวุธ/เครื่องมือ' : 'โล่'}${side === dom ? ' · ⭐ ถนัด' : ''}</small></h4>
+      return `<div class="hand" data-drop="${side}"><h4>${side === 'R' ? '🫱 มือขวา' : '🫲 มือซ้าย'} <small>${isTool ? 'อาวุธ/เครื่องมือ' : 'โล่/คบเพลิง'}${side === dom ? ' · ⭐ ถนัด' : ''}</small></h4>
         <div class="hbig ${it ? 'dragme' : ''}" ${it ? `data-drag="hand:${side}" title="ลากไปอีกมือเพื่อสลับ · ลากลงกระเป๋าเพื่อเก็บ"` : ''}>${it ? it.icon : '✋'}</div><b>${it ? esc(it.name) : 'ว่าง'}</b><small>${stat}</small>${un}</div>`;
     };
     const rank = (k) => (ITEMS[k].tool ? 0 : ITEMS[k].wear?.slot === 'off' ? 1 : 2);
     const bag = Object.keys(g.inv).filter((k) => g.inv[k] > 0 && (ITEMS[k].tool || ITEMS[k].wear) && k !== g.equipped)
       .sort((a, b) => rank(a) - rank(b))
       .map((k) => `<div class="dchip dragme" data-drag="item:${k}" data-item="${k}" title="${esc(ITEMS[k].name)} — ลากไปใส่มือ/ตัว หรือคลิก">${ITEMS[k].icon}<small>${esc(ITEMS[k].name)}</small></div>`).join('');
-    return `<div class="hands">${hand('R')}<button class="swapbtn" data-swap="1" title="สลับมือ">⇄</button>${hand('L')}</div>
+    // มือซ้ายอยู่ฝั่งซ้ายของจอ มือขวาอยู่ฝั่งขวา (ตรงกับตัวละครเมื่อมองจากด้านหลัง)
+    return `<div class="hands">${hand('L')}<button class="swapbtn" data-swap="1" title="สลับมือ">⇄</button>${hand('R')}</div>
     <h4>🎒 ของที่ถือ/สวมได้ <small class="hint">ลากไปวางที่มือหรือช่องเครื่องแต่งกาย · คลิก = ใช้ทันที</small></h4>
     <div class="dbag" data-drop="bag">${bag || '<small class="hint">ไม่มีอาวุธ เครื่องมือ โล่ หรือเสื้อผ้าในกระเป๋า</small>'}</div>
     <p class="hint">⚔️ ดาเมจ ×${g.dmgMul().toFixed(2)} · 🛡️ โอกาสกันการโจมตี ${Math.round(ws.block * 100)}% (กันได้ = เจ็บแค่ 25% ไม่เลือดออก ไม่ติดเชื้อ)${g.lefty ? ' · ↔️ ถนัดซ้าย (สลับมืออยู่)' : ''}</p>

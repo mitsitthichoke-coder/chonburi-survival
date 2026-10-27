@@ -572,8 +572,8 @@ export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] && !JOBS[ch.prof
 export const isFreelancer = (ch) => ch?.profile?.job === 'freelancer';
 // 😊 ความสุข 0–100: ยิ่งสุขยิ่งมีภูมิคุ้มกัน (ติดเชื้อยาก/ลุกลามช้า) และกระฉับกระเฉง (สตามิน่ามากขึ้น ฟื้นเร็ว)
 // เพิ่มเองทุก 1 ชั่วโมงที่เล่น (ฟรีแลนซ์ทุก 15 นาที) เฉพาะตอนร่างกายปกติ — ถ้าเจ็บ/ป่วย/ติดเชื้อ/หิว/เครียด จะหยุดนับ
-// กระสุนที่ใช้กับอาวุธ (ระดับสูงสุดก่อน) · pref = ชนิดที่ผู้เล่นเลือกไว้
-export const AMMO_OF = (g) => Object.keys(RAW_ITEMS).filter((k) => RAW_ITEMS[k].ammo?.g === g || (g === 'pebble' && k === 'pebble')).sort((a, b) => (RAW_ITEMS[b].ammo?.tier || 1) - (RAW_ITEMS[a].ammo?.tier || 1));
+// กระสุนที่ใช้กับอาวุธ (ดาเมจสูงสุดก่อน) · pref = ชนิดที่ผู้เล่นเลือกไว้
+export const AMMO_OF = (g) => Object.keys(RAW_ITEMS).filter((k) => RAW_ITEMS[k].ammo?.g === g || (g === 'pebble' && k === 'pebble')).sort((a, b) => (RAW_ITEMS[b].ammo?.dmg || 0) - (RAW_ITEMS[a].ammo?.dmg || 0)); // ดาเมจสูงสุดก่อน
 export const ammoDmg = (k) => RAW_ITEMS[k]?.ammo?.dmg || 0;
 export function pickAmmo(inv, group, pref) {
   if (pref && (inv[pref] || 0) > 0 && AMMO_OF(group).includes(pref)) return pref;

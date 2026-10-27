@@ -45,7 +45,9 @@ setInterval(() => { const now = Date.now(); core.tick(Math.min(0.25, (now - last
 const U = store.users;
 const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
 const tokenHash = (t) => crypto.createHash('sha256').update(t).digest('hex');
-const isAdmin = (u) => !!u && (u.admin || ADMINS.has(u.username.toLowerCase()));
+// เจ้าของเซิร์ฟเวอร์ = คนแรกที่สมัคร หรือชื่อใน ADMIN_USERS · มีสิทธิ์ตั้ง/ถอดแอดมิน
+const isOwner = (u) => !!u && (u.owner || ADMINS.has(u.username.toLowerCase()));
+const isAdmin = (u) => !!u && (u.admin || isOwner(u));
 const cleanJob = (j) => (JOBS[j] ? j : 'engineer');
 const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email ? u.email.replace(/^(.).*(@.*)$/, '$1***$2') : null, char: u.char || null, admin: isAdmin(u) });
 U.byEmail ||= {}; U.byChar ||= {};
@@ -106,7 +108,7 @@ async function api(req, res, route) {
     const id = 'u' + crypto.randomBytes(8).toString('hex'), salt = crypto.randomBytes(16).toString('hex');
     // ไม่ได้ตั้ง ADMIN_USERS: คนแรกที่สมัครเป็นแอดมินอัตโนมัติ
     const first = !ADMINS.size && !Object.values(U.users).some((x) => x.admin);
-    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null, admin: first || undefined };
+    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null, admin: first || undefined, owner: first || undefined };
     U.byName[key] = id; U.byEmail[email] = id; store.saveUsers();
     return json(200, { token: newSession(id), user: publicUser(U.users[id]) });
   }
@@ -149,16 +151,31 @@ core.onCommand = (id, text) => {
   const say = (t) => core.send(id, { t: 'chat', from: 'system', name: '🛠️', text: t });
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? 'คำสั่ง: /players · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players');
+  if (cmd === 'help') return say(isAdmin(u) ? (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players');
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
+  const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
+  if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
+  if ((cmd === 'admin' || cmd === 'unadmin') && !isOwner(u)) return say('ตั้ง/ถอดแอดมินได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
   const t = cmd === 'say' ? null : find(arg);
   if (cmd !== 'say' && !t) return say('ไม่พบผู้เล่นชื่อนี้');
+  if (['kick', 'ban', 'mute'].includes(cmd) && isOwner(t) && !isOwner(u)) return say('ทำกับเจ้าของเซิร์ฟเวอร์ไม่ได้');
   switch (cmd) {
     case 'kick': sockets.get(t.id)?.close(4000, 'kicked'); return say(`เตะ ${t.username} ออกแล้ว`);
     case 'ban': t.banned = true; store.saveUsers(); for (const [k, s] of Object.entries(store.sessions)) if (s.uid === t.id) delete store.sessions[k]; store.saveSessions(); sockets.get(t.id)?.close(4001, 'banned'); return say(`แบน ${t.username} แล้ว`);
     case 'unban': t.banned = false; store.saveUsers(); return say(`ปลดแบน ${t.username} แล้ว`);
     case 'mute': { const c = core.chars.get(t.id); if (c) c.muted = true; t.muted = true; store.saveUsers(); return say(`ปิดแชท ${t.username} แล้ว`); }
     case 'unmute': { const c = core.chars.get(t.id); if (c) c.muted = false; t.muted = false; store.saveUsers(); return say(`เปิดแชท ${t.username} แล้ว`); }
+    case 'admin':
+      if (isAdmin(t)) return say(`${label(t)} เป็นแอดมินอยู่แล้ว`);
+      t.admin = true; store.saveUsers();
+      core.send(t.id, { t: 'chat', from: 'system', name: '👑', text: 'คุณได้รับสิทธิ์แอดมินแล้ว พิมพ์ /help เพื่อดูคำสั่ง' });
+      return say(`👑 ตั้ง ${label(t)} เป็นแอดมินแล้ว`);
+    case 'unadmin':
+      if (isOwner(t)) return say('ถอดเจ้าของเซิร์ฟเวอร์ไม่ได้');
+      if (!t.admin) return say(`${label(t)} ไม่ได้เป็นแอดมิน`);
+      t.admin = false; store.saveUsers();
+      core.send(t.id, { t: 'chat', from: 'system', name: '🛠️', text: 'สิทธิ์แอดมินของคุณถูกถอนแล้ว' });
+      return say(`ถอดสิทธิ์แอดมินของ ${label(t)} แล้ว`);
     case 'say': return core.broadcast({ t: 'chat', from: 'system', name: '📢 ประกาศ', text: cleanText(arg) });
   }
   return say('ไม่รู้จักคำสั่ง พิมพ์ /help');

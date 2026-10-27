@@ -1,10 +1,15 @@
 // เสียงทั้งหมดสังเคราะห์ด้วย Web Audio (ไม่มีไฟล์เสียง) — เสียงประกอบ + บรรยากาศ (ลม ฝน คลื่น กองไฟ จิ้งหรีด)
-const PREF = 'cbs_sound';
+const PREF = 'cbs_sound', VPREF = 'cbs_vol';
+// ช่องปรับระดับเสียงแยกตามประเภท (0–1) · ปรับได้จากปุ่ม 🔊 ในเกม
+export const VOL_CH = [['master', '🔊 เสียงทั้งหมด'], ['fx', '💥 เสียงประกอบ (ตี เก็บของ ประดิษฐ์)'], ['zombie', '🧟 เสียงผู้ติดเชื้อ'], ['music', '🎸 ดนตรี'], ['rain', '🌧️ เสียงฝน'], ['wind', '🌬️ เสียงลม'], ['waves', '🌊 เสียงคลื่น'], ['fire', '🔥 เสียงกองไฟ'], ['crickets', '🦗 เสียงจิ้งหรีดกลางคืน'], ['engine', '🏍️ เสียงเครื่องยนต์']];
+const ZOMBIE_SND = new Set(['groan', 'zdie']);
 
 export class Sfx {
   constructor() {
     this.ctx = null; this.muted = false; this.last = {};
     try { this.muted = localStorage.getItem(PREF) === 'off'; } catch { /* storage blocked */ }
+    this.vol = Object.fromEntries(VOL_CH.map(([k]) => [k, 1]));
+    try { Object.assign(this.vol, JSON.parse(localStorage.getItem(VPREF) || '{}')); } catch { /* ignore */ }
   }
 
   // ต้องเรียกจากการคลิกของผู้เล่น (เบราว์เซอร์อนุญาตเสียงหลังการโต้ตอบเท่านั้น)
@@ -12,7 +17,7 @@ export class Sfx {
     if (this.ctx) { this.ctx.resume?.(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC();
-    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.7; this.master.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.7 * this.vol.master; this.master.connect(c.destination);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.noiseBuf = buf;
@@ -20,7 +25,12 @@ export class Sfx {
   }
   setMuted(m) {
     this.muted = m; try { localStorage.setItem(PREF, m ? 'off' : 'on'); } catch { /* ignore */ }
-    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.7, this.ctx.currentTime, 0.05);
+    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.7 * this.vol.master, this.ctx.currentTime, 0.05);
+  }
+  setVol(k, v) {
+    this.vol[k] = Math.max(0, Math.min(1, +v || 0));
+    try { localStorage.setItem(VPREF, JSON.stringify(this.vol)); } catch { /* ignore */ }
+    if (k === 'master' && this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : 0.7 * this.vol.master, this.ctx.currentTime, 0.05);
   }
 
   out(pan = 0) {
@@ -51,6 +61,8 @@ export class Sfx {
     const now = performance.now();
     if (now - (this.last[name] || 0) < 60) return; // กันเสียงซ้อนรัว ๆ
     this.last[name] = now;
+    const ch = ZOMBIE_SND.has(name) ? this.vol.zombie : name === 'music' ? this.vol.music : 1;
+    vol *= this.vol.fx * ch; if (vol <= 0.001) return;
     const v = (x) => x * vol;
     switch (name) {
       case 'swing': this.noise({ dur: 0.14, vol: v(0.18), type: 'bandpass', f: 1200, f2: 300, q: 2, pan }); break;
@@ -93,7 +105,7 @@ export class Sfx {
     }
     const t = this.ctx.currentTime;
     this.eng.o.frequency.setTargetAtTime(45 + level * 110, t, 0.1);
-    this.eng.g.gain.setTargetAtTime(this.muted || level <= 0 ? 0 : 0.05 + level * 0.06, t, 0.15);
+    this.eng.g.gain.setTargetAtTime(this.muted || level <= 0 ? 0 : (0.05 + level * 0.06) * this.vol.engine, t, 0.15);
   }
 
   // ---------- บรรยากาศต่อเนื่อง ----------
@@ -117,13 +129,13 @@ export class Sfx {
   // เรียกทุกเฟรม: s = {night, rain, coast(0-1), fire(bool), swim}
   ambience(s) {
     if (!this.ctx || !this.amb) return;
-    const t = this.ctx.currentTime, set = (n, v) => this.amb[n].g.gain.setTargetAtTime(this.muted ? 0 : v, t, 0.5);
+    const t = this.ctx.currentTime, set = (n, v) => this.amb[n].g.gain.setTargetAtTime(this.muted ? 0 : v * (this.vol[n] ?? 1), t, 0.5);
     set('wind', 0.05 + (s.night ? 0.02 : 0) + Math.sin(t * 0.3) * 0.015);
     this.amb.wind.fl.frequency.setTargetAtTime(300 + Math.sin(t * 0.17) * 120, t, 0.5);
     set('rain', s.rain ? 0.22 : 0);
     set('waves', s.coast * (0.08 + 0.06 * Math.max(0, Math.sin(t * 0.55))));
     set('fire', s.fire ? 0.035 + Math.random() * 0.05 : 0);
     set('crickets', s.night && !s.rain ? 0.006 : 0);
-    if (s.fire && Math.random() < 0.08) this.noise({ dur: 0.02, vol: 0.12, type: 'highpass', f: 3000 });
+    if (s.fire && this.vol.fire > 0 && Math.random() < 0.08) this.noise({ dur: 0.02, vol: 0.12 * this.vol.fire, type: 'highpass', f: 3000 });
   }
 }

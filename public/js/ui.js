@@ -5,6 +5,7 @@ import { pieceInfo } from './homestead.js';
 import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
+import { VOL_CH } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -61,7 +62,17 @@ export class UI {
     $('#hand-btn').onclick = (ev) => { ev.stopPropagation(); this.g.swapHands(); };
     const mute = $('#mute-btn');
     const syncMute = () => { mute.textContent = this.g.sfx.muted ? '🔇' : '🔊'; mute.setAttribute('aria-label', this.g.sfx.muted ? 'เปิดเสียง' : 'ปิดเสียง'); };
-    mute.onclick = () => { this.g.sfx.unlock(); this.g.sfx.setMuted(!this.g.sfx.muted); syncMute(); };
+    // ปุ่ม 🔊: เปิดแผงปรับระดับเสียง (ฝน ลม คลื่น กองไฟ ผู้ติดเชื้อ ดนตรี ฯลฯ)
+    const sp = $('#sound-panel'), sfx = this.g.sfx;
+    const drawSound = () => { sp.innerHTML = `<div class="sp-head"><b>🔊 ปรับระดับเสียง</b><button data-sclose="1">✕</button></div>
+      <label class="sp-mute"><input type="checkbox" id="sp-mute" ${sfx.muted ? 'checked' : ''}> 🔇 ปิดเสียงทั้งหมด</label>
+      ${VOL_CH.map(([k, n]) => `<label class="sp-row"><span>${n}</span><input type="range" min="0" max="100" step="5" data-vol="${k}" value="${Math.round(sfx.vol[k] * 100)}"><em>${Math.round(sfx.vol[k] * 100)}%</em></label>`).join('')}
+      <p class="hint">ตั้งค่าจำไว้ในเครื่องนี้</p>`; };
+    mute.onclick = (ev) => { ev.stopPropagation(); sfx.unlock(); sp.hidden = !sp.hidden; if (!sp.hidden) drawSound(); };
+    sp.addEventListener('input', (ev) => { const k = ev.target.dataset.vol; if (k) { sfx.setVol(k, ev.target.value / 100); ev.target.nextElementSibling.textContent = ev.target.value + '%'; } });
+    sp.addEventListener('change', (ev) => { if (ev.target.id === 'sp-mute') { sfx.setMuted(ev.target.checked); syncMute(); } });
+    sp.addEventListener('click', (ev) => { ev.stopPropagation(); if (ev.target.dataset.sclose) sp.hidden = true; });
+    ['keydown', 'pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach((t) => sp.addEventListener(t, (ev) => ev.stopPropagation()));
     syncMute();
     $('#chat-input').addEventListener('blur', (e) => e.target.classList.remove('show'));
     this.mini = $('#minimap').getContext('2d');

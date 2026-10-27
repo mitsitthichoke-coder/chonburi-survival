@@ -238,6 +238,11 @@ const RAW_ITEMS = {
   live_duck: { name: 'เป็ดมีชีวิต (กรงหิ้ว)', icon: '🦆', value: 9, live: 'duckpen', desc: 'นำไปปล่อยที่เล้าเป็ด' },
   live_boar: { name: 'หมูป่ามีชีวิต (กรงหิ้ว)', icon: '🐗', value: 14, live: 'pigpen', desc: 'นำไปปล่อยที่คอกหมู' },
   // เงินตรา
+  // ⚒️ ตีบวก & ส่องออฟชั่น
+  plus_stone: { name: 'หินพลัส', icon: '🔹', value: 25, desc: 'ใช้ตีบวกอาวุธ/ชุด +1 ถึง +8 และอุปกรณ์สัตว์เลี้ยง · ดรอปจากมอนสเตอร์และกล่อง' },
+  super_stone: { name: 'หินซุปเปอร์', icon: '💠', value: 80, desc: 'ใช้ตีบวก +9 และ +10 · ผสมจากหินพลัส 3 ก้อน' },
+  magnifier: { name: 'แว่นขยายส่องออฟชั่น', icon: '🔍', value: 40, coinOnly: true, desc: 'ส่องอาวุธ/ชุดเพื่อเปิดออฟชั่นพิเศษ 1–3 อย่าง (ส่องใหม่ = สุ่มใหม่) · ซื้อในร้านเงินจิ' },
+  name_tag: { name: 'ป้ายเปลี่ยนชื่อสัตว์เลี้ยง', icon: '🏷️', value: 30, coinOnly: true, desc: 'ตั้งชื่อสัตว์เลี้ยงใหม่ได้ 1 ครั้ง · ซื้อในร้านเงินจิ' },
   respec_potion: { name: 'ยาล้างแต้มสเตตัส', icon: '🔄', value: 250, coinOnly: true, respec: true, desc: 'คืนแต้มสเตตัสสายอาชีพทั้งหมด ให้กระจายใหม่ได้ (ซื้อด้วยเงินจิเท่านั้น)' },
   jicoin: { name: 'เงินจิ (Ji-Coin)', icon: '🪙', value: 1, coin: true, desc: 'สกุลเงินของผู้รอดชีวิต ใช้ซื้อขายกับ NPC แผงขายของ และผู้เล่นอื่น' },
 
@@ -300,6 +305,55 @@ export const RARITY = {
   E: { name: 'มหากาพย์', mul: 1.45, color: '#c77dff' }, L: { name: 'ตำนาน', mul: 1.7, color: '#ffd60a' },
 };
 export const baseOf = (k) => String(k).split('~')[0];
+// รหัสไอเท็มพิเศษ: "ชื่อ~[ระดับ][เลขสุ่ม][+ตีบวก][*ออฟชั่น]" เช่น sword~R7+6*d3s1 · ระดับ N = ธรรมดา
+const VCODE = /^([NUREL])([0-9a-z]*)(?:\+(\d{1,2}))?(?:\*([a-z1-9]{2,6}))?$/;
+export function parseKey(k) {
+  const [base, code] = String(k).split('~'); const m = code ? VCODE.exec(code) : null;
+  return { base, tier: m ? m[1] : 'N', seed: m ? m[2] : '', plus: m ? +(m[3] || 0) : 0, opts: m ? m[4] || '' : '' };
+}
+export function makeKey({ base, tier = 'N', seed = '', plus = 0, opts = '' }) {
+  if (tier === 'N' && !plus && !opts) return base;
+  return `${base}~${tier}${seed || (tier === 'N' ? '0' : '')}${plus ? '+' + plus : ''}${opts ? '*' + opts : ''}`;
+}
+export const plusOf = (k) => parseKey(k).plus;
+// ⚒️ ตีบวก: อาวุธ/เครื่องมือ/ชุด +1 ถึง +10 · อุปกรณ์สัตว์เลี้ยง +1 ถึง +3
+export const PLUS_MAX = 10, PET_PLUS_MAX = 3;
+export const gearKind = (k) => { const it = RAW_ITEMS[baseOf(k)]; if (!it || it.quest) return null; if (it.petGear) return 'pet'; if (it.wear || (it.tool && (it.tool.dmg || it.tool.gather))) return 'gear'; return null; };
+// ตัวคูณค่าพลังตามระดับตีบวก (+1–5 ทีละ 5% · +6–8 ทีละ 8% · +9–10 ทีละ 12% · สัตว์เลี้ยงทีละ 12%)
+export const plusMul = (n, pet) => 1 + (pet ? n * 0.12 : Math.min(n, 5) * 0.05 + Math.max(0, Math.min(n, 8) - 5) * 0.08 + Math.max(0, n - 8) * 0.12);
+// ออฟชั่นที่ส่องได้ (ตัวอักษร = ชนิด · ตัวเลข 1–5 = ความแรง)
+export const OPTS = {
+  tool: { d: ['dmg', 'ดาเมจ', (B, m) => +((B.tool.dmg || 6) * 0.04 * m).toFixed(2)], r: ['range', 'ระยะโจมตี', (B, m) => +(0.08 * m).toFixed(2)], g: ['gather', 'เก็บของ', (B, m) => +(0.15 * m).toFixed(2)] },
+  wear: { f: ['def', 'ลดดาเมจ', (B, m) => +(0.012 * m).toFixed(3)], b: ['bite', 'กันติดเชื้อ', (B, m) => +(0.015 * m).toFixed(3)], s: ['spd', 'ความเร็ว', (B, m) => +(0.01 * m).toFixed(3)], t: ['stam', 'ฟื้นสตามิน่า', (B, m) => +(0.04 * m).toFixed(3)], w: ['warm', 'กันหนาว', (B, m) => +(0.03 * m).toFixed(3)] },
+};
+// โอกาสตีบวกจากระดับ L → L+1: { up, stay, down, brk } (รวม = 1)
+// ชุด/อาวุธ: +1–+5 ปลอดภัย (ไม่สำเร็จ = คงเดิม) · +6–+8 คงที่/+1/-1 · +9–+10 แตกหาย/+1/-1
+// อุปกรณ์สัตว์เลี้ยง: +1 ปลอดภัย · +2 คงที่/+1/-1 · +3 แตกหาย/+1/-1
+export function enhanceRates(L, pet, ch) {
+  let r;
+  if (pet) r = L === 0 ? { up: 1 } : L === 1 ? { up: 0.55, stay: 0.3, down: 0.15 } : { up: 0.4, down: 0.35, brk: 0.25 };
+  else if (L < 5) r = { up: [1, 0.95, 0.9, 0.85, 0.8][L], stay: [0, 0.05, 0.1, 0.15, 0.2][L] };
+  else if (L < 8) r = { up: [0.6, 0.5, 0.4][L - 5], stay: [0.25, 0.3, 0.35][L - 5], down: [0.15, 0.2, 0.25][L - 5] };
+  else r = { up: [0.35, 0.25][L - 8], down: [0.35, 0.4][L - 8], brk: [0.3, 0.35][L - 8] };
+  r = { up: 0, stay: 0, down: 0, brk: 0, ...r };
+  // ช่างตีเหล็ก: Lv2 สำเร็จ +8% · Lv3 +6–+8 ไม่ลดระดับ และโอกาสแตกลดครึ่ง
+  if (ch && hasPerk(ch, 'blacksmith', 1) && r.up < 1) { const b = Math.min(0.08, r.down + r.brk + r.stay); r.up += b; let left = b; for (const f of ['brk', 'down', 'stay']) { const t = Math.min(left, r[f]); r[f] -= t; left -= t; } }
+  if (ch && hasPerk(ch, 'blacksmith', 2)) { if (!pet && L >= 5 && L < 8) { r.stay += r.down; r.down = 0; } const h = r.brk / 2; r.brk -= h; r.down += h; }
+  return r;
+}
+export const enhanceStone = (L, pet) => (!pet && L >= 8 ? 'super_stone' : 'plus_stone');
+// ค่าจ้างช่างตีเหล็ก NPC (คนที่ไม่ใช่ช่างตีเหล็ก)
+export const enhanceFee = (L, pet) => (pet ? 20 + L * 20 : 15 + L * 12 + (L >= 8 ? 60 : 0));
+// 🤝 ขายของ/แลกกับผู้เล่น: ชุดและอุปกรณ์ต้องเป็นระดับหายากขึ้นไป หรือตีบวกเกิน +5 (อุปกรณ์สัตว์เลี้ยง +2 ขึ้นไป)
+export function tradeable(k) {
+  const kind = gearKind(k); if (!kind) return true;
+  const K = parseKey(k); if ('REL'.includes(K.tier) && K.tier !== 'N') return true;
+  return kind === 'pet' ? K.plus >= 2 : K.plus > 5;
+}
+export const TRADE_RULE = 'ชุด/อาวุธ/อุปกรณ์ต้องเป็น ★หายาก ขึ้นไป หรือตีบวก +6 ขึ้นไป (อุปกรณ์สัตว์เลี้ยง +2 ขึ้นไป) จึงจะแลก/วางขายได้';
+// 🪙 ของที่ซื้อได้ในร้านเงินจิ
+export const COIN_GOODS = [['magnifier', 80], ['name_tag', 60]];
+export const PLUS_GLOW = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };
 const SCALE = { tool: ['dmg', 'gather'], wear: ['def', 'bite', 'spd', 'stam', 'block', 'gather'], petGear: ['atk', 'def', 'hp'] };
 const BONUS = {
   tool: [['dmg', 0.12, 'ดาเมจ'], ['range', 0.35, 'ระยะ'], ['gather', 0.6, 'เก็บของ']],
@@ -309,16 +363,26 @@ const BONUS = {
 const variantCache = new Map();
 function makeVariant(key) {
   if (variantCache.has(key)) return variantCache.get(key);
-  const [base, code] = key.split('~'), B = RAW_ITEMS[base], R = code && RARITY[code[0]];
-  if (!B || !R) return undefined;
-  const seed = parseInt(code.slice(1), 36) || 0, it = JSON.parse(JSON.stringify(B));
-  it.base = base; it.rarity = code[0]; it.name = `${B.name} ★${R.name}`; it.value = Math.round((B.value || 1) * R.mul * 1.6);
+  const K = parseKey(key), base = K.base, B = RAW_ITEMS[base], R = RARITY[K.tier];
+  if (!B || (!R && K.tier !== 'N') || !VCODE.test(key.split('~')[1] || '')) return undefined;
+  const seed = parseInt(K.seed, 36) || 0, it = JSON.parse(JSON.stringify(B));
+  it.base = base; it.name = B.name; it.value = B.value || 1;
+  if (R) { it.rarity = K.tier; it.name = `${B.name} ★${R.name}`; it.value = Math.round((B.value || 1) * R.mul * 1.6); }
   for (const part of ['tool', 'wear', 'petGear']) {
     if (!it[part]) continue;
-    for (const f of SCALE[part]) if (typeof it[part][f] === 'number' && it[part][f] > 0) it[part][f] = +(it[part][f] * R.mul).toFixed(3);
-    const [f, amt, label] = BONUS[part][seed % BONUS[part].length], extra = +(amt * (part === 'tool' && f === 'dmg' ? (B.tool.dmg || 6) : 1) * (1 + 'URE L'.indexOf(code[0]) * 0.5)).toFixed(3);
-    it[part][f] = +((it[part][f] || 0) + extra).toFixed(3); it.bonus = `+${label}`;
+    if (R) {
+      for (const f of SCALE[part]) if (typeof it[part][f] === 'number' && it[part][f] > 0) it[part][f] = +(it[part][f] * R.mul).toFixed(3);
+      const [f, amt, label] = BONUS[part][seed % BONUS[part].length], extra = +(amt * (part === 'tool' && f === 'dmg' ? (B.tool.dmg || 6) : 1) * (1 + 'URE L'.indexOf(K.tier) * 0.5)).toFixed(3);
+      it[part][f] = +((it[part][f] || 0) + extra).toFixed(3); it.bonus = `+${label}`;
+    }
+    // ⚒️ ตีบวก: ค่าพลังหลักคูณเพิ่มตามระดับ
+    if (K.plus) { const mul = plusMul(K.plus, part === 'petGear'); for (const f of SCALE[part]) if (typeof it[part][f] === 'number' && it[part][f] > 0) it[part][f] = +(it[part][f] * mul).toFixed(3); }
+    // 🔍 ออฟชั่นจากแว่นขยาย
+    const O = OPTS[part];
+    if (O && K.opts) { it.opts = []; for (let i = 0; i + 1 < K.opts.length; i += 2) { const d = O[K.opts[i]], m = +K.opts[i + 1]; if (!d || !(m >= 1 && m <= 5)) continue; const v = d[2](B, m); it[part][d[0]] = +((it[part][d[0]] || 0) + v).toFixed(3); it.opts.push(`${d[1]} +${d[0] === 'dmg' || d[0] === 'range' || d[0] === 'gather' ? v : Math.round(v * 100) + '%'}`); } }
   }
+  if (K.plus) { it.plus = K.plus; it.name += ` +${K.plus}`; it.value = Math.round(it.value * (1 + K.plus * 0.35)); }
+  if (K.opts) it.value = Math.round(it.value * 1.3);
   variantCache.set(key, it); return it;
 }
 export const ITEMS = new Proxy(RAW_ITEMS, {
@@ -377,6 +441,7 @@ export const RECIPES = [
   { out: 'seeds_pumpkin', need: { pumpkin: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดฟักทอง' },
   { out: 'seeds_watermelon', need: { watermelon: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดแตงโม' },
   { out: 'seeds_sunflower', need: { sunflower: 1 }, skill: 'farming', lvl: 1, qty: 2, label: 'เก็บเมล็ดทานตะวัน' },
+  { out: 'super_stone', need: { plus_stone: 3 }, skill: 'crafting', lvl: 1, label: 'หินซุปเปอร์ (ผสมหินพลัส 3 ก้อน · ช่างตีเหล็ก Lv2 ใช้ 2 ก้อน)' },
   { out: 'seeds_rice', need: { paddy: 2 }, skill: 'farming', lvl: 1, qty: 2, label: 'คัดข้าวเปลือกไว้ทำพันธุ์ ×2' },
   { out: 'rice', need: { paddy: 3 }, skill: 'farming', lvl: 1, qty: 2, station: 'mill', label: 'สีข้าวเปลือกเป็นข้าวสาร ×2 (+รำข้าว) · ที่เครื่องสีข้าว' },
   { out: 'bandage', need: { cloth: 2 }, skill: 'medicine', lvl: 1 },
@@ -638,6 +703,8 @@ export const JOBS = {
     perks: [[1, 'เก็บผลผลิตจากคอกสัตว์ได้เพิ่ม +1 ทุกครั้ง · ทำให้สัตว์เชื่องเร็วขึ้น 50%'], [4, 'สัตว์เลี้ยงที่ได้มีโอกาสเป็นระดับหายาก/ตำนานสูงขึ้นมาก (สกิลพิเศษมากขึ้น) · ชำแหละได้เนื้อเพิ่ม'], [8, 'สัตว์เลี้ยงตัวใหม่ได้สกิลพิเศษเพิ่มอีก 1 อย่าง · ทำให้เชื่องเร็วขึ้น ×2']] },
   ricefarmer: { name: 'ชาวนา', icon: '🧑‍🌾', skill: 'farming', xp: { farming: 1.5, survival: 1.1 }, kit: { seeds_rice: 4, hoe: 1 }, desc: 'ทำนาเก่ง ปลูกข้าวได้ผลผลิตมาก สีข้าวได้ข้าวสารเพิ่ม',
     perks: [[1, 'ข้าวในนาโตเร็วขึ้น 35% · เกี่ยวข้าวได้ข้าวเปลือกเพิ่ม +2'], [4, 'สีข้าวได้ข้าวสารเพิ่ม +1 และรำข้าว ×2 ทุกครั้ง'], [8, 'ปลูกข้าวแล้วไม่ต้องรดน้ำ (นามีน้ำในตัว) · เกี่ยวข้าวได้ผลผลิต ×2']] },
+  blacksmith: { name: 'ช่างตีเหล็ก', icon: '⚒️', skill: 'crafting', xp: { crafting: 1.4, combat: 1.1 }, kit: { hammer: 1, plus_stone: 3, scrap: 4 }, desc: 'ตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยงด้วยตัวเอง ไม่เสียค่าจ้าง',
+    perks: [[1, 'ตีบวกเองได้ที่ ⚒️ ทั่งตีเหล็ก (ไม่ต้องจ้าง NPC) · ปลดล็อก ทั่งตีเหล็ก'], [4, 'โอกาสตีบวกสำเร็จ +8% · ผสมหินซุปเปอร์ใช้หินพลัสแค่ 2 ก้อน'], [8, 'ตีบวก +6 ถึง +8 ไม่ลดระดับ · โอกาสไอเท็มแตกหายลดลงครึ่งหนึ่ง']] },
   chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
     perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
 };
@@ -712,7 +779,7 @@ export const QUEST_SPOTS = {
 export const LOOT_TABLE = [
   ['canned', 18], ['bottle', 14], ['clean_water', 12], ['cloth', 16], ['scrap', 16],
   ['bandage', 9], ['antibiotic', 3], ['herb', 6], ['raw_fish', 4], ['coconut', 4],
-  ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 4], ['rice', 6], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
+  ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 4], ['rice', 6], ['plus_stone', 3], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
 ];
 
 // กล่องเสบียงในสถานที่พิเศษ: ห้างร้าง โรงงานร้าง มหาวิทยาลัยร้าง ฐานทัพเรือ
@@ -744,6 +811,7 @@ export const NPCS = [
   { id: 'npc_winai', name: 'พี่วินัย', sex: 'm', town: 'nongyai', likes: 'fuel', job: 'mechanic', bio: 'นายท่าสถานีขนส่งจังหวัดชลบุรี' },
   { id: 'npc_prasit', name: 'อาจารย์ประสิทธิ์', sex: 'm', town: 'banbueng', likes: 'scrap', job: 'engineer', bio: 'อาจารย์แผนกช่างกลโรงเรียนเทคนิคชลบุรี' },
   { id: 'npc_waew', name: 'ยายแวว', sex: 'f', town: 'phanat', likes: 'bamboo', job: 'weaver', teach: 'wicker', bio: 'ช่างจักสานฝีมือดีแห่งตลาดจักสานพนัสนิคม สอนสานตะกร้า ชะลอม พัด และผนังไม้ไผ่' },
+  { id: 'npc_boonsong', name: 'ช่างบุญส่ง', sex: 'm', town: 'phanthong', likes: 'scrap', job: 'blacksmith', bio: 'ช่างตีเหล็กจากย่านโรงงานพานทอง รับตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยง' },
   { id: 'npc_kham', name: 'ลุงคำ', sex: 'm', town: 'banbueng', likes: 'cooked_rice', job: 'ricefarmer', bio: 'ชาวนาเก่าแก่แห่งบ้านบึง รู้เรื่องการทำนาทุกขั้นตอน' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];
@@ -763,6 +831,7 @@ export const SHOPS = {
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
   electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],
   weaver: [['bamboo', 1, 20], ['wicker_basket', 14, 1], ['chalom', 9, 2], ['hand_fan', 6, 3], ['book_wicker', 60, 1]],
+  blacksmith: [['scrap', 5, 10], ['hammer', 10, 1], ['iron_pickaxe', 30, 1], ['steel_axe', 36, 1], ['shield_wood', 10, 1]],
   ricefarmer: [['seeds_rice', 3, 10], ['paddy', 3, 10], ['rice', 4, 8], ['rice_bran', 2, 10], ['hoe', 6, 2], ['cooked_rice', 7, 4]],
   monk: [['respec_potion', 250, 1], ['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
 };

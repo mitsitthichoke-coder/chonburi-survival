@@ -1,7 +1,7 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
+import { tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -40,7 +40,7 @@ export class WorldCore {
   tradeOf(id) { for (const t of (this.trades ||= new Map()).values()) if (t.a === id || t.b === id) return t; return null; }
   tradeSend(t) { for (const [me, them] of [[t.a, t.b], [t.b, t.a]]) this.send(me, { t: 'tradestate', id: t.id, with: them, name: this.players.get(them)?.name || '?', mine: t.offer[me], theirs: t.offer[them], okMine: !!t.ok[me], okTheirs: !!t.ok[them] }); }
   tradeEnd(t, why) { this.trades.delete(t.id); for (const p of [t.a, t.b]) this.send(p, { t: 'tradeend', why }); }
-  canOffer() { return true; }          // เซิร์ฟเวอร์สาธารณะตรวจของจริงใน server-econ
+  canOffer(id, items) { return Object.keys(items || {}).every((k) => tradeable(k)); } // เซิร์ฟเวอร์สาธารณะตรวจของจริงใน server-econ
   tradeApply(id, take, give) { this.send(id, { t: 'tradedone', take, give }); } // เล่นผ่านลิงก์: แต่ละเครื่องปรับกระเป๋าเอง
   tradeMsg(id, m) {
     const me = this.players.get(id); this.trades ||= new Map();

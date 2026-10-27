@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
+import { parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
@@ -19,13 +19,13 @@ const FISH = {
   pond: [['raw_fish', 80], ['prawn', 10], ['big_fish', 8], ['golden_fish', 2]],
 };
 export const DROPS = {
-  zombie: [['rice', 0.07], ['seeds_rice', 0.04], ['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1], ['copper_wire', 0.08], ['spark_plug', 0.04], ['moto_wheel', 0.02]],
+  zombie: [['plus_stone', 0.035], ['rice', 0.07], ['seeds_rice', 0.04], ['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1], ['copper_wire', 0.08], ['spark_plug', 0.04], ['moto_wheel', 0.02]],
   boar: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]],
   deer: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]],
   chicken: [['raw_meat', 1], ['egg', 0.4]],
-  raptor: [['raw_meat', 1], ['raw_meat', 1], ['hide', 0.8], ['dino_bone', 0.6]],
-  tiger: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1]],
-  trike: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['dino_bone', 1], ['dino_bone', 0.5]],
+  raptor: [['raw_meat', 1], ['raw_meat', 1], ['hide', 0.8], ['dino_bone', 0.6], ['plus_stone', 0.12]],
+  tiger: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['plus_stone', 0.12]],
+  trike: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['dino_bone', 1], ['dino_bone', 0.5], ['plus_stone', 0.25]],
   buffalo: [['raw_meat', 1], ['raw_meat', 1], ['hide', 0.8]],
   sheep: [['raw_meat', 1], ['wool', 1], ['wool', 0.5]],
   elephant: [], // ช้างเป็นสัตว์อนุรักษ์: ไม่มีของดรอป (อย่าทำร้ายช้าง!)
@@ -296,8 +296,9 @@ const A = {
     if (r.learn && !learned(ch, r.learn)) { const n = NPCS.find((x) => x.id === LEARN[r.learn].npc); return { err: `🔒 ต้องเรียน${LEARN[r.learn].name}ก่อน — คุยกับ${n?.name || 'ครู'} ที่${TOWNS.find((t) => t.key === n?.town)?.name || ''}` }; }
     if (r.station === 'fire' && !env.near('campfire', env.pos(ch), 4.5)) return { err: 'ต้องอยู่ใกล้กองไฟ' };
     if (r.station === 'mill' && !env.near('ricemill', env.pos(ch), 4.5)) return { err: '⚙️ ต้องอยู่ใกล้เครื่องสีข้าว (สร้างได้ในหมวดฟาร์ม)' };
-    for (const [k, q] of Object.entries(r.need)) if (!has(ch, k, q)) return { err: 'วัตถุดิบไม่พอ' };
-    const take = { ...r.need }, give = rollVariants({ [r.out]: (r.qty || 1) + (r.skill === 'cooking' && ITEMS[r.out].food && hasPerk(ch, 'chef', 1) ? 1 : 0) }, env.rand, Math.min(0.3, (lvl(ch, r.skill) - r.lvl) * 0.03));
+    for (const [k, q] of Object.entries(r.need)) if (!has(ch, k, r.out === 'super_stone' && k === 'plus_stone' && hasPerk(ch, 'blacksmith', 1) ? 2 : q)) return { err: 'วัตถุดิบไม่พอ' };
+    const take = { ...r.need }; if (r.out === 'super_stone' && hasPerk(ch, 'blacksmith', 1)) take.plus_stone = 2;
+    const give = rollVariants({ [r.out]: (r.qty || 1) + (r.skill === 'cooking' && ITEMS[r.out].food && hasPerk(ch, 'chef', 1) ? 1 : 0) }, env.rand, Math.min(0.3, (lvl(ch, r.skill) - r.lvl) * 0.03));
     for (const [k, q] of Object.entries(r.need)) if (ITEMS[k].returns && !r.keepBottle) give[ITEMS[k].returns] = (give[ITEMS[k].returns] || 0) + q;
     if (r.station === 'mill') { give.rice_bran = hasPerk(ch, 'ricefarmer', 1) ? 2 : 1; if (hasPerk(ch, 'ricefarmer', 1)) give.rice = (give.rice || 0) + 1; } // สีข้าว: ได้รำข้าว · ชาวนาได้ข้าวสารเพิ่ม
     if (hasPerk(ch, 'engineer', 2) && env.rand() < 0.25) return { give, xp: { [r.skill]: 8 + r.lvl * 4 }, sfx: 'craft', msg: '🔧 ฝีมือช่าง! ไม่เสียวัตถุดิบเลย' };
@@ -392,6 +393,59 @@ const A = {
     const per = Math.floor(cost / list.length);
     for (const s of list) env.place(ch, { ...s, paid: per });
     return { take: { jicoin: cost }, xp: { building: 10 * n }, sfx: 'place', msg: `🏠 ตั้งบ้านน็อคดาวน์ ${n}×${n} ช่องแล้ว — จ่าย 🪙 ${cost} (รื้อแล้วได้เงินจิคืน)` };
+  },
+
+  // ⚒️ ตีบวกอาวุธ/ชุด (+1–+10) หรืออุปกรณ์สัตว์เลี้ยง (+1–+3)
+  // ช่างตีเหล็ก: ตีเองที่ทั่งตีเหล็ก ไม่เสียค่าจ้าง · คนอื่น: จ้างช่างบุญส่ง (พานทอง) จ่ายเงินจิ
+  enhance(ch, p, env) {
+    const k = String(p.k || ''), kind = gearKind(k); if (!kind) return { err: 'ตีบวกได้เฉพาะอาวุธ เครื่องมือ ชุด และอุปกรณ์สัตว์เลี้ยง' };
+    if (!has(ch, k)) return { err: 'ไม่มีไอเท็มนี้ในกระเป๋า' };
+    if (ch.equipped === k && (ch.inv[k] || 0) <= 1) return { err: 'เลิกถือไอเท็มนี้ก่อนตีบวก' };
+    const pet = kind === 'pet', K = parseKey(k), L = K.plus, max = pet ? PET_PLUS_MAX : PLUS_MAX;
+    if (L >= max) return { err: `ตีบวกสูงสุดแล้ว (+${max})` };
+    const P = env.pos(ch), smith = hasPerk(ch, 'blacksmith', 0) && env.near('anvil', P, 4.5), npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
+    const viaNpc = !smith && np && dist(env, ch, np.x, np.z) <= 7;
+    if (!smith && !viaNpc) return { err: hasPerk(ch, 'blacksmith', 0) ? '⚒️ ต้องอยู่ใกล้ทั่งตีเหล็ก (สร้างได้ในหมวดของในบ้าน)' : `⚒️ ต้องเป็นช่างตีเหล็กและอยู่ใกล้ทั่ง หรือจ้าง${npc?.name || 'ช่างตีเหล็ก'}ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}` };
+    const stone = enhanceStone(L, pet), fee = viaNpc ? enhanceFee(L, pet) : 0;
+    if (!has(ch, stone)) return { err: `ต้องมี ${ITEMS[stone].icon} ${ITEMS[stone].name} 1 ก้อน${stone === 'super_stone' ? ' (ผสมจากหินพลัส 3 ก้อนในหน้าประดิษฐ์)' : ''}` };
+    if (fee && !has(ch, 'jicoin', fee)) return { err: `🪙 ค่าจ้างตีบวก ${fee} เงินจิ` };
+    const R = enhanceRates(L, pet, smith ? ch : null), r = env.rand(), take = { [k]: 1, [stone]: 1 }; if (fee) take.jicoin = fee;
+    const res = r < R.up ? 'up' : r < R.up + R.stay ? 'stay' : r < R.up + R.stay + R.down ? 'down' : 'brk';
+    const to = res === 'up' ? L + 1 : res === 'down' ? L - 1 : L, nk = makeKey({ ...K, plus: to }), nm = ITEMS[makeKey({ ...K, plus: 0, opts: '' })]?.name || ITEMS[k].name;
+    const xp = { crafting: 6 + L * 2 }, sfx = res === 'up' ? 'level' : 'hit';
+    if (res === 'brk') return { take, xp, sfx, msg: `💥 ตีบวกล้มเหลว! ${nm} +${L} แตกหายไป...`, enh: { res, from: L, to: -1 } };
+    const give = { [nk]: 1 };
+    const msg = res === 'up' ? `✨ ตีบวกสำเร็จ! ${nm} +${to}${to >= 6 && !pet ? ' — อาวุธ/ชุดเริ่มเรืองแสง!' : ''}` : res === 'stay' ? `😮‍💨 ตีบวกไม่สำเร็จ ${nm} ยังคง +${L}` : `📉 ตีบวกพลาด! ${nm} ลดลงเป็น +${to}`;
+    return { take, give, xp, sfx, msg, enh: { res, from: L, to, k: nk }, quietGive: true };
+  },
+  // 🔍 ส่องออฟชั่นด้วยแว่นขยาย: อาวุธ/ชุดได้ออฟชั่น 1–3 อย่างแล้วแต่ดวง (ส่องใหม่ = สุ่มใหม่ทั้งหมด)
+  identify(ch, p, env) {
+    const k = String(p.k || ''); if (gearKind(k) !== 'gear') return { err: 'ส่องออฟชั่นได้เฉพาะอาวุธ เครื่องมือ และชุดของผู้เล่น' };
+    if (!has(ch, k)) return { err: 'ไม่มีไอเท็มนี้ในกระเป๋า' };
+    if (ch.equipped === k && (ch.inv[k] || 0) <= 1) return { err: 'เลิกถือไอเท็มนี้ก่อนส่อง' };
+    if (!has(ch, 'magnifier')) return { err: '🔍 ต้องมีแว่นขยายส่องออฟชั่น (ซื้อในร้านเงินจิ)' };
+    const it = ITEMS[baseOf(k)], part = it.tool ? 'tool' : 'wear', letters = Object.keys(OPTS[part]), rand = env.rand;
+    const r = rand(), n = r < 0.55 ? 1 : r < 0.88 ? 2 : 3, pick = [];
+    while (pick.length < Math.min(n, letters.length)) { const L = letters[Math.floor(rand() * letters.length)]; if (!pick.includes(L)) pick.push(L); }
+    const mag = () => { const x = rand(); return x < 0.35 ? 1 : x < 0.63 ? 2 : x < 0.83 ? 3 : x < 0.95 ? 4 : 5; };
+    const opts = pick.map((L) => L + mag()).join(''), K = parseKey(k), nk = makeKey({ ...K, opts });
+    return { take: { [k]: 1, magnifier: 1 }, give: { [nk]: 1 }, quietGive: true, xp: { crafting: 4 }, sfx: 'level', msg: `🔍 ส่องพบ ${n} ออฟชั่น: ${ITEMS[nk].opts.join(' · ')}` };
+  },
+  // 🪙 ซื้อของพิเศษในร้านเงินจิ
+  cbuy(ch, p) {
+    const row = COIN_GOODS.find(([k]) => k === p.k); if (!row) return { err: 'ไม่มีสินค้านี้' };
+    const q = Math.min(10, Math.max(1, p.q | 0)), cost = row[1] * q;
+    if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${cost})` };
+    return { take: { jicoin: cost }, give: { [row[0]]: q }, msg: `🛒 ซื้อ ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} ×${q} แล้ว` };
+  },
+  // 🏷️ เปลี่ยนชื่อสัตว์เลี้ยง (ใช้ป้ายเปลี่ยนชื่อ 1 ชิ้น)
+  renamepet(ch, p) {
+    const pet = (ch.pets || []).find((x) => x.id === p.id); if (!pet) return { err: 'ไม่พบสัตว์เลี้ยง' };
+    if (!has(ch, 'name_tag')) return { err: '🏷️ ต้องมีป้ายเปลี่ยนชื่อสัตว์เลี้ยง (ซื้อในร้านเงินจิ)' };
+    const name = String(p.name || '').replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e<>]/g, '').trim().slice(0, 16);
+    if (!name) return { err: 'ตั้งชื่อก่อน' };
+    const old = pet.name; pet.name = name;
+    return { take: { name_tag: 1 }, petsChanged: true, petName: { id: pet.id, name }, msg: `🏷️ เปลี่ยนชื่อ ${old} เป็น "${name}" แล้ว` };
   },
 
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)
@@ -591,7 +645,7 @@ export function sopCost(ch, s, op, env) {
     case 'breed': { const P = PENS[s.type]; if (P?.egg) { if (!has(ch, P.egg)) return { err: `ต้องมี${ITEMS[P.egg].name} 1 ฟองเพื่อฟัก` }; return { take: { [P.egg]: 1 }, xp: { farming: 6 } }; } return { xp: { farming: 8 } }; }
     case 'butcher': return { xp: { survival: 4, farming: 4 }, give: hasPerk(ch, 'livestock', 1) ? { raw_meat: 1 } : null };
     case 'collect': return PENS[s.type] && hasPerk(ch, 'livestock', 0) && penGoods(s, env.now()) > 0 ? { give: { [PENS[s.type].prod[0]]: 1 }, xp: { farming: 2 } } : {};
-    case 'list': { const q = op.qty | 0; if (!(q > 0) || !ITEMS[op.item] || ITEMS[op.item].quest || op.item === 'jicoin' || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; }
+    case 'list': { const q = op.qty | 0; if (ITEMS[op.item] && !tradeable(op.item)) return { err: '🚫 ' + TRADE_RULE }; if (!(q > 0) || !ITEMS[op.item] || ITEMS[op.item].quest || op.item === 'jicoin' || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; }
     case 'declare': {
       if (!env.structs) return {};
       const c = baseCheck(env.structs(), s); if (!c.ok) return { err: '🏗️ ฐานยังไม่ครบ: ' + c.missing.join(' · ') };
@@ -684,6 +738,7 @@ export function killReward(ch, kind, rand, tier = 0) {
   else if (T?.boss) for (const [k, q] of Object.entries(rollBoss(rand))) give[k] = (give[k] || 0) + q;
   else if (T?.loot && rand() < 0.5) for (const k of Object.keys(rollLoot(rand, T.loot)).slice(0, 1)) give[k] = (give[k] || 0) + 1; // ทหารผู้ติดเชื้อดรอปยุทธภัณฑ์
   if (T?.key === 'toxic' && rand() < 0.4) give.herb = (give.herb || 0) + 1;
+  if (T?.boss) { give.plus_stone = (give.plus_stone || 0) + 2 + Math.floor(rand() * 3); if (rand() < 0.35) give.super_stone = (give.super_stone || 0) + 1; } // บอสดรอปหินตีบวก
   if (hasPerk(ch, 'hunter', 0) && kind !== 'zombie') { give.raw_meat = (give.raw_meat || 0) + 1; if (kind === 'boar' || kind === 'deer') give.hide = (give.hide || 0) + 1; }
   return applyResult(ch, { give: rollVariants(give, rand, T?.boss ? 0.7 : T?.drops > 1 ? 0.15 : 0), xp: { combat: T ? T.xp : 5 }, kills: T ? 1 : 0, boss: T?.boss ? 1 : 0, quietGive: false });
 }

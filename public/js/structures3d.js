@@ -147,6 +147,16 @@ export function makeStructureMesh(s) {
       if (ck) { add(box(0.06, 0.7, 0.06, WOOD_D, 1.25, 0.35, 1.25)); add(box(0.4, 0.3, 0.04, CROPS[ck].color, 1.25, 0.75, 1.25)); }
       break;
     }
+    case 'anvil': {
+      // ⚒️ ทั่งตีเหล็ก: ตอไม้ + ทั่งเหล็ก (มีเขาแหลม) + ค้อนวางข้าง ๆ + ถังน้ำชุบเหล็ก
+      const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.5, 10), mat(WOOD_D)); st.position.y = 0.25; st.castShadow = true; g.add(st);
+      g.add(box(0.7, 0.14, 0.34, '#495057', 0, 0.57, 0), box(0.4, 0.14, 0.26, '#343a40', 0, 0.71, 0), box(0.82, 0.12, 0.3, '#6c757d', 0, 0.84, 0));
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.32, 6), mat('#6c757d')); horn.rotation.z = Math.PI / 2; horn.position.set(0.56, 0.84, 0); g.add(horn);
+      g.add(box(0.06, 0.06, 0.4, WOOD, 0.1, 0.93, 0.05), box(0.16, 0.1, 0.1, '#343a40', 0.1, 0.95, -0.17));
+      const bk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.36, 10), mat('#7f5539')); bk.position.set(-0.65, 0.18, 0.3); g.add(bk); g.add(box(0.32, 0.02, 0.32, '#4ea8de', -0.65, 0.35, 0.3));
+      break;
+    }
     case 'ricemill': {
       // เครื่องสีข้าว: ฐานไม้ + ถังกรวยใส่ข้าวเปลือก + มอเตอร์ + ล้อสายพาน + รางข้าวสาร
       const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;

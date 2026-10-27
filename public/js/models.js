@@ -170,6 +170,7 @@ export const injuryBits = (s) => (s.bleeding ? 1 : 0) | (s.fracture ? 2 : 0) | (
 
 // เสื้อผ้าที่สวม: ซ้อนกล่องสีบนส่วนต่าง ๆ ของตัว (wear = {head, body, legs, hands, socks, shoes, back} → key ของไอเท็ม)
 export function setOutfit(g, wear, ITEMS) {
+  setFairies(g, Math.max(0, ...Object.values(wear || {}).map(plusLv))); // 🧚 นางฟ้าตามระดับตีบวกของชุดที่สูงที่สุด
   wear = Object.fromEntries(Object.entries(wear || {}).map(([s, k]) => [s, k ? String(k).split('~')[0] : k])); // ของสุ่มสเตตัสหน้าตาเหมือนของปกติ
   const u = g.userData;
   for (const o of u.outfit || []) o.parent?.remove(o);
@@ -232,8 +233,96 @@ export function ridePose(g, dt, speed, vt) {
 export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
 // ท่านอนบนเตียง
 export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
+// ✨ ระดับตีบวกจากรหัสไอเท็ม (ชื่อ~R7+6*d3 → 6)
+const plusLv = (k) => +((/\+(\d{1,2})/.exec(String(k || '').split('~')[1] || '') || [])[1] || 0);
+const GLOW_C = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };
+// อาวุธ +6 ขึ้นไปเรืองแสง (ยิ่งสูงยิ่งสว่าง) · +8 มีออร่ารอบอาวุธ · +10 มีกระแสไฟฟ้าวิ่งรอบอาวุธ
+function applyGlow(m, lv, u) {
+  u.glow = null; if (lv < 6) return;
+  const c = new THREE.Color(GLOW_C[Math.min(10, lv)]), mats = [], auras = [];
+  const meshes = []; m.traverse((o) => { if (o.isMesh && !o.userData.noGlow && o.material && !o.material.isMeshBasicMaterial) meshes.push(o); });
+  for (const o of meshes) {
+    o.material = o.material.clone(); o.material.emissive = c.clone(); o.material.emissiveIntensity = 0.25 + (lv - 6) * 0.15; mats.push(o.material);
+    if (lv >= 8) { const a = new THREE.Mesh(o.geometry, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false })); a.scale.setScalar(1.35); a.userData.noGlow = true; o.add(a); auras.push(a); }
+  }
+  let arcs = null, box = null;
+  if (lv >= 10) {
+    box = new THREE.Box3(); for (const o of meshes) { if (o.parent !== m) continue; o.geometry.computeBoundingBox(); o.updateMatrix(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrix)); }
+    if (box.isEmpty()) box.set(new THREE.Vector3(-0.05, 0, -0.05), new THREE.Vector3(0.05, 0.8, 0.05));
+    arcs = [0, 1, 2].map(() => { const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 9 }, () => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: '#d0f4ff', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); ln.frustumCulled = false; m.add(ln); return ln; });
+  }
+  u.glow = { mats, auras, arcs, box, lv, t: 0, at: 0 };
+}
+function tickGlow(u, dt) {
+  const G = u.glow; if (!G) return; G.t += dt;
+  const base = 0.25 + (G.lv - 6) * 0.15, k = 0.75 + Math.sin(G.t * (G.lv >= 9 ? 5 : 3)) * 0.25;
+  for (const mt of G.mats) mt.emissiveIntensity = base * k + (G.lv >= 10 ? Math.random() * 0.3 : 0);
+  for (const a of G.auras) a.material.opacity = 0.14 + k * 0.12;
+  if (G.arcs && (G.at -= dt) <= 0) {
+    // ⚡ สุ่มเส้นฟ้าผ่าหยัก ๆ ตามความยาวอาวุธ ทุก 0.06 วินาที
+    G.at = 0.06; const b = G.box, sz = b.getSize(new THREE.Vector3()), ax = sz.x > sz.y && sz.x > sz.z ? 'x' : sz.z > sz.y ? 'z' : 'y';
+    for (const ln of G.arcs) {
+      const pos = ln.geometry.attributes.position, j = Math.max(0.04, Math.min(sz.x, sz.y, sz.z) * 0.9 + 0.05);
+      for (let i = 0; i < pos.count; i++) {
+        const t = i / (pos.count - 1), p = new THREE.Vector3(b.min.x + Math.random() * sz.x, b.min.y + Math.random() * sz.y, b.min.z + Math.random() * sz.z);
+        p[ax] = b.min[ax] + t * sz[ax]; for (const o of ['x', 'y', 'z']) if (o !== ax) p[o] = (b.min[o] + b.max[o]) / 2 + (Math.random() - 0.5) * j * 2.2;
+        pos.setXYZ(i, p.x, p.y, p.z);
+      }
+      pos.needsUpdate = true; ln.visible = Math.random() > 0.15; ln.material.opacity = 0.6 + Math.random() * 0.4;
+    }
+  }
+}
+// 🧚 นางฟ้าตัวน้อยบินตามผู้ที่สวมชุด +6 ขึ้นไป (ยิ่งตีบวกสูงยิ่งสวย: ปีกใหญ่ขึ้น มีประกาย รัศมี และเพิ่มจำนวน)
+const FAIRY_C = { 6: ['#ffafcc'], 7: ['#b9fbc0'], 8: ['#cdb4db', '#a2d2ff'], 9: ['#ffd166', '#ffafcc'], 10: ['#ff99c8', '#a0e7e5', '#fcf6bd'] };
+function makeFairy(lv, col) {
+  const f = new THREE.Group(), glowM = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.045, 0.12, 8), new THREE.MeshBasicMaterial({ color: col })); f.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffe8d6' })); head.position.y = 0.09; f.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: lv >= 9 ? '#ffd166' : '#f4a261' })); hair.position.y = 0.095; f.add(hair);
+  const wsz = 0.085 + (lv - 6) * 0.014, wings = [];
+  for (const sx of [-1, 1]) for (const [h, s] of [[0.03, 1], [-0.03, 0.7]]) {
+    const piv = new THREE.Group(); piv.position.set(sx * 0.02, h, -0.02); f.add(piv);
+    const w = new THREE.Mesh(new THREE.CircleGeometry(wsz * s, 12), glowM(lv >= 10 ? ['#ff99c8', '#a0e7e5', '#fcf6bd', '#cdb4db'][wings.length % 4] : col, 0.42)); w.scale.set(0.6, 1, 1); w.position.x = sx * wsz * s * 0.55; w.rotation.y = sx * 0.3; piv.add(w); piv.userData.sx = sx; wings.push(piv);
+  }
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.06 + (lv - 6) * 0.008, 10, 8), glowM(col, 0.12)); f.add(aura);
+  if (lv >= 9) { const halo = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.008, 6, 18), glowM('#fff3b0', 0.9)); halo.rotation.x = Math.PI / 2; halo.position.y = 0.15; f.add(halo); }
+  if (lv >= 7) { const wand = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), glowM('#ffffff', 0.95)); wand.position.set(0.07, 0.02, 0.05); f.add(wand); }
+  f.userData = { wings, aura };
+  return f;
+}
+function setFairies(g, lv) {
+  const u = g.userData; if ((u.fairyLv || 0) === lv) return;
+  if (u.fairies) { g.remove(u.fairies); u.fairies = null; }
+  u.fairyLv = lv; if (lv < 6) return;
+  const grp = new THREE.Group(), cols = FAIRY_C[Math.min(10, lv)], list = cols.map((c) => { const f = makeFairy(lv, c); grp.add(f); return f; });
+  // ประกายระยิบระยับ (+7 ขึ้นไป · +10 เยอะเป็นพิเศษ)
+  let sparks = null;
+  if (lv >= 7) { const n = lv >= 10 ? 26 : lv >= 9 ? 16 : 8, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3)); sparks = new THREE.Points(geo, new THREE.PointsMaterial({ color: lv >= 10 ? '#fff3b0' : cols[0], size: 0.05, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); sparks.frustumCulled = false; sparks.userData.life = Array.from({ length: n }, () => Math.random()); grp.add(sparks); }
+  g.add(grp); u.fairies = grp; u.fairyList = list; u.fairySparks = sparks; u.fairyT = Math.random() * 6;
+}
+function tickFairies(u, dt) {
+  if (!u.fairies) return; u.fairyT += dt; const T = u.fairyT, n = u.fairyList.length;
+  u.fairyList.forEach((f, i) => {
+    const a = T * (1.1 + i * 0.15) + (i * Math.PI * 2) / n, r = 0.75 + Math.sin(T * 0.7 + i) * 0.12;
+    f.position.set(Math.cos(a) * r, 1.85 + Math.sin(T * 2.2 + i * 1.7) * 0.15, Math.sin(a) * r); f.rotation.y = -a;
+    for (const w of f.userData.wings) w.rotation.y = w.userData.sx * (0.25 + Math.abs(Math.sin(T * 18 + i)) * 0.9);
+    f.userData.aura.material.opacity = 0.06 + Math.abs(Math.sin(T * 3 + i)) * 0.08;
+  });
+  const S = u.fairySparks;
+  if (S) {
+    const pos = S.geometry.attributes.position, L = S.userData.life;
+    for (let i = 0; i < pos.count; i++) {
+      L[i] -= dt * 0.8; const f = u.fairyList[i % n].position;
+      if (L[i] <= 0) { L[i] = 1; pos.setXYZ(i, f.x + (Math.random() - 0.5) * 0.15, f.y + (Math.random() - 0.5) * 0.15, f.z + (Math.random() - 0.5) * 0.15); }
+      else pos.setY(i, pos.getY(i) - dt * 0.25);
+    }
+    pos.needsUpdate = true; S.material.opacity = 0.6 + Math.sin(T * 6) * 0.3;
+  }
+}
+
 export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
   const u = g.userData;
+  tickGlow(u, dt); tickFairies(u, dt);
   if (u.flame) { const f = 0.85 + Math.random() * 0.3; u.flame.scale.set(f, 0.8 + Math.random() * 0.5, f); if (u.torchLight) u.torchLight.intensity = 1.8 + Math.random() * 0.8; }
   if (u.offFlame) { const f = 0.85 + Math.random() * 0.3; u.offFlame.scale.set(f, 0.8 + Math.random() * 0.5, f); if (u.offLight) u.offLight.intensity = 1.8 + Math.random() * 0.8; }
   if (mode === 'climb' || mode === 'down') {
@@ -347,7 +436,8 @@ export function setHeldTool(g, tool, lefty) {
     // คบเพลิงส่องสว่างรอบตัว
     if (base === 'torch' && GFX.mode !== 'low') { const L = new THREE.PointLight('#ffa94d', 2.2, 16, 1.5); L.position.y = 0.7; m.add(L); u.torchLight = L; } else u.torchLight = null;
     u.flame = m.userData.flame || null;
-  } else { u.torchLight = null; u.flame = null; }
+    applyGlow(m, plusLv(tool), u);
+  } else { u.torchLight = null; u.flame = null; u.glow = null; }
 }
 function placeShield(u) {
   if (!u.shield) return;

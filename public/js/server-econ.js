@@ -5,7 +5,7 @@ import { getLayout } from './citygen.js';
 import { getResources } from './resources-core.js';
 import { applyOp, collidersFor, flowersNear, accessFor, canDemolish } from './building-core.js';
 import { heightAt, waterAt, hash2 } from './terrain.js';
-import { ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
+import { tradeable, ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
 import { relLevel, canDo, applyAction, ACTIONS, giftValue } from './social-core.js';
 import { petStats } from './pets.js';
 let SID = 0; // ลำดับรหัสสิ่งก่อสร้าง (กันรหัสซ้ำตอนวางหลายชิ้นพร้อมกัน)
@@ -64,7 +64,7 @@ export function installEconomy(core) {
   core.charView = function (ch) { return { inv: ch.inv, wear: ch.wear, skills: ch.skills, equipped: ch.equipped, lefty: !!ch.lefty, boxes: ch.boxes || {}, trade: ch.trade || {}, jp: ch.jp || null, sq: ch.sq || null, quest: ch.quest, pets: ch.pets, kills: ch.stats?.kills || 0 }; };
   core.sendEcon = function (id, r) {
     const ch = this.chars.get(id); if (!ch) return;
-    const slim = r && { err: r.err, silent: r.silent, msg: r.msg, give: r.give, take: r.quietTake ? null : r.take, quietGive: r.quietGive, fx: r.fx, res: r.res, loot: r.loot, pet: r.pet, tame: r.tame, quest: r.quest, questMsg: r.questMsg, levelUp: r.levelUp, fish: r.fish, raw: r.raw, giveBack: r.giveBack, sfx: r.sfx, placed: r.placed?.id, wore: r.wore, held: r.held, seq: r.seq };
+    const slim = r && { err: r.err, silent: r.silent, msg: r.msg, give: r.give, take: r.quietTake ? null : r.take, quietGive: r.quietGive, fx: r.fx, res: r.res, loot: r.loot, pet: r.pet, tame: r.tame, quest: r.quest, questMsg: r.questMsg, levelUp: r.levelUp, fish: r.fish, raw: r.raw, giveBack: r.giveBack, sfx: r.sfx, placed: r.placed?.id, wore: r.wore, held: r.held, seq: r.seq, enh: r.enh, petName: r.petName, petsChanged: r.petsChanged };
     this.send(id, { t: 'econ', r: slim, c: this.charView(ch) });
     this.dirty();
   };
@@ -76,6 +76,7 @@ export function installEconomy(core) {
     if (!me || !ch) return;
     switch (m.t) {
       case 'do': { // คำขอทางเศรษฐกิจ
+        if (m.a === 'renamepet' && m.p) m.p.name = cleanText(m.p.name); // กรองคำหยาบในชื่อสัตว์เลี้ยง
         const r = runAction(ch, String(m.a), m.p, this.env(id)); r.seq = m.seq;
         if (!r.err) {
           if (r.loot) { this.db.loot[r.loot.id] = r.loot.until; this.broadcast({ t: 'loot', id: r.loot.id, until: r.loot.until }, id); }
@@ -182,7 +183,7 @@ export function installEconomy(core) {
   // แลกของระหว่างผู้เล่น: ตรวจว่ามีของจริง และสลับของที่เซิร์ฟเวอร์
   core.canOffer = function (id, items) {
     const ch = this.chars.get(id); if (!ch) return false;
-    return Object.entries(items || {}).every(([k, q]) => ITEMS[k] && !ITEMS[k].quest && (ch.inv[k] || 0) >= q && ch.equipped !== k);
+    return Object.entries(items || {}).every(([k, q]) => ITEMS[k] && !ITEMS[k].quest && tradeable(k) && (ch.inv[k] || 0) >= q && ch.equipped !== k);
   };
   core.tradeApply = function (id, take, give) {
     const ch = this.chars.get(id); if (!ch) return;
@@ -227,7 +228,7 @@ export function installEconomy(core) {
       if (Number.isFinite(+pp.xp)) p.xp = Math.min(+pp.xp, (p.xp || 0) + 120); // XP สัตว์เพิ่มได้จำกัดต่อรอบบันทึก
       p.stay = !!pp.stay; p.down = num(pp.down, 0, 60, 0);
       p.home = pp.home && this.db.structures.some((s) => s.id === pp.home && s.type === 'pethouse') ? pp.home : null;
-      if (typeof pp.name === 'string') p.name = cleanText(pp.name).slice(0, 16) || p.name;
+      // ชื่อสัตว์เลี้ยงเปลี่ยนได้ด้วยป้ายเปลี่ยนชื่อเท่านั้น (คำสั่ง renamepet)
     }
     if (m.social && JSON.stringify(m.social).length < 20000) {
       // ความสัมพันธ์กับ NPC เก็บได้ แต่ห้ามแก้ของคนอื่น

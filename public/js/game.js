@@ -328,6 +328,8 @@ export class Game {
     if (r.giveBack) this.ui.toast(`ได้ ${ITEMS[r.giveBack].name} ตอบแทน`);
     if (r.fish) { this.sfx.play(r.fish === 'golden_fish' ? 'level' : 'splash'); this.ui.toast(r.fish === 'golden_fish' ? '🐡 ว้าว! ได้ปลาทองหายาก (ปล่อยลงบ่อเลี้ยงปลาเพื่อให้ปลาเพิ่มเร็วขึ้น)' : `🎣 ได้ ${ITEMS[r.fish].icon} ${ITEMS[r.fish].name}!`); }
     if (r.wore) setOutfit(this.player.mesh, this.wear, ITEMS);
+    if (r.petName) { const p = this.pets.find((x) => x.id === r.petName.id); if (p) p.name = r.petName.name; }
+    if (r.enh) { this.sfx.play(r.enh.res === 'up' ? 'level' : 'hit'); if (r.enh.res === 'brk') this.ui.flashHurt(); }
     if (r.petsChanged) for (const p of this.pets) { p.hp = Math.min(p.hp, petStats(p).maxHp); this.ents.refreshPetGear(p); }
     if (r.held || r.wore || r.take) setHeldTool(this.player.mesh, this.equipped, this.lefty);
     if (r.sfx) this.sfx.play(r.sfx);

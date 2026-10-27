@@ -40,6 +40,7 @@ export const RARE_PERIOD = 40 * 60000; // ทุก ๆ 40 นาทีมีโ
 export const RARE_LIFE = 10 * 60000;   // อยู่ได้ 10 นาที
 const RARE_CHANCE = 0.6;
 export const RARE_TABLE = [
+  ['plus_stone', 14], ['super_stone', 3],
   ['kevlar', 14], ['antibiotic', 14], ['vest_kevlar', 5], ['helmet_mil', 6], ['bag_military', 5], ['pants_cargo', 6], ['shield_riot', 5],
   ['pet_fangs', 6], ['pet_kevlar', 5], ['boots', 7], ['jacket_leather', 6], ['ring', 6], ['golden_fish', 4], ['fuel', 8], ['motorbike', 2],
 ];

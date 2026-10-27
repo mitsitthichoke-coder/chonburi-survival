@@ -5,7 +5,7 @@ import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -54,6 +54,7 @@ export class Homestead {
       case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
+      case 'anvil': return { text: hasPerk(g.ch, 'blacksmith', 0) ? '⚒️ ตีบวกอาวุธ/ชุด/อุปกรณ์สัตว์เลี้ยง' : '⚒️ ทั่งตีเหล็ก (ต้องเป็นช่างตีเหล็ก — หรือจ้างช่างบุญส่ง พานทอง)', act: () => g.ui.openForge() };
       case 'fence': return mine ? { text: `🛠️ ${FENCE_TIERS[s.tier || 0].name}${FENCE_TIERS[(s.tier || 0) + 1] ? ' — อัปเกรดรั้ว' : ' (ระดับสูงสุด)'}`, act: () => this.fenceMenu(s) } : null;
       case 'ricemill': return { text: `⚙️ สีข้าวเปลือก (มี 🌾 ${g.inv.paddy || 0})`, act: () => { g.ui.craftQ = 'สีข้าว'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
       case 'storage': return { text: '🧰 เปิดหีบเก็บของ', act: () => g.ui.openStructure(s) };

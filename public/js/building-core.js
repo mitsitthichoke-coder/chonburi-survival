@@ -38,6 +38,7 @@ export const PIECES = {
   gate: { name: 'ประตูรั้ว', icon: '⛩️', cost: { wood: 3 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   bed: { name: 'เตียงนอน (จุดเกิด)', icon: '🛏️', cost: { wood: 3, cloth: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   walllamp: { name: 'โคมไฟฟืนติดผนัง (เล็งที่ผนัง)', icon: '🏮', cost: { wood: 2, stone: 1, scrap: 1 }, snap: 'edge', cat: 'ของในบ้าน', lvl: 1 },
+  anvil: { name: 'ทั่งตีเหล็ก (ช่างตีเหล็กใช้ตีบวก)', icon: '⚒️', cost: { stone: 6, scrap: 6, wood: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   chair: { name: 'เก้าอี้ไม้ (นั่งพักผ่อน)', icon: '🪑', cost: { wood: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   storage: { name: 'หีบเก็บของ (ใช้ร่วมกันได้)', icon: '🧰', cost: { wood: 6 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   pethouse: { name: 'บ้านสัตว์เลี้ยง', icon: '🏡', cost: { wood: 6, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
@@ -225,6 +226,7 @@ export function collidersFor(s) {
     case 'hive': out.push({ x: s.x, z: s.z, w: 0.8, d: 0.8, top: y + 1.1 + 1, sid }); break;
     case 'stall': out.push({ x: s.x, z: s.z, w: 2.2, d: 1, top: y + 1 + 1, sid }); break;
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
+    case 'anvil': out.push({ x: s.x, z: s.z, w: 1.0, d: 0.6, top: y + 0.9 + 1, sid }); break;
     case 'ricemill': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.2, top: y + 1.6 + 1, sid }); break;
     case 'watchtower': out.push({ x: s.x, z: s.z, w: 2.6, d: 2.6, top: y + 4.5 + 1, tower: true, sid }); break;
   }

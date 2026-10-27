@@ -16,6 +16,8 @@
   body.halloween { --accent: #ff7b00; --accent2: #9d4edd; --panel: rgba(24, 12, 32, .93); --line: #3c2650; --bg: #0d0614; }
   body.halloween .card h1 span { color: #ff7b00; text-shadow: 0 0 12px #ff7b0088; } body.halloween button.primary { background: #ff7b00; } body.halloween #hud, body.halloween #quest { border-color: #9d4edd; }
   /* ปุ่มเต็มจอ: มุมขวาบนของแผนที่ย่อ (มุมว่างนอกวงกลม) */
+  /* ปุ่มภาษา: มุมซ้ายบนของแผนที่ย่อ */
+  #lang-btn { position: absolute; right: 158px; top: 8px; z-index: 3; height: 28px; padding: 0 6px; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 12px; } body.touch #lang-btn { right: 108px; }
   #fs-btn { position: absolute; right: 8px; top: 8px; z-index: 3; width: 32px; height: 32px; padding: 0; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 16px; line-height: 1; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
   button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #222a33; color: var(--text); border-radius: 8px; padding: 6px 12px; }
@@ -206,6 +208,7 @@
     #minimap, body.touch #minimap { right: max(8px, env(safe-area-inset-right)); top: 6px; width: 104px; height: 104px; }
     #mute-btn, body.touch #mute-btn { right: max(8px, env(safe-area-inset-right)); top: 116px; width: 34px; height: 34px; font-size: 15px; }
     #fs-btn { right: calc(max(8px, env(safe-area-inset-right)) - 4px); top: 2px; width: 28px; height: 28px; font-size: 14px; }
+    #lang-btn, body.touch #lang-btn { right: calc(max(8px, env(safe-area-inset-right)) + 80px); top: 2px; height: 24px; font-size: 10px; padding: 0 4px; }
     #hand-btn, body.touch #hand-btn { right: max(8px, env(safe-area-inset-right)); left: auto; top: 156px; bottom: auto; font-size: 11px; padding: 3px 8px; }
     #toasts, body.touch #toasts { left: 50%; right: auto; transform: translateX(-50%); top: 58px; width: min(300px, 40vw); }
     #toasts > :nth-child(n+3) { display: none; } #toasts > * { font-size: 11px; padding: 4px 8px; }
@@ -246,7 +249,7 @@
 <div id="menu">
   <div class="card">
     <h1>ชลบุรี: <span id="title-sub">วันล่มสลาย</span></h1>
-    <p><button id="guide-btn" class="secondary">📖 วิธีเล่น / คู่มือเกม</button></p>
+    <p><button id="guide-btn" class="secondary">📖 วิธีเล่น / คู่มือเกม</button> <button id="lang-menu" class="secondary">🇬🇧 EN</button></p>
     <div class="sub">เกมส์เอาชีวิตรอดในโลกเสมือนจริง 3D · 📍 Location: ชลบุรี</div>
     <div id="maint" hidden><div class="mi">🔧</div><b>ขออภัยในความไม่สะดวก กำลังอัพเดทข้อมูล</b><p id="maint-msg" class="hint"></p><p class="hint">หน้านี้จะเข้าสู่ระบบให้อัตโนมัติเมื่ออัปเดตเสร็จ ⏳</p></div>
     <div id="auth" hidden>
@@ -321,6 +324,7 @@
   <div id="leftcol"><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
   <button id="fs-btn" title="ขยายเต็มหน้าจอ">⛶</button>
+  <button id="lang-btn">🇬🇧 EN</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>
   <div id="toasts"></div>

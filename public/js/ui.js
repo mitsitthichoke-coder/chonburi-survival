@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX } from './building-core.js';
@@ -301,7 +302,7 @@ export class UI {
     for (const l of g.world.labels) {
       const [x, y] = toMap(l.x, l.z, W, H);
       c.fillStyle = { town: '#fff', island: '#caf0f8', lake: '#bde0fe', mountain: '#d8f3dc', poi: '#ffd166' }[l.kind];
-      c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; c.strokeText(l.name, x, y - 4); c.fillText(l.name, x, y - 4);
+      c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; const nm = tr(l.name); c.strokeText(nm, x, y - 4); c.fillText(nm, x, y - 4);
       c.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
     const dot = (x, z, col, r) => { const [a, b] = toMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };

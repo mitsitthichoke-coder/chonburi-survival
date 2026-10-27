@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tr, onLang } from './i18n.js';
 
 const matCache = new Map();
 export function mat(color, opts = {}) {
@@ -523,11 +524,15 @@ export function makeWatchtower() {
   return g;
 }
 
+// ป้ายทุกอันจำข้อความเดิมไว้ เปลี่ยนภาษาแล้ววาดใหม่ได้
+const labels = new Set();
+onLang(() => { for (const r of labels) { const s = r.deref(); if (!s) labels.delete(r); else if (s.userData.raw) s.userData.set(...s.userData.raw); } });
 export function makeLabel(text, color = '#fff') {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
   sp.scale.set(2.4, 0.6, 1); sp.renderOrder = 10;
-  sp.userData.set = (t, col = color) => {
+  sp.userData.set = (t0, col = color) => {
+    const t = tr(t0); if (!sp.userData.raw) labels.add(new WeakRef(sp)); sp.userData.raw = [t0, col];
     const x = c.getContext('2d'); x.clearRect(0, 0, 256, 64);
     x.font = 'bold 26px Sarabun, Tahoma, sans-serif'; x.textAlign = 'center';
     x.fillStyle = 'rgba(0,0,0,.55)'; const w = Math.min(250, x.measureText(t).width + 18); x.fillRect(128 - w / 2, 12, w, 40);

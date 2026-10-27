@@ -6,6 +6,7 @@ import { isTouchDevice } from './touch.js';
 import { setGfx } from './models.js';
 import { theme, setTheme, isHalloween } from './theme.js';
 import { openGuide } from './guide-ui.js';
+import { bindLangButton } from './i18n.js';
 import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
 import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
@@ -83,6 +84,7 @@ let gfx = 'normal'; try { gfx = localStorage.getItem('cbs_gfx') || (isTouchDevic
 // ธีม: โลกล่มสลาย / ฮาโลวีน
 const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : 'วันล่มสลาย'; };
 $('#guide-btn').onclick = (e) => { e.preventDefault(); openGuide(); };
+bindLangButton($('#lang-menu')); bindLangButton($('#lang-btn'));
 syncTitle(); // ธีมเปลี่ยนได้เฉพาะเจ้าของเซิร์ฟเวอร์ (/theme)
 seg($('#f-gfx'), [], () => gfx, (v) => { gfx = v; try { localStorage.setItem('cbs_gfx', v); } catch { /* ignore */ } });
 const useRoom = RoomNet.available();

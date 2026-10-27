@@ -583,6 +583,8 @@ export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้�
 export const BASE_SLOTS = 72; // กระเป๋าตั้งต้น (เพิ่ม 50% จาก 48)
 // กองไฟที่ผู้เล่นก่อ: ผู้ติดเชื้อและสัตว์นักล่าไม่กล้าเข้าใกล้ในรัศมีนี้
 export const FIRE_SAFE = 8;
+// เตาผิงในศาลา: จุดครั้งเดียวลุกได้ 24 ชั่วโมง และไล่ผู้ติดเชื้อ/สัตว์ร้ายรอบศาลาเหมือนกองไฟ
+export const HEARTH_MS = 24 * 3600 * 1000;
 export const nearFireOf = (fires, x, z, r = FIRE_SAFE) => { for (const f of fires) { const d = Math.hypot(f.x - x, f.z - z); if (d < r) return { f, d }; } return null; };
 // ยานพาหนะไฟฟ้า: ชาร์จที่แผงโซล่าเซลล์เฉพาะตอนกลางวันที่มีแดด (ไม่ใช้น้ำมัน)
 export const ELECTRIC = new Set(['ev_car', 'ev_bike']);

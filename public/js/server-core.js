@@ -1,7 +1,7 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX } from './data.js';
+import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -186,7 +186,7 @@ export class WorldCore {
     const rels = {};
     for (const [k, r] of Object.entries(this.db.rels)) { const [a, b] = k.split('|'); if (a === id) rels[b] = r; else if (b === id) rels[a] = r; }
     this.send(id, {
-      t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, structures: this.db.structures,
+      t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, hearth: this.db.hearth || {}, structures: this.db.structures,
       rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse',
       players: this.relayState ? [...this.players.values()].filter((p) => p.id !== id).map((p) => this.pub(p)) : [],
     });
@@ -220,6 +220,11 @@ export class WorldCore {
         if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
       case 'chat': return this.chatMsg(id, me, m);
+      case 'hearth': { // เล่นผ่านลิงก์: ผู้เล่นจุดเตาผิงแล้วแจ้งโฮสต์ (โหมดเซิร์ฟเวอร์ถูกกันไว้ใน server-econ)
+        const P = getLayout().pavilions[m.i | 0]; if (!P?.hearth) return;
+        const until = Math.min(Date.now() + HEARTH_MS + 60000, +m.until || 0); (db.hearth ||= {})[m.i | 0] = until; this._fireSpotsT = 0;
+        this.broadcast({ t: 'hearth', i: m.i | 0, until }); break;
+      }
       case 'theme': if (this.allowTheme?.(id)) this.setThemeAll(m.v); else this.send(id, { t: 'notice', text: 'เปลี่ยนธีมได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์' }); break;
       case 'party': return this.partyMsg(id, m);
       case 'announce':
@@ -410,7 +415,7 @@ export class WorldCore {
       if (W.noTown && inTownAt(m.x, m.z)) { m.angry = 0; this.moveMob(m, H.x, H.z, 4, dt); continue; }
       if (m.angry > 0 && W.noTown && P && inTownAt(P.p[0], P.p[2])) m.angry = 0;
       if (W.leash && Math.hypot(m.x - H.x, m.z - H.z) > W.leash) { m.angry = 0; m.alert = 0; this.moveMob(m, H.x, H.z, W.chase || 3, dt); continue; }
-      if (!m._ft || m.t - m._ft > 1) { m._ft = m.t; this._fires = this.db.structures.filter((s) => s.type === 'campfire'); }
+      if (!m._ft || m.t - m._ft > 1) { m._ft = m.t; this._fires = this.fireSpots(); }
       if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0) && !nearFireOf(this._fires, P.p[0], P.p[2])) { m.angry = 6; m.angryId = P.id; }
       if (m.angry > 0 && W.hostile && nearFireOf(this._fires, m.x, m.z, FIRE_SAFE + 2)) m.angry = 0; // นักล่ากลัวไฟ
       if (m.angry > 0) {
@@ -472,6 +477,15 @@ export class WorldCore {
     }
     return null;
   }
+  // จุดไฟที่ไล่ผู้ติดเชื้อ/สัตว์ร้าย: กองไฟที่ผู้เล่นก่อ + เตาผิงในศาลาที่ยังลุกอยู่ (แคช 2 วินาที)
+  fireSpots() {
+    const now = Date.now();
+    if (!this._fireSpots || now - (this._fireSpotsT || 0) > 2000) {
+      const pav = getLayout().pavilions, H = this.db.hearth || {};
+      this._fireSpotsT = now; this._fireSpots = [...this.db.structures.filter((s) => s.type === 'campfire'), ...Object.keys(H).filter((i) => H[i] > now && pav[i]).map((i) => ({ x: pav[i].x, z: pav[i].z, hearth: true }))];
+    }
+    return this._fireSpots;
+  }
   // ฐานที่รั้วล้อมครบทุกด้าน (แคชไว้ 3 วินาที) — ห้ามมีอะไรเกิดข้างใน
   closedBases() {
     const now = Date.now();
@@ -482,6 +496,7 @@ export class WorldCore {
     const h = heightAt(x, z);
     if (h < 0.8 || waterAt(x, z, h) || inCamp(x, z, 4)) return false;
     if (this.closedBases().some((b) => inBox(b.box, x, z, 1))) return false;
+    if (nearFireOf(this.fireSpots(), x, z, FIRE_SAFE + 4)) return false; // ไม่เกิดใกล้กองไฟ/เตาผิงที่ลุกอยู่
     return !this.walls.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1);
   }
   damageZombie(zid, dmg, by) {
@@ -502,7 +517,7 @@ export class WorldCore {
   tickZombies(dt) {
     const night = this.isNight(), day = this.dayNum();
     const alive = [...this.players.values()].filter((p) => p.hp > 0 && p.p);
-    const fires = this.db.structures.filter((s) => s.type === 'campfire'), bases = this.db.structures.filter((s) => s.type === 'basecore' && s.ok), now = Date.now();
+    const fires = this.fireSpots(), bases = this.db.structures.filter((s) => s.type === 'basecore' && s.ok), now = Date.now();
     for (const zb of this.zombies.values()) {
       // รั้วและบ้านของฐาน (ช่วงป้องกัน 60 วัน) กันผู้ติดเชื้อ: ถ้าหลุดเข้ามาให้ถอยออกไป
       const sb = safeBaseAt(bases, zb.x, zb.z, now, 1);

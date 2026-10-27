@@ -9,10 +9,10 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { WorldCore } from './public/js/server-core.js';
-import { JOBS } from './public/js/data.js';
+import { JOBS, ITEMS as ITEMS_RAW } from './public/js/data.js';
 import { cleanLook } from './public/js/look-core.js';
 import { installEconomy, cleanText } from './public/js/server-econ.js';
-import { newChar, jobKit } from './public/js/economy.js';
+import { newChar, jobKit, applyResult } from './public/js/economy.js';
 import { Store } from './server/store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -207,11 +207,36 @@ core.onCommand = (id, text) => {
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /maint on|off (ปิดปรับปรุง) · /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · /theme ฮาโลวีน|ปกติ (เปลี่ยนธีม) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /coin จำนวน [ชื่อ] (เติมเงินจิ) · /give ไอเท็ม [จำนวน] [ชื่อ] (เสกของ) · /maint on|off (ปิดปรับปรุง) · /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · /theme ฮาโลวีน|ปกติ (เปลี่ยนธีม) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
   if ((cmd === 'admin' || cmd === 'unadmin') && !isOwner(u)) return say('ตั้ง/ถอดแอดมินได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+  if (cmd === 'coin') {
+    // /coin จำนวน [ชื่อ] — เจ้าของเซิร์ฟเวอร์เติมเงินจิ (ช่วงทดลอง) · ไม่ใส่ชื่อ = เติมให้ตัวเอง · ใส่ติดลบ = หักออก
+    if (!isOwner(u)) return say('เติมเงินจิได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+    const [n, ...who] = rest, amt = Math.trunc(+n);
+    if (!Number.isFinite(amt) || !amt || Math.abs(amt) > 100000) return say('ใช้: /coin จำนวน [ชื่อผู้เล่น] (ไม่เกิน 100000 ต่อครั้ง)');
+    const t = who.length ? find(who.join(' ')) : u; if (!t) return say('ไม่พบผู้เล่นชื่อนี้');
+    const ch = core.chars.get(t.id); if (!ch) return say('ผู้เล่นต้องออนไลน์อยู่');
+    const now = ch.inv.jicoin || 0, add = Math.max(-now, amt);
+    core.sendEcon(t.id, applyResult(ch, add > 0 ? { give: { jicoin: add }, msg: `🪙 เจ้าของเซิร์ฟเวอร์เติมเงินจิให้ ${add}` } : { take: { jicoin: -add }, msg: `🪙 ถูกหักเงินจิ ${-add}` }));
+    console.log(`🪙 ${u.username} /coin ${add} → ${t.username}`);
+    return say(`🪙 ${add > 0 ? 'เติม' : 'หัก'}เงินจิ ${Math.abs(add)} ให้ ${label(t)} แล้ว (ตอนนี้มี ${ch.inv.jicoin || 0})`);
+  }
+  if (cmd === 'give') {
+    // /give ไอเท็ม [จำนวน] [ชื่อ] — เจ้าของเสกของได้เลยโดยไม่ใช้วัตถุดิบ (ช่วงทดลอง) · ไอเท็มใส่รหัส (เช่น iron_sword) หรือชื่อไทย
+    if (!isOwner(u)) return say('เสกของได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+    const [key, n, ...who] = rest, q = Math.trunc(+n) || 1;
+    const k = ITEMS_RAW[key] ? key : Object.keys(ITEMS_RAW).find((x) => ITEMS_RAW[x].name === key) || Object.keys(ITEMS_RAW).find((x) => ITEMS_RAW[x].name.includes(key || '\0'));
+    if (!k || ITEMS_RAW[k].quest) return say('ไม่พบไอเท็มนี้ — ใช้รหัส (เช่น /give iron_sword 1) หรือชื่อไทย (เช่น /give ดาบเหล็กตีมือ)');
+    if (q < 1 || q > 999) return say('จำนวน 1–999');
+    const t = who.length ? find(who.join(' ')) : u; if (!t) return say('ไม่พบผู้เล่นชื่อนี้');
+    const ch = core.chars.get(t.id); if (!ch) return say('ผู้เล่นต้องออนไลน์อยู่');
+    core.sendEcon(t.id, applyResult(ch, { give: { [k]: q }, msg: `🎁 เจ้าของเซิร์ฟเวอร์เสก ${ITEMS_RAW[k].icon} ${ITEMS_RAW[k].name} ×${q} ให้` }));
+    console.log(`🎁 ${u.username} /give ${k} ×${q} → ${t.username}`);
+    return say(`🎁 เสก ${ITEMS_RAW[k].icon} ${ITEMS_RAW[k].name} ×${q} ให้ ${label(t)} แล้ว`);
+  }
   if (cmd === 'maint') {
     // /maint on [ข้อความ] | off — ปิดปรับปรุงเซิร์ฟเวอร์ (แอดมินยังเข้าได้)
     if (!isOwner(u)) return say('ปิดปรับปรุงได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');

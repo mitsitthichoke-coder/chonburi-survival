@@ -321,7 +321,7 @@ export class Entities {
 
   // กองไฟของผู้เล่น (อัปเดตทุก 1 วินาที)
   baseList() { const now = performance.now(); if (!this._bases || now - this._baseT > 2000) { this._baseT = now; this._bases = this.g.world.structures.filter((s) => s.type === 'basecore' && s.ok); } return this._bases; }
-  fireList() { const now = performance.now(); if (!this._fires || now - this._fireT > 1000) { this._fireT = now; this._fires = this.g.world.structures.filter((s) => s.type === 'campfire'); } return this._fires; }
+  fireList() { const now = performance.now(); if (!this._fires || now - this._fireT > 1000) { this._fireT = now; const t = this.g.now(); this._fires = [...this.g.world.structures.filter((s) => s.type === 'campfire'), ...(this.g.world.pavilions || []).filter((p) => p.hearth && (p.lit || 0) > t)]; } return this._fires; }
   spawnBoss() {
     if (this.list.some((e) => !e.dead && e.T?.boss)) return null;
     const P = this.g.player.pos;

@@ -462,7 +462,7 @@ export class Game {
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return PET_TYPES[e0.type]?.ride && !(e0.pet.down > 0) ? { type: 'ride', e: e0, text: `🐃 ขี่${e0.pet.name} (ลูบหัวด้วย)` } : { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
     const hp = (this.world.pavilions || []).find((p) => p.hearth && Math.hypot(p.x + p.w / 2 - 0.9 - P.x, p.z - P.z) < 2.4);
-    if (hp) return (hp.lit || 0) > this.now() ? { type: 'none', text: `🔥 เตาผิงกำลังลุก (อีก ${Math.ceil((hp.lit - this.now()) / 1000)} วิ) — อุ่นและตากตัวให้แห้ง` } : { type: 'hearth', p: hp, text: `🔥 ก่อไฟในเตาผิง (ไม้ ${this.inv.wood || 0}/2)` };
+    if (hp) { const left = (hp.lit || 0) - this.now(); return left > 0 ? { type: 'none', text: `🔥 เตาผิงกำลังลุก (อีก ${Math.floor(Math.ceil(left / 60000) / 60) ? Math.floor(Math.ceil(left / 60000) / 60) + ' ชม. ' : ''}${Math.ceil(left / 60000) % 60} นาที) — อุ่น ตากตัวให้แห้ง ซอมบี้/สัตว์ร้ายไม่กล้าเข้าใกล้` } : { type: 'hearth', p: hp, text: `🔥 ก่อไฟในเตาผิง ลุก 24 ชม. (ไม้ ${this.inv.wood || 0}/2)` }; }
     const dm = this.myPiece(); if (dm) return { type: 'demo', text: `${PIECES[dm.type].icon} ${PIECES[dm.type].name} · ${this.touch ? 'แตะ ✋' : 'กด E หรือ <kbd>X</kbd>'} = 🗑️ รื้อชิ้นนี้ (ได้วัสดุคืนครบ)` };
     if (this.weather.rain) return { type: 'rain', text: this.hasItem('bottle') ? 'รองน้ำฝนใส่ขวด' : 'ดื่มน้ำฝน' };
     return null;
@@ -532,6 +532,11 @@ export class Game {
     if (R.ht >= every && (s.happy ?? 50) < 100) { R.ht -= every; s.happy = Math.min(100, (s.happy ?? 50) + 1); this.ui.toast(`😊 พักผ่อนสบายใจ ความสุข +1 (${s.happy})`, 'level'); }
     return true;
   }
+  // เตาผิงในศาลา (เวลาเป็นเวลาเซิร์ฟเวอร์) · mine = จุดเองในโหมดลิงก์ ต้องแจ้งโฮสต์
+  setHearth(i, until, mine = false) {
+    const p = this.world.pavilions?.[i]; if (!p) return; p.lit = until; this.ents._fireT = 0;
+    if (mine && this.auth.room) this.net.send({ t: 'hearth', i, until });
+  }
   // 🐃 ขี่ควายเลี้ยง: วิ่งเร็วโดยไม่เสียสตามิน่า · กด E อีกครั้ง/ลงน้ำ/ขึ้นรถ = ลง
   mountPet(e) {
     if (this.mount) return this.dismount();
@@ -575,7 +580,7 @@ export class Game {
     if (this.dead) return;
     const t = this.findTarget(); if (!t) return;
     if (t.type === 'demo') return this.quickDemolish();
-    if (t.type === 'hearth') { const r = this.auth.do('hearth'); if (!this.auth.server ? r && !r.err : this.hasItem('wood', 2)) { t.p.lit = this.now() + 180000; this.sfx.play('place'); } return; }
+    if (t.type === 'hearth') { const r = this.auth.do('hearth', { i: this.world.pavilions.indexOf(t.p) }); if (r?.hearth) this.setHearth(r.hearth.i, r.hearth.until, true); if (this.auth.server ? this.hasItem('wood', 2) : r && !r.err) this.sfx.play('place'); return; }
     const s = this.stats;
     switch (t.type) {
       case 'quest': return t.q.act();
@@ -743,6 +748,7 @@ export class Game {
         case 'welcome':
           this.timeOffset = m.now - Date.now(); this.startTime = m.startTime;
           if (m.theme) setTheme(m.theme, true);
+          for (const [i, until] of Object.entries(m.hearth || {})) this.setHearth(+i, until);
           for (const [id, until] of Object.entries(m.res)) if (until > m.now) this.world.setResState(+id, until - this.timeOffset);
           for (const [id, until] of Object.entries(m.loot)) if (until > m.now) this.world.setLootState(id, until - this.timeOffset);
           {
@@ -799,6 +805,7 @@ export class Game {
         case 'char': this.applyServerChar(m.c); break;
         case 'correct': this.player.pos.set(...m.p); this.player.vy = 0; break;
         case 'authfail': this.ui.showFatal(m.text || 'เข้าสู่ระบบไม่สำเร็จ'); break;
+        case 'hearth': this.setHearth(m.i, m.until); break;
         case 'maint': this.ui.toast(m.text, 'warn'); this.ui.chat('', m.text, true); this.maintMsg = m.text; break;
         case 'disconnected':
           if (this.auth.server) { this.ui.showFatal(this.maintMsg ? '🔧 ขออภัยในความไม่สะดวก กำลังอัพเดทข้อมูล — ตัวละครของคุณถูกบันทึกไว้แล้ว กดเพื่อกลับเข้าเล่น (ถ้ายังอัปเดตอยู่ หน้าเข้าสู่ระบบจะรอให้เอง)' : 'ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — ตัวละครของคุณถูกบันทึกไว้แล้ว กดเพื่อเข้าเล่นใหม่'); break; } this.ui.toast('ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — เล่นต่อแบบออฟไลน์', 'warn'); break;

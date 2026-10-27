@@ -164,6 +164,16 @@ export class World {
       add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, -p.d / 2 + 0.7); add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, p.d / 2 - 0.7);
       add(new THREE.BoxGeometry(1.6, 0.35, 0.05), '#ffd166', 0, H - 0.2, p.d / 2 - 0.1);
       // เตาผิง + ปล่องไฟทะลุหลังคา (ก่อไฟได้เลย ไม่ต้องคราฟท์กองไฟ)
+      if (p.hearth) {
+        // ศาลาเตาผิงแบบแข็งแรง: ฐานหิน เสาหินก่อ ผนังอิฐครึ่งความสูงด้านหลัง/ข้าง คานไม้หนา ป้ายบอก
+        add(new THREE.BoxGeometry(p.w + 0.8, 0.45, p.d + 0.8), '#7d8597', 0, 0.12, 0);
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { add(new THREE.BoxGeometry(0.55, H + 0.1, 0.55), '#8d99ae', sx * (p.w / 2 - 0.3), (H + 0.1) / 2, sz * (p.d / 2 - 0.3)); add(new THREE.BoxGeometry(0.7, 0.25, 0.7), '#6c757d', sx * (p.w / 2 - 0.3), 0.3, sz * (p.d / 2 - 0.3)); }
+        add(new THREE.BoxGeometry(p.w - 0.6, 1.3, 0.35), '#a4553a', 0, 0.85, -p.d / 2 + 0.3);
+        add(new THREE.BoxGeometry(0.35, 1.3, p.d - 2.4), '#a4553a', -p.w / 2 + 0.3, 0.85, -0.6);
+        for (const z of [-p.d / 2 + 0.3, p.d / 2 - 0.3]) add(new THREE.BoxGeometry(p.w + 0.2, 0.3, 0.3), '#5c3d1e', 0, H, z);
+        add(new THREE.BoxGeometry(2.2, 0.4, 0.06), '#2b9348', 0, H - 0.55, p.d / 2 - 0.25);
+        add(new THREE.BoxGeometry(0.75, H + 2.2, 0.75), '#9c4a32', p.w / 2 - 0.9, (H + 2.2) / 2, 0); add(new THREE.BoxGeometry(0.95, 0.25, 0.95), '#6c757d', p.w / 2 - 0.9, H + 2.25, 0);
+      }
       if (p.hearth) { add(new THREE.BoxGeometry(0.5, H + 1.6, 0.5), '#7f5539', p.w / 2 - 0.9, (H + 1.6) / 2, 0); add(new THREE.BoxGeometry(1.1, 0.9, 1.0), '#6c757d', p.w / 2 - 0.9, 0.45, 0); add(new THREE.BoxGeometry(0.6, 0.45, 0.05), '#1b1b1b', p.w / 2 - 0.9, 0.4, 0.51); add(new THREE.BoxGeometry(0.9, 0.5, 0.9), '#6c757d', 0, -10, 0); const f = add(new THREE.ConeGeometry(0.22, 0.45, 6), '#ff7b00', p.w / 2 - 0.9, 0.35, 0.45); f.material = new THREE.MeshBasicMaterial({ color: '#ff9e00' }); p.flame = f; }
       this.scene.add(g); p.mesh = g;
     }

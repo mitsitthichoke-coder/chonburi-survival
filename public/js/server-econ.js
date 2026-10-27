@@ -11,7 +11,8 @@ import { petStats } from './pets.js';
 
 const BAD = ['ควย', 'เหี้ย', 'สัส', 'เย็ด', 'หี', 'แตด', 'fuck', 'shit', 'bitch', 'cunt', 'nigger'];
 export const cleanText = (t) => { let s = String(t || '').replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e]/g, '').slice(0, 200); for (const w of BAD) s = s.split(w).join('*'.repeat(w.length)); return s; };
-const MAX_SPEED = 13, MAX_VEHICLE = 26;
+const MAX_SPEED = 13, // ขี่ควายเร็วสุด ~10.5
+  MAX_VEHICLE = 26;
 
 export function installEconomy(core) {
   core.economy = true;
@@ -33,6 +34,7 @@ export function installEconomy(core) {
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
+      pav: (i) => getLayout().pavilions[i] || null, hearthUntil: (i) => self.db.hearth?.[i] || 0,
       loot: (lid) => { const i = +String(lid).slice(1), L = self.lootList[i]; return L ? { ...L, until: self.db.loot[lid] || 0 } : null; },
       res: (rid) => self.resList[rid] || null,
       resUntil: (rid) => self.db.res[rid] || 0,
@@ -77,6 +79,7 @@ export function installEconomy(core) {
           if (r.loot) { this.db.loot[r.loot.id] = r.loot.until; this.broadcast({ t: 'loot', id: r.loot.id, until: r.loot.until }, id); }
           if (r.res?.until) { this.db.res[r.res.id] = r.res.until; this.broadcast({ t: 'res', id: r.res.id, until: r.res.until }, id); }
           if (m.a === 'died') { ch.teleportOk = true; }
+          if (r.hearth) { (this.db.hearth ||= {})[r.hearth.i] = r.hearth.until; this._fireSpotsT = 0; this.broadcast({ t: 'hearth', i: r.hearth.i, until: r.hearth.until }); }
         }
         return this.sendEcon(id, r);
       }
@@ -112,7 +115,7 @@ export function installEconomy(core) {
         return baseMessage(id, { t: 'chat', text, ch: m.ch, to: m.to });
       }
       // ข้อความแบบเก่าที่เชื่อไคลเอนต์ — ปิดในโหมดนี้
-      case 'res': case 'loot': case 'place': case 'mfeed': case 'give': return;
+      case 'res': case 'loot': case 'place': case 'mfeed': case 'give': case 'hearth': return;
       case 'sop': return this.econSop(id, ch, m);
       case 'sdel': {
         const i = this.db.structures.findIndex((x) => x.id === m.id); if (i < 0) return;

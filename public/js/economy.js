@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT } from './data.js';
+import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
@@ -202,7 +202,13 @@ const A = {
   sqdrop(ch) { if (!ch.sq) return { err: 'ไม่มีภารกิจ' }; ch.sq = null; return { msg: 'ยกเลิกภารกิจสุ่มแล้ว', sq: null }; },
 
   // ก่อไฟในเตาผิงของศาลา (ใช้ไม้ 2 · ลุกนาน 3 นาที)
-  hearth(ch) { if (!has(ch, 'wood', 2)) return { err: '🔥 ต้องมีไม้ 2 ชิ้นเพื่อก่อไฟในเตาผิง' }; return { take: { wood: 2 }, xp: { survival: 3 }, msg: '🔥 ก่อไฟในเตาผิงแล้ว — อบอุ่นและตากตัวให้แห้ง (3 นาที)', hearth: true }; },
+  hearth(ch, p, env) {
+    const i = p.i | 0, P = env.pav?.(i); if (!P?.hearth) return { err: 'ไม่พบเตาผิง' };
+    if (dist(env, ch, P.x, P.z) > 6) return { err: 'อยู่ไกลเกินไป' };
+    if ((env.hearthUntil?.(i) || 0) > env.now()) return { err: '🔥 เตาผิงยังลุกอยู่', silent: true };
+    if (!has(ch, 'wood', 2)) return { err: '🔥 ต้องมีไม้ 2 ชิ้นเพื่อก่อไฟในเตาผิง' };
+    return { take: { wood: 2 }, xp: { survival: 3 }, msg: '🔥 ก่อไฟในเตาผิงแล้ว ลุกได้ 24 ชั่วโมง — อบอุ่น ตากตัวให้แห้ง และผู้ติดเชื้อ/สัตว์ร้ายไม่กล้าเข้าใกล้ศาลา', hearth: { i, until: env.now() + HEARTH_MS } };
+  },
 
   // ขายของให้ NPC รับเงินจิ (ราคาครึ่งหนึ่งของมูลค่า · NPC แต่ละคนรับซื้อได้วันละไม่เกิน SELL_DAY_CAP)
   // เรียนวิชาจาก NPC (เช่น จักสานกับยายแวว) จ่ายเป็นเงินจิ

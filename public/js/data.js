@@ -519,7 +519,7 @@ export const JOBS = {
   monk: { name: 'พระ', icon: '🙏', skill: 'spirit', xp: { spirit: 1.5, medicine: 1.2 }, kit: { prayer_beads: 1 }, desc: 'เพิ่มกำลังใจ ลดความตื่นตระหนกของทุกคน',
     perks: [[1, 'ตื่นตระหนกช้าลง 50% · สวดมนต์ลดความเครียดและให้ "กำลังใจ" ทุกคนรอบตัว · ปลดล็อก ลูกประคำ / ผ้ายันต์'], [4, 'เพื่อนที่อยู่ใกล้ตื่นตระหนกช้าลง · สวดมนต์ฟื้นพลังชีวิต +10'], [8, 'พลังเมตตา: หลังสวดมนต์ ผู้ติดเชื้อมองไม่เห็นคุณ 15 วินาที']] },
   freelancer: { name: 'ฟรีแลนซ์', icon: '🧭', skill: 'survival', xp: {}, kit: { canned: 2, bandage: 1, bottle: 1 }, free: true, desc: 'ไม่ผูกสายอาชีพ เลือกเรียนรู้สายไหนก็ได้เองตามแต้มสเตตัส',
-    perks: [[1, 'เริ่มต้นได้แต้มสเตตัสว่าง 7 แต้ม (อาชีพอื่นได้ 5 แต้มลงสายตัวเอง) ลงสายไหนก็ได้'], [4, 'ได้ XP ทุกทักษะเพิ่ม 10%'], [8, 'ยิ่งลงหลายสายยิ่งเก่ง: ทุกสายที่มีแต้ม 3+ ได้ XP สายนั้นเพิ่มอีก 10%']] },
+    perks: [[1, 'เริ่มต้นได้แต้มสเตตัสว่าง 7 แต้ม (อาชีพอื่นได้ 5 แต้มลงสายตัวเอง) ลงสายไหนก็ได้'], [4, 'ได้ XP ทุกทักษะเพิ่ม 10%'], [8, 'ยิ่งลงหลายสายยิ่งเก่ง: ทุกสายที่มีแต้ม 3+ ได้ XP สายนั้นเพิ่มอีก 10%']], happyNote: '😊 เก่งด้านความสุข: ความสุขเพิ่มเองทุก 15 นาที (อาชีพอื่นทุก 1 ชม.) และได้ผลดีจากความสุขมากขึ้น 25%' },
   electrician: { name: 'ช่างไฟฟ้า', icon: '🔌', skill: 'electric', xp: { electric: 1.5, crafting: 1.2 }, kit: { copper_wire: 4, battery_pack: 1 }, desc: 'สร้างแผงโซล่าเซลล์ ทำรถ EV และระบบชาร์จไฟ',
     perks: [[1, 'ปลดล็อก แผงโซล่าเซลล์ / แบตเตอรี่ EV / มอเตอร์ไฟฟ้า · ชาร์จไฟเร็วขึ้น ×2'], [4, 'รถไฟฟ้าใช้ไฟน้อยลง 40%'], [8, 'ชาร์จรถ EV ได้ทุกที่ตอนกลางวัน (แผงพกพา)']] },
   doctor: { name: 'หมอ', icon: '🩺', skill: 'medicine', xp: { medicine: 1.5 }, kit: { bandage: 3, herbal_med: 2 }, desc: 'รักษาอาการบาดเจ็บ ติดเชื้อ ป่วย',
@@ -537,6 +537,10 @@ export const JOBS = {
 export const START_PTS = 5, PERK_PTS = [3, 8, 14];
 export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] && !JOBS[ch.profile.job].free ? { [ch.profile.job]: START_PTS } : {});
 export const isFreelancer = (ch) => ch?.profile?.job === 'freelancer';
+// 😊 ความสุข 0–100: ยิ่งสุขยิ่งมีภูมิคุ้มกัน (ติดเชื้อยาก/ลุกลามช้า) และกระฉับกระเฉง (สตามิน่ามากขึ้น ฟื้นเร็ว)
+// เพิ่มเองทุก 1 ชั่วโมงที่เล่น (ฟรีแลนซ์ทุก 15 นาที) เฉพาะตอนร่างกายปกติ — ถ้าเจ็บ/ป่วย/ติดเชื้อ/หิว/เครียด จะหยุดนับ
+export const HAPPY_EVERY = 3600, HAPPY_EVERY_FREE = 900;
+export const happyPower = (ch, happy) => Math.min(1.25, (happy || 0) / 100 * (isFreelancer(ch) ? 1.25 : 1));
 export const charLvl = (ch) => Object.keys(ch?.skills || {}).reduce((s, k) => s + skillLevel(ch.skills[k]) - 1, 0) + 1;
 export const freePts = (ch) => START_PTS + (isFreelancer(ch) ? 2 : 0) + charLvl(ch) - 1 - Object.values(jobPts(ch)).reduce((a, b) => a + b, 0);
 // สายหลัก = สายที่มีแต้มมากที่สุด

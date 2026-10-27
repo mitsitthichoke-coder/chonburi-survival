@@ -5,7 +5,7 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
+import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
@@ -114,7 +114,8 @@ export class Game {
   }
   get ch() { return this.auth?.ch || { skills: this.skills, stats: this.stats, profile: this.profile }; }
   maxHp() { return maxHpOf(this.ch); }
-  maxStamina() { return maxStamOf(this.ch) - (this.social?.preg[this.id] ? 20 : 0); }
+  maxStamina() { return maxStamOf(this.ch) - (this.social?.preg[this.id] ? 20 : 0) + Math.floor(20 * this.happyP()); }
+  happyP() { return happyPower(this.ch, this.stats.happy ?? 50); }
   dmgMul() { return dmgMulOf(this.ch) * (this.stats.stress >= 85 ? 0.85 : 1) * (this.moraleT > 0 ? 1.1 : 1); }
   // ผู้ติดเชื้อมองเห็นได้ไกลแค่ไหน (1 = ปกติ)
   stealthMul() { return (this.hideT > 0 ? 0.1 : 1) * [1, 0.6, 0.35][this.stance] * (killPerk(this.ch, 1) ? 0.9 : 1) * (String(this.wear.body).split('~')[0] === 'hunter_cloak' ? 0.85 : 1); }
@@ -186,6 +187,17 @@ export class Game {
   handMul() { const dom = this.profile.hand === 'l' ? 'l' : 'r', using = this.lefty ? 'l' : 'r'; return dom === using ? 1.15 : 0.9; }
   holdItem(k) { return this.auth.do('hold', { k: k || null }); }
   setLefty(v) { return this.auth.do('hands', { lefty: !!v }); }
+  // 😊 ความสุขเพิ่มเองตามเวลาเล่น เมื่อร่างกายปกติเท่านั้น
+  tickHappy(dt) {
+    const s = this.stats;
+    if (s.happy === undefined) s.happy = isFreelancer(this.ch) ? 60 : 50;
+    const ok = !s.bleeding && !s.fracture && !(s.sprain > 0) && s.infection < 1 && !(s.sick > 0) && s.hunger > 30 && s.thirst > 30 && (s.stress || 0) < 60 && !this.dead;
+    this.happyOk = ok;
+    if (!ok || s.happy >= 100) return;
+    s.happyT = (s.happyT || 0) + dt;
+    const every = isFreelancer(this.ch) ? HAPPY_EVERY_FREE : HAPPY_EVERY;
+    if (s.happyT >= every) { s.happyT -= every; s.happy = Math.min(100, s.happy + 1); this.ui.toast(`😊 ความสุข +1 (${s.happy}) — ภูมิคุ้มกันและความกระฉับกระเฉงเพิ่มขึ้น`, 'level'); }
+  }
   // ปุ่ม H / ปุ่มบนจอ: สลับอุปกรณ์ที่ถือระหว่างมือซ้าย–ขวา (มือถนัดได้พลัง +15%)
   swapHands() {
     const v = !this.lefty, dom = this.profile.hand === 'l';
@@ -349,7 +361,7 @@ export class Game {
     if (o.bleed && !s.bleeding && Math.random() < o.bleed) { s.bleeding = true; this.ui.toast('🩸 คุณเลือดออก! ใช้ผ้าพันแผลด่วน', 'warn'); }
     s.stress = Math.min(100, (s.stress || 0) + 3);
     if (this.immuneT > 0) o = { ...o, infect: 0 };
-    if (o.infect && Math.random() < o.infect * (1 - ws.bite) * (killPerk(this.ch, 2) ? 0.85 : 1)) {
+    if (o.infect && Math.random() < o.infect * (1 - ws.bite) * (killPerk(this.ch, 2) ? 0.85 : 1) * (1 - 0.35 * this.happyP())) { // ความสุข = ภูมิคุ้มกัน
       if (s.infection < 1) this.ui.toast('🦠 คุณถูกกัด... เชื้อเริ่มเข้าสู่ร่างกาย! หายาปฏิชีวนะหรือทำยาสมุนไพร', 'warn');
       s.infection = Math.max(s.infection, 5) + 5;
     }
@@ -884,6 +896,7 @@ export class Game {
     this.updateStress(dt);
     for (const k of ['moraleT', 'hideT', 'droneT']) if (this[k] > 0) this[k] -= dt;
     let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1) * (this.moraleT > 0 ? 1.2 : 1);
+    regen *= 1 + 0.5 * this.happyP(); // ความสุข = กระฉับกระเฉง
     if (s.infection > 60) regen *= 0.5;
     if (this.social.lovedNearby()) regen *= 1.5;
     if (petNearbyWith(this, 'swift', 20)) regen *= 1.25;
@@ -895,7 +908,8 @@ export class Game {
     if (s.sprain > 0) { s.sprain -= dt; if (s.sprain <= 0) { s.sprain = 0; this.ui.toast('🦶 ขาแพลงหายแล้ว'); } }
     if (s.bleeding) { dhp -= 0.6; if (Math.random() < 0.004 * dt * 60 * 0.1) { s.bleeding = false; this.ui.toast('เลือดหยุดไหลเองแล้ว'); } }
     if (this.immuneT > 0) this.immuneT -= dt;
-    if (s.infection > 0) { s.infection = Math.min(100, s.infection + 0.12 * dt * (hasPerk(this.ch, 'doctor', 2) ? 0.5 : 1)); if (s.infection >= 100) dhp -= 1.2; }
+    this.tickHappy(dt);
+    if (s.infection > 0) { s.infection = Math.min(100, s.infection + 0.12 * dt * (hasPerk(this.ch, 'doctor', 2) ? 0.5 : 1) * (1 - 0.4 * this.happyP())); if (s.infection >= 100) dhp -= 1.2; }
     if (this.player.swim && s.stamina <= 0) dhp -= 4;
     if (dhp === 0 && s.hunger > 40 && s.thirst > 40 && s.infection < 30) dhp = (0.15 + (this.nearFire || this.inCampNow ? 0.25 : 0)) * (this.social.lovedNearby() ? 1.5 : 1);
     if (dhp > 0 && hasPerk(this.ch, 'doctor', 2)) dhp *= 2;

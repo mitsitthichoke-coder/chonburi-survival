@@ -95,6 +95,7 @@ export class UI {
       water: ['💧 ความกระหาย', `${Math.ceil(s.thirst)}/100`, 'ลดลงตามเวลา (กลางวันร้อนลดเร็ว) · ถ้าหมดเสียพลังชีวิตเร็ว · ดื่มน้ำต้มสุก/มะพร้าว · น้ำดิบเสี่ยงท้องเสีย ให้ต้มที่กองไฟก่อน'],
       stam: ['⚡ สตามิน่า', `${Math.ceil(s.stamina)}/${g.maxStamina()}`, 'ใช้ตอนวิ่ง กระโดด ตี และว่ายน้ำ · ฟื้นเมื่อหยุดวิ่ง · ฟื้นช้าลงเมื่อหิว ติดเชื้อหนัก หรือเครียด · ฟื้นเร็วขึ้นเมื่อใส่ถุงเท้า อยู่ใกล้คนรัก หรือมีกำลังใจ'],
       inf: ['🦠 การติดเชื้อ', `${Math.floor(s.infection)}%`, 'เพิ่มเมื่อถูกผู้ติดเชื้อกัด แล้วลุกลามเองเรื่อย ๆ · เกิน 60% สตามิน่าฟื้นช้า เกิน 70% เดินช้า · ถึง 100% จะเสียพลังชีวิตจนตาย · รักษาด้วยยาสมุนไพร ยาปฏิชีวนะ หรือยาต้านไวรัส'],
+      happy: ['😊 ความสุข', `${Math.floor(s.happy ?? 50)}/100 · ภูมิคุ้มกัน +${Math.round(35 * g.happyP())}% · สตามิน่า +${Math.floor(20 * g.happyP())}`, `ยิ่งสุขมาก ยิ่งติดเชื้อยากและเชื้อลุกลามช้า ยิ่งกระฉับกระเฉง (สตามิน่าสูงสุดเพิ่ม ฟื้นเร็วขึ้น) · เพิ่มเองทุก ${g.ch.profile?.job === 'freelancer' ? '15 นาที (🧭 ฟรีแลนซ์เก่งด้านนี้ ได้ผลดีขึ้น 25%)' : '1 ชั่วโมง'} ที่เล่น · ${g.happyOk === false ? '⏸ ตอนนี้หยุดนับ เพราะร่างกายผิดปกติ (' + [s.bleeding && 'เลือดออก', s.fracture && 'ขาหัก', s.sprain > 0 && 'ขาแพลง', s.infection >= 1 && 'ติดเชื้อ', s.sick > 0 && 'ป่วย', s.hunger <= 30 && 'หิว', s.thirst <= 30 && 'กระหายน้ำ', (s.stress || 0) >= 60 && 'เครียด'].filter(Boolean).join(' ') + ')' : 'จะไม่เพิ่มถ้าเลือดออก ขาหัก/แพลง ติดเชื้อ ป่วย หิว กระหาย หรือเครียด'} · อีก ${Math.max(0, Math.ceil(((g.ch.profile?.job === 'freelancer' ? 900 : 3600) - (s.happyT || 0)) / 60))} นาทีจะเพิ่ม 1 แต้ม`],
       stress: ['😰 ความเครียด/ตื่นตระหนก', `${Math.floor(s.stress || 0)}/100`, 'เพิ่มเมื่อมีผู้ติดเชื้อใกล้ กลางคืน หิว เจ็บ · 60+ สตามิน่าฟื้นช้า · 85+ ดาเมจลด · ลดได้ด้วยการพักในที่พัก/ใกล้กองไฟ อยู่กับเพื่อนหรือสัตว์เลี้ยง ฟังดนตรี สวดมนต์ หรือกินของอร่อย'],
     }[k];
     if (!H) return;
@@ -111,6 +112,7 @@ export class UI {
     bar('#b-hp', s.hp, g.maxHp()); bar('#b-food', s.hunger); bar('#b-water', s.thirst); bar('#b-stam', s.stamina, g.maxStamina()); bar('#b-inf', s.infection); bar('#b-stress', s.stress || 0);
     $('#v-hp').textContent = Math.ceil(s.hp); $('#v-food').textContent = Math.ceil(s.hunger); $('#v-water').textContent = Math.ceil(s.thirst); $('#v-inf').textContent = Math.floor(s.infection) + '%'; $('#v-stress').textContent = Math.floor(s.stress || 0);
     $('#v-coin').textContent = g.inv.jicoin || 0;
+    bar('#b-happy', s.happy ?? 50); $('#v-happy').textContent = `${Math.floor(s.happy ?? 50)}${g.happyOk === false ? ' ⏸' : ''}`;
     $('#hand-btn').textContent = `${g.lefty ? '🫲 มือซ้าย' : '🫱 มือขวา'}${g.lefty === (g.profile.hand === 'l') ? ' ⭐' : ''} ↔`;
     const chips = [];
     if (s.bleeding) chips.push('<span class="chip red">🩸 เลือดออก</span>');

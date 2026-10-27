@@ -2811,5 +2811,13 @@ export default {
 "เลี้ยงสัตว์เก่ง ค้นพบสกิลพิเศษของสัตว์": "Great with animals, discovers special pet skills",
 "เก็บผลผลิตจากคอกสัตว์ได้เพิ่ม +1 ทุกครั้ง · ทำให้สัตว์เชื่องเร็วขึ้น 50%": "+1 produce every time you collect from pens · tames animals 50% faster",
 "สัตว์เลี้ยงที่ได้มีโอกาสเป็นระดับหายาก/ตำนานสูงขึ้นมาก (สกิลพิเศษมากขึ้น) · ชำแหละได้เนื้อเพิ่ม": "New pets are much more likely to be rare/legendary (more special skills) · extra meat when butchering",
-"สัตว์เลี้ยงตัวใหม่ได้สกิลพิเศษเพิ่มอีก 1 อย่าง · ทำให้เชื่องเร็วขึ้น ×2": "New pets get 1 extra special skill · tames ×2 faster"
+"สัตว์เลี้ยงตัวใหม่ได้สกิลพิเศษเพิ่มอีก 1 อย่าง · ทำให้เชื่องเร็วขึ้น ×2": "New pets get 1 extra special skill · tames ×2 faster",
+"เก้าอี้ไม้ (นั่งพักผ่อน)": "Wooden chair (rest)",
+"🪑 นั่งพักบนเก้าอี้": "🪑 Sit on the chair",
+"🧟 มีผู้ติดเชื้ออยู่ใกล้ นั่งพักไม่ได้": "🧟 Infected nearby — can't rest",
+"🪑 นั่งพักบนเก้าอี้ — ฟื้นพลัง ลดความเครียด (เดินเพื่อลุก)": "🪑 Resting on the chair — recovering stamina, less stress (walk to stand up)",
+"เก้าอี้ไม้": "Wooden chair",
+"🪑 เก้าอี้ไม้ (ไม้ 3) — กดใช้เพื่อนั่งพักบนเก้าอี้ ฟื้นตัวดีกว่านั่งพื้น": "🪑 Wooden chair (3 wood) — use it to sit and rest, recovers better than sitting on the ground",
+"🛏️ นอนบนเตียงได้นานจนกว่าจะขยับ ฟื้นพลัง/ลดความเครียดได้ดีที่สุด": "🛏️ Sleep in bed until you move — the best recovery and stress relief",
+"ท่านั่งพื้น นอนพื้น นั่งเก้าอี้ นอนเตียง เห็นได้ทั้งตัวเองและผู้เล่นอื่น": "Sitting/lying on the ground, sitting on a chair and lying in bed are visible to you and other players"
 };

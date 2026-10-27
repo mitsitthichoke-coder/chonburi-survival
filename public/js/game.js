@@ -492,7 +492,8 @@ export class Game {
     this.zzz.visible = true; this.zzz.position.set(S.x, S.y + 1.3 + Math.sin(S.t * 2) * 0.15, S.z);
     if (fade) fade.style.opacity = Math.min(0.75, S.t / 2.5);
     if (S.t > 3 && !S.fired) { S.fired = true; S.done?.(); }
-    if ((moving && S.t > 0.6) || S.t > 7) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; }
+    if (S.t > 3) this.restTick(dt, 2.2, 35); // นอนบนเตียง: พักได้ผลดีที่สุด นอนต่อจนกว่าจะขยับ
+    if (moving && S.t > 0.6) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; }
     return true;
   }
   // 🧘 นั่ง/นอนพัก (ปุ่ม Z) — ทำได้เฉพาะที่ปลอดภัย: ในฐาน ศาลา/บ้าน ข้างกองไฟ ค่ายผู้รอดชีวิต และไม่มีผู้ติดเชื้ออยู่ใกล้
@@ -515,6 +516,14 @@ export class Game {
     this.resting = { mode: R ? 'lie' : 'sit', t: 0, ht: R?.ht || 0, x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z };
     this.ui.toast(R ? `😌 นอนพักที่${where} — ฟื้นตัวเร็วขึ้น (กด Z อีกครั้งหรือเดินเพื่อลุก)` : `🧘 นั่งพักที่${where} — ฟื้นพลัง ลดความเครียด (กด Z อีกครั้งเพื่อนอนพัก)`);
   }
+  // 🪑 นั่งพักบนเก้าอี้ (หันตามเก้าอี้) — พักได้ทุกที่ที่ไม่มีผู้ติดเชื้ออยู่ใกล้
+  sitChair(s) {
+    if (this.dead || this.vehicle || this.sleeping) return;
+    const P = this.player.pos;
+    if (this.ents.list.some((e) => e.kind === 'zombie' && !e.dead && Math.hypot(e.pos.x - P.x, e.pos.z - P.z) < 18)) return this.ui.toast('🧟 มีผู้ติดเชื้ออยู่ใกล้ นั่งพักไม่ได้', 'warn');
+    this.resting = { mode: 'chair', t: 0, ht: 0, x: s.x, y: baseY(s), z: s.z, ry: (s.rot & 3) * Math.PI / 2 };
+    this.ui.toast('🪑 นั่งพักบนเก้าอี้ — ฟื้นพลัง ลดความเครียด (เดินเพื่อลุก)');
+  }
   stopRest(msg) {
     if (!this.resting) return; this.resting = null;
     const u = this.player.mesh.userData; u.inner.rotation.x = 0; u.inner.position.y = 0;
@@ -524,10 +533,17 @@ export class Game {
     const R = this.resting; if (!R) return false;
     if (moving || this.dead) { this.stopRest(); return false; }
     R.t += dt; R.chk = (R.chk || 0) - dt;
-    if (R.chk <= 0) { R.chk = 1; if (!this.restSpot()) { this.stopRest('🧟 ไม่ปลอดภัยแล้ว! ลุกขึ้นจากการพัก'); return false; } }
-    const p = this.player, s = this.stats, lie = R.mode === 'lie', k = lie ? 1.8 : 1;
+    if (R.chk <= 0) { R.chk = 1; const P = this.player.pos, zNear = this.ents.list.some((e) => e.kind === 'zombie' && !e.dead && Math.hypot(e.pos.x - P.x, e.pos.z - P.z) < 18); if (R.mode === 'chair' ? zNear : !this.restSpot()) { this.stopRest('🧟 ไม่ปลอดภัยแล้ว! ลุกขึ้นจากการพัก'); return false; } }
+    const p = this.player, lie = R.mode === 'lie';
     p.pos.set(R.x, R.y, R.z); p.vy = 0; p.speedNow = 0;
-    if (lie) sleepPose(p.mesh); else sitPose(p.mesh);
+    if (R.ry !== undefined) { p.ry = R.ry; p.mesh.rotation.y = R.ry; }
+    if (lie) sleepPose(p.mesh); else { sitPose(p.mesh); if (R.mode === 'chair') p.mesh.userData.inner.position.y = -0.02; }
+    this.restTick(dt, lie ? 1.8 : R.mode === 'chair' ? 1.3 : 1, lie ? 50 : 90);
+    return true;
+  }
+  // ผลของการพัก: ค่าบวกขึ้น ค่าลบลง (k = ความแรง · every = วินาทีต่อความสุข +1)
+  restTick(dt, k, every) {
+    const s = this.stats, R = this.resting || this.sleeping; if (!R) return;
     // ค่าบวก ↑
     s.stamina = Math.min(this.maxStamina(), s.stamina + 9 * k * dt);
     if (!s.bleeding && s.infection < 50) s.hp = Math.min(this.maxHp(), s.hp + 0.45 * k * dt);
@@ -536,10 +552,9 @@ export class Game {
     s.wet = Math.max(0, (s.wet || 0) - 0.8 * k * dt);
     if (s.sprain > 0) s.sprain = Math.max(0, s.sprain - 1.5 * k * dt); // ขาแพลงหายเร็วขึ้น
     if (s.sick > 0) s.sick = Math.max(0, s.sick - 0.05 * k * dt);
-    // ความสุข +1 ทุก 90 วิ (นั่ง) / 50 วิ (นอน)
-    R.ht += dt; const every = lie ? 50 : 90;
+    // ความสุข +1 ทุก 90 วิ (นั่ง) / 50 วิ (นอน) / 35 วิ (บนเตียง)
+    R.ht = (R.ht || 0) + dt;
     if (R.ht >= every && (s.happy ?? 50) < 100) { R.ht -= every; s.happy = Math.min(100, (s.happy ?? 50) + 1); this.ui.toast(`😊 พักผ่อนสบายใจ ความสุข +1 (${s.happy})`, 'level'); }
-    return true;
   }
   // เตาผิงในศาลา (เวลาเป็นเวลาเซิร์ฟเวอร์) · mine = จุดเองในโหมดลิงก์ ต้องแจ้งโฮสต์
   setHearth(i, until, mine = false) {
@@ -1191,7 +1206,7 @@ export class Game {
     if (this.net.online && this.netT <= 0 && (!this.auth.server || this.charLoaded)) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
-      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping || this.resting?.mode === 'lie' ? 3 : this.resting ? 4 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
+      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping || this.resting?.mode === 'lie' ? 3 : this.resting?.mode === 'chair' ? 5 : this.resting ? 4 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
     }
   }
 }

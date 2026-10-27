@@ -36,6 +36,7 @@ export const PIECES = {
   fence: { name: 'รั้วไม้', icon: '🪵', cost: { wood: 2, fiber: 1 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   gate: { name: 'ประตูรั้ว', icon: '⛩️', cost: { wood: 3 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   bed: { name: 'เตียงนอน (จุดเกิด)', icon: '🛏️', cost: { wood: 3, cloth: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
+  chair: { name: 'เก้าอี้ไม้ (นั่งพักผ่อน)', icon: '🪑', cost: { wood: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   storage: { name: 'หีบเก็บของ (ใช้ร่วมกันได้)', icon: '🧰', cost: { wood: 6 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   pethouse: { name: 'บ้านสัตว์เลี้ยง', icon: '🏡', cost: { wood: 6, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   plot: { name: 'แปลงผักรวม (แบบเก่า)', icon: '🌱', cost: { wood: 2, fiber: 2 }, snap: 'cell', cat: 'แปลงผัก', lvl: 1, hidden: true },

@@ -83,6 +83,7 @@ export function makeStructureMesh(s) {
       g.add(box(1.2, 0.4, 2.2, WOOD_D, 0, 0.2, 0), box(1.1, 0.18, 2.0, '#f1faee', 0, 0.48, 0.05), box(0.9, 0.14, 0.45, '#e5e5e5', 0, 0.62, -0.75), box(1.12, 0.06, 1.2, '#457b9d', 0, 0.6, 0.35));
       break;
     }
+    case 'chair': { const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2; for (const [x, z] of [[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) g.add(box(0.07, 0.48, 0.07, WOOD_D, x, 0.24, z)); g.add(box(0.62, 0.07, 0.62, WOOD, 0, 0.5, 0), box(0.62, 0.6, 0.07, WOOD, 0, 0.83, -0.28)); break; }
     case 'storage': { const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2; g.add(box(1.2, 0.8, 0.8, WOOD_D, 0, 0.4, 0), box(1.25, 0.12, 0.85, WOOD, 0, 0.84, 0), box(0.16, 0.16, 0.05, '#ffd166', 0, 0.62, 0.42)); break; }
     case 'pethouse': {
       const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;

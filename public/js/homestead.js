@@ -5,7 +5,7 @@ import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'bed', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['door', 'gate', 'bed', 'chair', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -53,6 +53,7 @@ export class Homestead {
     switch (s.type) {
       case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
+      case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
       case 'storage': return { text: '🧰 เปิดหีบเก็บของ', act: () => g.ui.openStructure(s) };
       case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': case 'hive': case 'stall': case 'basecore': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
       case 'plot': case 'pot': return this.plotTarget(s, now);

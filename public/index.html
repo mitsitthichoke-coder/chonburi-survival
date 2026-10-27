@@ -18,6 +18,7 @@
   /* ปุ่มเต็มจอ: มุมขวาบนของแผนที่ย่อ (มุมว่างนอกวงกลม) */
   /* ปุ่มภาษา: มุมซ้ายบนของแผนที่ย่อ */
   #lang-btn { position: absolute; right: 158px; top: 8px; z-index: 3; height: 28px; padding: 0 6px; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 12px; } body.touch #lang-btn { right: 108px; }
+  #ver-game { position: absolute; right: 6px; bottom: 2px; font-size: 10px; color: rgba(255,255,255,.55); pointer-events: none; z-index: 2; } .vertag { text-align: center; margin-top: 10px; } .vertag a { color: #8ecae6; }
   #fs-btn { position: absolute; right: 8px; top: 8px; z-index: 3; width: 32px; height: 32px; padding: 0; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 16px; line-height: 1; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
   button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #222a33; color: var(--text); border-radius: 8px; padding: 6px 12px; }
@@ -302,6 +303,7 @@
       <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · H สลับมือซ้าย/ขวา · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
     </div>
     <div id="donate" hidden><button id="d-btn" class="secondary">💖 สนับสนุนผู้พัฒนาเกม</button><div id="d-box" hidden></div></div>
+    <p class="hint vertag">🏷️ เวอร์ชัน <b id="ver-menu"></b> · <a href="#" id="ver-news">ดูว่าอัปเดตอะไรบ้าง</a></p>
     <div id="loading">⏳ กำลังสร้างจังหวัดชลบุรี... <div class="hint" id="loading-msg"></div></div>
   </div>
 </div>
@@ -324,6 +326,7 @@
   <div id="leftcol"><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
   <button id="fs-btn" title="ขยายเต็มหน้าจอ">⛶</button>
+  <div id="ver-game"></div>
   <button id="lang-btn">EN</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>

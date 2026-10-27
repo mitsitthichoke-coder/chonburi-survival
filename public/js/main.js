@@ -7,6 +7,7 @@ import { setGfx } from './models.js';
 import { theme, setTheme, isHalloween } from './theme.js';
 import { openGuide } from './guide-ui.js';
 import { bindLangButton } from './i18n.js';
+import { VERSION } from './version.js';
 import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
 import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
@@ -88,6 +89,11 @@ let gfx = 'normal'; try { gfx = localStorage.getItem('cbs_gfx') || (isTouchDevic
 const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : 'วันล่มสลาย'; };
 $('#guide-btn').onclick = (e) => { e.preventDefault(); openGuide(); };
 bindLangButton($('#lang-menu')); bindLangButton($('#lang-btn'));
+$('#ver-menu').textContent = 'v' + VERSION; $('#ver-game').textContent = 'v' + VERSION;
+// มีอัปเดตใหม่ที่ยังไม่ได้อ่าน → ป้าย 🆕 (จำไว้ในเครื่อง)
+let seenVer = null; try { seenVer = localStorage.getItem('cbs_seen_ver'); } catch { /* ignore */ }
+if (seenVer !== VERSION) $('#ver-news').textContent = '🆕 ดูว่าอัปเดตอะไรบ้าง';
+$('#ver-news').onclick = (e) => { e.preventDefault(); openGuide('news'); try { localStorage.setItem('cbs_seen_ver', VERSION); } catch { /* ignore */ } $('#ver-news').textContent = 'ดูว่าอัปเดตอะไรบ้าง'; };
 syncTitle(); // ธีมเปลี่ยนได้เฉพาะเจ้าของเซิร์ฟเวอร์ (/theme)
 seg($('#f-gfx'), [], () => gfx, (v) => { gfx = v; try { localStorage.setItem('cbs_gfx', v); } catch { /* ignore */ } });
 const useRoom = RoomNet.available();

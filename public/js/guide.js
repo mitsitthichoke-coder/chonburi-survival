@@ -1,5 +1,6 @@
 // คู่มือการเล่น — สร้างจากข้อมูลจริงในเกม (อาชีพ พืช สัตว์ กระสุน ฯลฯ) จึงตรงกับเกมเสมอ
 // ใช้ได้ทั้งในเบราว์เซอร์ (หน้าเมนู / ในเกม) และใน Node (สร้างไฟล์ GUIDE.md)
+import { VERSION, CHANGELOG } from './version.js';
 import { JOBS, ITEMS, RECIPES, TOWNS, AMMO_OF, SKILLS, PERK_PTS, BASE_SLOTS } from './data.js';
 import { CROPS, PENS, PIECES, HOUSE_LV, HOUSE_UP, BASE_NEED, ROLES, CAGE_FARM, CAGE_FOOD } from './building-core.js';
 
@@ -41,6 +42,10 @@ export function guideSections() {
 - ต้มน้ำที่กองไฟก่อนดื่ม · กลางคืนซอมบี้เยอะขึ้น ให้อยู่ใกล้กองไฟหรือในบ้าน
 - ทำตามภารกิจหลักที่มุมซ้าย (แตะกล่องภารกิจเพื่อเปิดลูกศรนำทาง 🧭)
 `]);
+
+  S.push(['news', `📝 อัปเดตล่าสุด (v${VERSION})`, CHANGELOG.map((c) => `### v${c.v} · ${c.date}
+${c.add?.length ? '**✨ เพิ่มใหม่**\n' + c.add.map((t) => `- ${t}`).join('\n') : ''}
+${c.fix?.length ? '\n**🔧 แก้ไข/ปรับปรุง**\n' + c.fix.map((t) => `- ${t}`).join('\n') : ''}`).join('\n\n')]);
 
   S.push(['stats', '❤️ ค่าสถานะร่างกาย', `
 | ค่า | ความหมาย / วิธีดูแล |

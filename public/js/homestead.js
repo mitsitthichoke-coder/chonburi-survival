@@ -135,7 +135,7 @@ export class Homestead {
       const herd = herdOf(s, now), fl = fedLeft(s, now), wl = waterLeft(s, now), n = penGoods(s, now);
       const pf = P.foods.find((k) => g.hasItem(k)), water = ITEMS[g.equipped]?.tool?.water ? 'can' : ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
       const ageTxt = herd.map((a, i) => { const st = ageStage(P, a, now), m = a.b < 0 ? '' : ` ${Math.floor((now - a.b) / 60000)} นาที`; return `${PIECES[s.type].icon}${i + 1}: ${STAGE_NAME[st]}${m}`; }).join(' · ') || 'ไม่มีสัตว์ในคอก';
-      info = `${ageTxt}<br>🍽️ อาหาร: ${fl ? mmss(fl) : '<b class="miss">หิว</b>'} · 💧 น้ำ: ${wl ? mmss(wl) : '<b class="miss">กระหายน้ำ</b>'} · 🧺 ผลผลิต: <b>${n}</b>/${P.cap} ${ITEMS[P.prod[0]].icon}
+      info = `${ageTxt}<br>🍽️ อาหาร: ${fl ? mmss(fl) : '<b class="miss">หิว</b>'} · 💧 น้ำ: ${wl ? mmss(wl) : '<b class="miss">กระหายน้ำ</b>'} · 🧺 ผลผลิต: <b>${n}</b>/${P.cap} ${ITEMS[P.prod[0]].icon}${P.extra ? ` + ${ITEMS[P.extra[0]].icon}${ITEMS[P.extra[0]].name}` : ''}
         <br><small>ให้ผลผลิตเมื่อ "อิ่ม + มีน้ำ" และโตเต็มวัย (ลูก ${Math.round(P.adult / 60000)} นาที → โต · แก่หลัง ${Math.round(P.old / 60000)} นาที ผลผลิตลดครึ่ง · อายุขัย ${Math.round(P.life / 60000)} นาที) · อาหาร: ${P.foods.map((k) => ITEMS[k].icon).join('')}</small>`;
       acts.push({ label: `🧺 เก็บผลผลิต (${n})`, dis: !n, run: () => this.op(s, { o: 'collect' }) });
       const live = Object.keys(g.inv).find((k) => g.inv[k] > 0 && ITEMS[k]?.live === s.type);

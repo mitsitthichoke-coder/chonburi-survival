@@ -9,7 +9,7 @@ export const BAIT_MEAT = ['raw_meat', 'cooked_meat', 'raw_fish', 'pork', 'beef']
 const ZOO = { x: (101.03 - 100.70) * 2160 - 648, z: (13.075 - 13.24) * 2212 }; // สวนสัตว์เปิดเขาเขียว
 // สัตว์ที่ติดกรง: เลือกได้ว่าจะ 🐾 เลี้ยงเป็นสัตว์เลี้ยง · 🏡 นำเข้าคอกในฟาร์ม (ต้องมีคอกชนิดนั้น) · 🍖 แปรรูปเป็นอาหาร · 🌿 ปล่อยคืนป่า
 export const CAGE_FARM = { chicken: 'coop', duck: 'duckpen', boar: 'pigpen' };
-export const CAGE_FOOD = { chicken: { raw_meat: 1 }, duck: { raw_meat: 2 }, boar: { raw_meat: 3, hide: 1 }, deer: { raw_meat: 3, hide: 2 }, raptor: { raw_meat: 4, hide: 2 }, trike: { raw_meat: 6, hide: 3 }, tiger: { raw_meat: 4, hide: 3 } };
+export const CAGE_FOOD = { chicken: { raw_meat: 1 }, duck: { raw_meat: 2, duck_feather: 3 }, boar: { raw_meat: 3, hide: 1 }, deer: { raw_meat: 3, hide: 2 }, raptor: { raw_meat: 4, hide: 2 }, trike: { raw_meat: 6, hide: 3 }, tiger: { raw_meat: 4, hide: 3 } };
 export const CAGE_NAME = { duck: 'เป็ด' };
 export function cageCatch(s, now) {
   if (!s.bait || !s.bt || now - s.bt < TRAP_MS) return null;
@@ -36,11 +36,11 @@ export const PIECES = {
   storage: { name: 'หีบเก็บของ (ใช้ร่วมกันได้)', icon: '🧰', cost: { wood: 6 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   pethouse: { name: 'บ้านสัตว์เลี้ยง', icon: '🏡', cost: { wood: 6, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   plot: { name: 'แปลงผักรวม (แบบเก่า)', icon: '🌱', cost: { wood: 2, fiber: 2 }, snap: 'cell', cat: 'แปลงผัก', lvl: 1, hidden: true },
-  coop: { name: 'เล้าไก่ (มีแม่ไก่ 2 ตัว)', icon: '🐔', cost: { wood: 8, fiber: 4, berry: 3 }, snap: 'cell', cat: 'คอกสัตว์', lvl: 2 },
-  duckpen: { name: 'เล้าเป็ด + อ่างน้ำ (ลูกเป็ด 2 ตัว)', icon: '🦆', cost: { wood: 8, fiber: 4, stone: 2 }, snap: 'cell', cat: 'คอกสัตว์', lvl: 2 },
-  pigpen: { name: 'คอกหมู (ลูกหมู 2 ตัว)', icon: '🐷', cost: { wood: 10, stone: 4, veg: 2 }, snap: 'cell', cat: 'คอกสัตว์', lvl: 2 },
-  cowpen: { name: 'คอกวัว (ลูกวัว 1 ตัว)', icon: '🐄', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'คอกสัตว์', lvl: 3 },
-  pond: { name: 'บ่อเลี้ยงปลา', icon: '🐟', cost: { stone: 6, wood: 2 }, snap: 'cell', cat: 'คอกสัตว์', lvl: 2 },
+  coop: { name: 'เล้าไก่ (มีแม่ไก่ 2 ตัว)', icon: '🐔', cost: { wood: 8, fiber: 4, berry: 3 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
+  duckpen: { name: 'เล้าเป็ด + อ่างน้ำ (ลูกเป็ด 2 ตัว · ไข่เป็ด + ขนเป็ด)', icon: '🦆', cost: { wood: 8, fiber: 4, stone: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
+  pigpen: { name: 'คอกหมู (ลูกหมู 2 ตัว)', icon: '🐷', cost: { wood: 10, stone: 4, veg: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
+  cowpen: { name: 'คอกวัว (ลูกวัว 1 ตัว)', icon: '🐄', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 3 },
+  pond: { name: 'บ่อเลี้ยงปลา', icon: '🐟', cost: { stone: 6, wood: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   hive: { name: 'กล่องเลี้ยงผึ้ง (ปลูกดอกไม้ใกล้ ๆ เพื่อล่อผึ้ง)', icon: '🐝', cost: { wood: 6, fiber: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   stall: { name: 'แผงขายของหน้าบ้าน (ขายเป็นเงินจิ)', icon: '🏪', cost: { wood: 8, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   sign: { name: 'ป้ายชื่อฐาน (ซื้อด้วยเงินจิ)', icon: '🪧', cost: { jicoin: 30 }, snap: 'cell', cat: 'ฐาน', lvl: 1 },
@@ -88,7 +88,7 @@ export const needsTill = (s) => isPlot(s.type) && s.type !== 'plot';
 const M = 60000;
 export const PENS = {
   coop: { animal: 'chicken', name: 'ไก่', foods: ['corn', 'seeds_corn', 'seeds_veg', 'seeds_rice', 'rice', 'veg', 'berry'], prod: ['egg', 1], period: 3 * M, cap: 8, adult: 8 * M, old: 120 * M, life: 180 * M, max: 4, meat: ['raw_meat', 1], start: 2, startAdult: true, egg: 'egg' },
-  duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], start: 2, egg: 'duck_egg' },
+  duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], meat2: ['duck_feather', 3], start: 2, egg: 'duck_egg', extra: ['duck_feather', 1] },
   pigpen: { animal: 'pig', name: 'หมู', foods: ['veg', 'corn', 'potato', 'cabbage', 'pumpkin', 'carrot', 'berry', 'watermelon'], prod: ['manure', 1], period: 5 * M, cap: 6, adult: 15 * M, old: 150 * M, life: 220 * M, max: 3, meat: ['pork', 4], start: 2 },
   cowpen: { animal: 'cow', name: 'วัว', foods: ['fiber', 'raw_fiber', 'corn', 'cabbage', 'veg', 'rice', 'carrot'], prod: ['milk', 1], period: 5 * M, cap: 6, adult: 20 * M, old: 180 * M, life: 260 * M, max: 2, meat: ['beef', 5], start: 1, extra: ['manure', 1] },
 };
@@ -280,7 +280,8 @@ export function applyOp(s, op, ctx) {
       const st = settlePen(s, now), i = st.herd.findIndex((a) => ageStage(P, a, now) !== 'baby');
       if (i < 0) return { err: `ยังไม่มี${P.name}ที่โตพอ` };
       const herd = st.herd.filter((_, j) => j !== i);
-      return { patch: { ...st, herd }, give: { [P.meat[0]]: P.meat[1] }, msg: `🔪 ได้${P.meat[1]} ชิ้นจาก${P.name}` };
+      const give = { [P.meat[0]]: P.meat[1] }; if (P.meat2) give[P.meat2[0]] = P.meat2[1];
+      return { patch: { ...st, herd }, give, msg: `🔪 ได้${P.meat[1]} ชิ้นจาก${P.name}${P.meat2 ? ' + ขน' : ''}` };
     }
     case 'bees': {
       // ตรวจผึ้ง (เรียกเป็นระยะ): ctx.flowers = จำนวนดอกไม้บานรอบกล่อง

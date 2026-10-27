@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS } from './models.js';
+import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS, setInjury, tickInjury } from './models.js';
 import { ITEMS, WEAR_SLOTS, PET_SLOTS } from './data.js';
 import { makeVehicle } from './structures3d.js';
 import { NPCS as NPC_LIST } from './data.js';
@@ -9,14 +9,15 @@ import { relName, relColor } from './social-core.js';
 import { inCamp } from './citygen.js';
 import { petStats, rarityOf, fights, gainPetXp } from './pets.js';
 import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
-import { killPerk, WILD, pickWild } from './data.js';
+import { killPerk, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf } from './data.js';
+import { safeBaseAt } from './building-core.js';
 
 const ANIMALS = {
   zombie: { hp: 40, speed: 1.6, chase: 3.0, drops: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1]] },
   boar: { hp: 35, speed: 1.4, flee: 4.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]], hostileWhenHit: true },
   deer: { hp: 25, speed: 1.2, flee: 6.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]] },
   chicken: { hp: 8, speed: 0.8, flee: 3.5, drops: [['raw_meat', 1]] },
-  raptor: { hp: 70, speed: 2.2, flee: 0, drops: [] }, trike: { hp: 170, speed: 1.0, flee: 0, drops: [] },
+  raptor: { hp: 70, speed: 2.2, flee: 0, drops: [] }, tiger: { hp: 90, speed: 1.8, flee: 0, drops: [] }, trike: { hp: 170, speed: 1.0, flee: 0, drops: [] },
   dog: { hp: 30, speed: 1.4, stray: true }, cat: { hp: 20, speed: 1.0, stray: true }, bird: { hp: 10, speed: 1.8, stray: true, fly: true },
 };
 const tmp = new THREE.Vector3();
@@ -120,6 +121,7 @@ export class Entities {
     if (p.cb !== undefined) r.climb = p.cb;
     if (p.st !== undefined) r.stance = p.st;
     if (p.en !== undefined) r.en = p.en;
+    if (p.ij !== undefined) setInjury(r.mesh, p.ij | 0);
     if (p.hp !== undefined) r.hp = p.hp;
     if (p.eq !== undefined || p.lh !== undefined) setHeldTool(r.mesh, p.eq !== undefined ? p.eq : r.mesh.userData.tool, p.lh !== undefined ? !!p.lh : undefined);
     if (p.pets) {
@@ -163,7 +165,7 @@ export class Entities {
   }
   // ----- สัตว์ป่า สัตว์จรจัด NPC จากเซิร์ฟเวอร์ -----
   syncNetFauna(flat) {
-    const K = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike'];
+    const K = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike', 'tiger'];
     this.netF ||= new Map();
     const seen = new Set();
     for (let i = 0; i + 5 < flat.length; i += 6) {
@@ -292,6 +294,9 @@ export class Entities {
     return best;
   }
 
+  // กองไฟของผู้เล่น (อัปเดตทุก 1 วินาที)
+  baseList() { const now = performance.now(); if (!this._bases || now - this._baseT > 2000) { this._baseT = now; this._bases = this.g.world.structures.filter((s) => s.type === 'basecore' && s.ok); } return this._bases; }
+  fireList() { const now = performance.now(); if (!this._fires || now - this._fireT > 1000) { this._fireT = now; this._fires = this.g.world.structures.filter((s) => s.type === 'campfire'); } return this._fires; }
   spawnBoss() {
     if (this.list.some((e) => !e.dead && e.T?.boss)) return null;
     const P = this.g.player.pos;
@@ -347,7 +352,7 @@ export class Entities {
         const kk = TOWNS.find((t) => t.key === 'khaokheow');
         const nearZoo = (kk.x - s.x) ** 2 + (kk.z - s.z) ** 2 < 150 * 150;
         const r = Math.random();
-        this.spawnMob(pickWild(nearZoo, r), s.x, s.z);
+        this.spawnMob(pickWild(nearZoo, r, inTownAt(s.x, s.z, 1.4)), s.x, s.z);
       }
     }
     if (town && sc < 3) { const s = spawnAt(20, 50); if (s) this.spawnMob(['dog', 'cat', 'bird'][Math.floor(Math.random() * 3)], s.x, s.z); }
@@ -383,12 +388,19 @@ export class Entities {
           }
           // เป้าหมาย: ผู้เล่น หรือ สัตว์เลี้ยง/NPC ที่ใกล้กว่า
           const T = e.T || ZTIERS[0], see = (night ? 40 : 24) * (T.boss ? 1.5 : 1);
+          // กลัวกองไฟของผู้เล่น: ถอยออก ไม่ไล่ใครที่ยืนข้างกองไฟ
+          const fires = this.fireList(), fire = !T.boss && nearFireOf(fires, e.pos.x, e.pos.z, FIRE_SAFE + 2);
+          if (fire) { this.steer(e, fire.f.x, fire.f.z, 2.5, dt, true); animateHuman(e.mesh, dt, e.speed); break; }
+          // ฐานที่ยังป้องกันอยู่: ผู้ติดเชื้อเข้าไม่ได้ และไม่ไล่คนที่อยู่ในฐาน
+          const bases = this.baseList(), now = g.now(), sb = safeBaseAt(bases, e.pos.x, e.pos.z, now, 1);
+          if (sb) { this.steer(e, (sb.box[0] + sb.box[2]) / 2, (sb.box[1] + sb.box[3]) / 2, 3, dt, true); animateHuman(e.mesh, dt, e.speed); break; }
+          const playerSafe = (!T.boss && nearFireOf(fires, P.x, P.z)) || !!safeBaseAt(bases, P.x, P.z, now);
           let tgt = null, td = see;
           if (e.ignoreP > 0) e.ignoreP -= dt;
           // ย่อ/คลาน: มองเห็นผู้เล่นได้ใกล้ลง (ยกเว้นตัวที่ตื่นตัวอยู่แล้ว)
-          if (dP < see * (e.alert > 0 ? 1 : g.stealthMul()) && !g.dead && !(e.ignoreP > 0)) { tgt = { pos: P, player: true }; td = dP; }
+          if (dP < see * (e.alert > 0 ? 1 : g.stealthMul()) && !g.dead && !(e.ignoreP > 0) && !playerSafe) { tgt = { pos: P, player: true }; td = dP; }
           for (const o of this.list) if (!o.dead && (o.kind === 'pet' || o.kind === 'npc') && o.type !== 'bird' && !(o.pet?.down > 0)) { const d = o.pos.distanceTo(e.pos); if (d < Math.min(td, 14)) { tgt = o; td = d; } }
-          if (e.alert > 0) { e.alert -= dt; if (!tgt && dP < 60 && !(e.ignoreP > 0)) tgt = { pos: P, player: true }; }
+          if (e.alert > 0) { e.alert -= dt; if (!tgt && dP < 60 && !(e.ignoreP > 0) && !playerSafe) tgt = { pos: P, player: true }; }
           if (tgt) {
             const d = this.steer(e, tgt.pos.x, tgt.pos.z, (night ? A.chase * 1.25 : A.chase) * T.spd, dt);
             // ผู้ติดเชื้อปีนไม่ได้: ถ้าเป้าหมายอยู่สูงกว่า 2.2 จะวนอยู่ข้างล่าง แล้วเลิกสนใจหลัง 15 วินาที
@@ -406,9 +418,13 @@ export class Entities {
         }
         case 'animal': {
           if (e.netId) { this.netLerp(e, dt); animateAnimal(e.mesh, dt, e.speed); break; }
-          const W = WILD[e.type] || {};
+          const W = WILD[e.type] || {}, H = e.home || (e.home = { x: e.pos.x, z: e.pos.z });
+          // อาณาเขต: ไดโนเสาร์/นักล่าไม่เข้าเมือง และไม่ออกห่างถิ่นเกิดเกิน leash
+          if ((W.noTown && inTownAt(e.pos.x, e.pos.z)) || (W.leash && Math.hypot(e.pos.x - H.x, e.pos.z - H.z) > W.leash)) { e.angry = 0; e.alert = 0; this.steer(e, H.x, H.z, W.chase || 3, dt); animateAnimal(e.mesh, dt, e.speed); break; }
+          if (e.angry > 0 && W.noTown && inTownAt(P.x, P.z)) e.angry = 0;
           // ไดโนเสาร์กินเนื้อ: ไล่ล่าผู้เล่นที่เข้าใกล้ (ย่อ/คลานช่วยให้รอด)
-          if (W.hostile && dP < W.hostile * g.stealthMul() && !g.dead && g.safeTime <= 0 && !(e.angry > 0)) e.angry = 6;
+          if (W.hostile && dP < W.hostile * g.stealthMul() && !g.dead && g.safeTime <= 0 && !(e.angry > 0) && !nearFireOf(this.fireList(), P.x, P.z)) e.angry = 6;
+          if (e.angry > 0 && W.hostile && nearFireOf(this.fireList(), e.pos.x, e.pos.z, FIRE_SAFE + 2)) e.angry = 0;
           if (e.angry > 0 && dP < 40) {
             e.angry -= dt;
             const d = this.steer(e, P.x, P.z, W.chase || 4.2, dt);
@@ -535,7 +551,7 @@ export class Entities {
       if (d > 30) r.pos.copy(r.target); else r.pos.lerp(r.target, Math.min(1, dt * 10));
       if (r.tRy !== undefined) { let dr = r.tRy - r.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; r.ry += dr * Math.min(1, dt * 10); }
       r.mesh.rotation.y = r.ry;
-      animateHuman(r.mesh, dt, r.vmesh ? 0 : r.speed, 0, r.climb === 1 ? 'climb' : r.climb === 2 ? 'down' : ['', 'crouch', 'crawl'][r.stance] || null);
+      tickInjury(r.mesh, dt); animateHuman(r.mesh, dt, r.vmesh ? 0 : r.speed, 0, r.climb === 1 ? 'climb' : r.climb === 2 ? 'down' : ['', 'crouch', 'crawl'][r.stance] || null);
       if (r.vmesh) { r.vmesh.position.set(r.pos.x, r.pos.y - 0.55, r.pos.z); r.vmesh.rotation.y = r.ry; r.mesh.userData.lLeg.rotation.x = r.mesh.userData.rLeg.rotation.x = -1.3; }
       const pg = g.social.preg[r.id]; r.mesh.userData.belly.visible = !!pg;
       r.label.userData.set(`${r.name} · ${relName(g.social.rel(r.id))}${pg ? ' 🤰' : ''}`, relColor(g.social.rel(r.id)));

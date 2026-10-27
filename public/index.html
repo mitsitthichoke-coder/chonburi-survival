@@ -23,7 +23,7 @@
   .row { margin: 12px 0; } .row label { display: block; font-weight: 600; margin-bottom: 6px; }
   input[type=text] { width: 100%; font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: var(--text); }
   #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #pwbox { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; } #acct { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #pwbox[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
-  .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } #f-style button { padding: 5px 9px; font-size: 13px; }
+  .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } .pwrap { display: flex; flex-direction: column; gap: 3px; } .pwrap .piece { flex: 1; } .coinbuy { font-size: 12px; padding: 3px 6px; } .coinbuy.dis { opacity: .45; } #coins { font-size: 13px; color: #ffd166; margin: 2px 0 0 2px; } #f-style button, #f-eyes button, #f-brows button, #f-mouth button, #f-extra button { padding: 5px 9px; font-size: 13px; } .namerow { display: flex; gap: 8px; } .namerow input { flex: 1; min-width: 0; } .namerow button { flex: none; padding: 6px 10px; }
   #donate { margin-top: 12px; text-align: center; } #donate[hidden], #d-box[hidden] { display: none; } #d-box { margin-top: 8px; padding: 10px; border: 1px solid #f72585; border-radius: 10px; background: #2a1020; text-align: left; } #d-box b { color: #ffafcc; } #d-box a { color: #ffafcc; }
   .seg.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .seg button.job { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; } .seg button.job small { font-size: 11px; opacity: .8; }
   @media (max-width: 520px) { .seg.jobs { grid-template-columns: repeat(2, 1fr); } }
@@ -46,6 +46,8 @@
   #quest { background: rgba(20, 16, 6, .6); border-left: 3px solid #ffd60a; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
   #quest b { display: block; color: #ffd60a; font-size: 14px; } #quest p { margin: 2px 0 4px; color: #e9ecef; } #quest .qn { color: #b8a96a; }
   .qnav { margin-top: 4px; font-weight: 600; } .qarrow { display: inline-block; color: #ffd60a; } .qdef { color: #ff8fa3; font-weight: 800; margin-top: 4px; }
+  #hand-btn { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 4px 12px; border-radius: 14px; background: rgba(0,0,0,.55); font-size: 13px; z-index: 6; }
+  body.touch #hand-btn { bottom: 70px; font-size: 14px; padding: 6px 14px; }
   #mute-btn { position: absolute; right: 14px; top: 200px; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.5); font-size: 18px; }
   .chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #444; color: #fff; }
   .chip.red { background: #9d0208; } .chip.green { background: #386641; } .chip.yellow { background: #a68a00; } .chip.pink { background: #b5179e; } .chip.orange { background: #c2410c; } .chip.blue { background: #1d4e89; }
@@ -190,19 +192,25 @@
       <p class="aerr" id="p-err"></p>
     </div>
     <div id="form">
-      <div class="row"><label id="f-name-label">ชื่อตัวละคร</label><input id="f-name" type="text" maxlength="16" placeholder="เช่น ต้นข้าว"><div class="hint" id="f-name-ok"></div></div>
+      <div class="row"><label id="f-name-label">ชื่อตัวละคร</label><div class="namerow"><input id="f-name" type="text" maxlength="16" placeholder="เช่น ต้นข้าว"><button class="secondary" id="f-rand" title="สุ่มชื่อ อาชีพ และหน้าตาทั้งหมด">🎲 สุ่มทั้งหมด</button></div><div class="hint" id="f-name-ok"></div></div>
       <div class="row"><label>มือข้างที่ถนัด (ถืออุปกรณ์ข้างนี้ได้พลัง +15%)</label><div class="seg" id="f-hand"><button data-v="r">🫱 ถนัดขวา</button><button data-v="l">🫲 ถนัดซ้าย</button></div></div>
-      <div class="row"><label>บทบาท (เพศของตัวละคร)</label><div class="seg" id="f-sex"><button data-v="m">👨 ชาย</button><button data-v="f">👩 หญิง</button></div></div>
+      <div class="row"><label>บทบาท (เพศของตัวละคร)</label><div class="seg" id="f-sex"><button data-v="m">👨 ชาย</button><button data-v="f">👩 หญิง</button><button data-v="x">🧑 ไม่ระบุเพศ</button></div></div>
       <div class="row"><label>อาชีพ (ความสามารถพิเศษ)</label><div class="seg jobs" id="f-job"></div><div class="hint" id="f-job-info"></div></div>
+      <div class="row"><label>ตัวอย่างหน้าตา</label><div class="stylerow"><canvas id="f-preview" width="96" height="96"></canvas><div class="hint">กด 🎲 สุ่มทั้งหมด หรือเลือกทีละส่วนด้านล่าง</div></div></div>
       <div class="row"><label>สีผิว</label><div class="seg" id="f-skin"></div></div>
       <div class="row"><label>สีเสื้อ</label><div class="seg" id="f-shirt"></div></div>
+      <div class="row"><label>สีกางเกง</label><div class="seg" id="f-pants"></div></div>
       <div class="row"><label>สีผม</label><div class="seg" id="f-hair"></div></div>
-      <div class="row"><label>ทรงผม</label><div class="stylerow"><canvas id="f-preview" width="96" height="96"></canvas><div class="seg" id="f-style"></div></div></div>
+      <div class="row"><label>ทรงผม</label><div class="seg" id="f-style"></div></div>
+      <div class="row"><label>ดวงตา</label><div class="seg" id="f-eyes"></div></div>
+      <div class="row"><label>คิ้ว</label><div class="seg" id="f-brows"></div></div>
+      <div class="row"><label>ปาก</label><div class="seg" id="f-mouth"></div></div>
+      <div class="row"><label>ของตกแต่งใบหน้า</label><div class="seg" id="f-extra"></div></div>
       <div class="row"><label>กราฟิก</label><div class="seg" id="f-gfx"><button data-v="low">⚡ ประหยัด (มือถือ/เครื่องช้า)</button><button data-v="normal">🙂 ปกติ</button><button data-v="smooth">✨ ละมุน (ขอบมน แสงนุ่ม)</button></div></div>
       <div class="row" id="server-row"><label>เซิร์ฟเวอร์สำหรับเล่นกับเพื่อน</label><input id="f-server" type="text" placeholder="ws://192.168.1.10:8080"><div class="hint">เปิดเซิร์ฟเวอร์ด้วย <code>npm start</code> แล้วให้เพื่อนเข้า http://ไอพีของคุณ:8080</div></div>
       <div class="row hint" id="room-row" hidden>🌐 โหมดออนไลน์ในลิงก์นี้: ทุกคนที่เปิดลิงก์เดียวกันและกด "เล่นกับเพื่อน" จะอยู่ในโลกเดียวกัน (เจ้าของต้องแชร์ลิงก์ให้เพื่อนจากเมนู Share ก่อน)</div>
       <div class="go"><button class="primary" id="b-solo">เล่นคนเดียว</button><button class="secondary" id="b-online">เล่นกับเพื่อน</button></div>
-      <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
+      <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · H สลับมือซ้าย/ขวา · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
     </div>
     <div id="donate" hidden><button id="d-btn" class="secondary">💖 สนับสนุนผู้พัฒนาเกม</button><div id="d-box" hidden></div></div>
     <div id="loading">⏳ กำลังสร้างจังหวัดชลบุรี... <div class="hint" id="loading-msg"></div></div>
@@ -218,6 +226,7 @@
     <div class="stat" data-stat="inf"><span>🦠</span><div class="bar"><i id="b-inf" style="background:#70e000"></i></div><span id="v-inf"></span></div>
     <div class="stat" data-stat="stress"><span>😰</span><div class="bar"><i id="b-stress" style="background:#b5179e"></i></div><span id="v-stress"></span></div>
     <div id="stat-help"></div>
+    <div id="coins" title="เงินจิ (Ji-Coin)">🪙 <b id="v-coin">0</b> <small>เงินจิ</small></div>
     <div id="clock"></div>
   </div>
   <div id="leftcol"><div id="status"></div><div id="quest" hidden></div></div>
@@ -227,6 +236,7 @@
   <div id="crosshair"></div>
   <div id="prompt"></div>
   <div id="hotbar"></div>
+  <button id="hand-btn" title="สลับมือถืออุปกรณ์ ซ้าย ↔ ขวา (ปุ่ม H)">🫱 ขวา ↔</button>
   <div id="chat"><div id="chat-log"></div><input id="chat-input" type="text" placeholder="กด Enter เพื่อแชท..." maxlength="200"></div>
   <div id="vignette"></div>
   <div id="panel"></div>

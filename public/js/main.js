@@ -3,12 +3,11 @@ import { Net } from './net.js';
 import { RoomNet } from './room-net.js';
 import { Sfx } from './audio.js';
 import { isTouchDevice } from './touch.js';
-import { SKINS, HAIR_STYLES, setGfx } from './models.js';
-import { JOBS, ITEMS } from './data.js';
+import { setGfx } from './models.js';
+import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
+import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
 const $ = (s) => document.querySelector(s);
-const SHIRTS = ['#2e86ab', '#d1495b', '#6a994e', '#e9c46a', '#3d405b', '#f4f1de', '#9b5de5'];
-const HAIRS = ['#1b1b1b', '#4a2c1a', '#8d5524', '#d4a373', '#c0c0c0', '#7b2cbf'];
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem('cbs_save_v1'))?.profile; } catch { /* no storage */ }
@@ -29,28 +28,52 @@ seg($('#f-hand'), [], () => profile.hand, (v) => (profile.hand = v));
 // อาชีพ
 if (!JOBS[profile.job]) profile.job = 'engineer';
 $('#f-job').innerHTML = Object.entries(JOBS).map(([k, J]) => `<button data-v="${k}" class="job"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></button>`).join('');
-const jobInfo = () => { const J = JOBS[profile.job]; $('#f-job-info').innerHTML = `<b>${J.icon} ${J.name}</b> — ความสามารถขั้นสูง:<br>${J.perks.map(([l, t]) => `• ทักษะหลัก Lv${l}: ${t}`).join('<br>')}<br>🎁 ชุดเริ่มต้น: ${Object.entries(J.kit).map(([k, q]) => `${ITEMS[k].icon} ${ITEMS[k].name} ×${q}`).join(', ')}`; };
+const jobInfo = () => { const J = JOBS[profile.job]; $('#f-job-info').innerHTML = `<b>${J.icon} ${J.name}</b> — ความสามารถขั้นสูง:<br>${J.perks.map(([l, t], i) => J.free ? `• ${i ? `เลเวลตัวละคร ${l}` : 'เริ่มต้น'}: ${t}` : `• สเตตัสสายนี้ ${PERK_PTS[i]} แต้ม: ${t}`).join('<br>')}${J.free ? '' : '<br>🎓 เริ่มต้นได้ 5 แต้มในสายนี้ · ทุกเลเวลได้ +1 แต้ม ลงสายอื่นได้'}<br>🎁 ชุดเริ่มต้น: ${Object.entries(J.kit).map(([k, q]) => `${ITEMS[k].icon} ${ITEMS[k].name} ×${q}`).join(', ')}`; };
 seg($('#f-job'), [], () => profile.job, (v) => { profile.job = v; jobInfo(); });
 jobInfo();
 seg($('#f-skin'), SKINS, () => profile.look.skin, (v) => (profile.look.skin = v), true);
 seg($('#f-shirt'), SHIRTS, () => profile.look.shirt, (v) => (profile.look.shirt = v), true);
-seg($('#f-hair'), HAIRS, () => profile.look.hair, (v) => { profile.look.hair = v; drawPreview(); }, true);
-// ทรงผม + ภาพตัวอย่าง
+seg($('#f-pants'), PANTS, () => profile.look.pants || PANTS[0], (v) => (profile.look.pants = v), true);
+seg($('#f-hair'), HAIRS, () => profile.look.hair, (v) => (profile.look.hair = v), true);
+// ทรงผม หน้าตา + ภาพตัวอย่าง
 const styleOf = () => (HAIR_STYLES[profile.look.style] ? profile.look.style : profile.sex === 'f' ? 'long' : 'short');
-$('#f-style').innerHTML = Object.entries(HAIR_STYLES).map(([k, n]) => `<button data-v="${k}">${n}</button>`).join('');
-seg($('#f-style'), [], styleOf, (v) => { profile.look.style = v; drawPreview(); });
+const opt = (id, table, key, def) => { $(id).innerHTML = Object.entries(table).map(([k, n]) => `<button data-v="${k}">${n}</button>`).join(''); seg($(id), [], () => (table[profile.look[key]] ? profile.look[key] : def()), (v) => (profile.look[key] = v)); };
+opt('#f-style', HAIR_STYLES, 'style', styleOf);
+opt('#f-eyes', EYES, 'eyes', () => 'normal');
+opt('#f-brows', BROWS, 'brows', () => 'thin');
+opt('#f-mouth', MOUTHS, 'mouth', () => 'smile');
+opt('#f-extra', EXTRAS, 'extra', () => 'none');
+// 🎲 สุ่มทุกอย่าง: ชื่อ เพศ อาชีพ มือถนัด และหน้าตา
+const NAMES_M = ['ต้นกล้า', 'ภูผา', 'ธนวัฒน์', 'กิตติ', 'อาทิตย์', 'ปกรณ์', 'ชลธี', 'วายุ', 'ศรราม', 'เมฆา', 'ก้องภพ', 'ณัฐ', 'บุญมี', 'ทะเล', 'พายุ', 'เพชร'];
+const NAMES_F = ['ต้นข้าว', 'ใบเตย', 'น้ำฝน', 'ดาวเหนือ', 'พลอย', 'มะลิ', 'ฟ้าใส', 'แพรวา', 'ขวัญใจ', 'จันทร์เพ็ญ', 'ปลายฟ้า', 'รุ้ง', 'ลำดวน', 'กุหลาบ', 'นภา', 'อิงดาว'];
+$('#f-rand').onclick = () => {
+  const R = (a) => a[Math.floor(Math.random() * a.length)];
+  profile.sex = ['m', 'f', 'x'][Math.floor(Math.random() * 3)];
+  profile.job = R(Object.keys(JOBS)); profile.hand = Math.random() < 0.15 ? 'l' : 'r';
+  profile.look = randomLook(profile.sex);
+  $('#f-name').value = R(profile.sex === 'f' ? NAMES_F : profile.sex === 'm' ? NAMES_M : [...NAMES_M, ...NAMES_F]) + (Math.random() < 0.5 ? '' : Math.floor(Math.random() * 90 + 10));
+  $('#f-name').dispatchEvent(new Event('input'));
+  refreshSegs(); drawPreview();
+};
 function drawPreview() {
   // หน้าตรงแบบพิกเซล (ไม่ต้องโหลด 3D) ให้เห็นทรงผมและสี
   const c = $('#f-preview'); if (!c) return; const x = c.getContext('2d'), L = profile.look, st = styleOf(), P = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
   x.clearRect(0, 0, 96, 96); P(L.shirt, 30, 62, 36, 34); P(L.skin, 32, 22, 32, 36);
-  P('#111', 40, 38, 5, 5); P('#111', 51, 38, 5, 5);
-  const hc = L.hair;
+  const hc = L.hair, mc = '#7a2e2e';
+  for (const ex of [41, 52]) ({ round: () => { P('#fff', ex - 2, 36, 7, 7); P('#111', ex, 38, 3, 4); }, sleepy: () => P('#111', ex - 1, 40, 6, 2), sharp: () => P('#111', ex - 1, 38, 7, 3), happy: () => { P('#111', ex - 1, 39, 2, 2); P('#111', ex + 1, 37, 2, 2); P('#111', ex + 3, 39, 2, 2); }, wink: () => (ex > 45 ? P('#111', ex - 1, 40, 6, 2) : P('#111', ex - 1, 38, 5, 5)) }[L.eyes] || (() => P('#111', ex - 1, 38, 5, 5)))();
+  if (L.brows !== 'none') for (const ex of [41, 52]) P(hc, ex - 2, L.brows === 'angry' ? (ex < 45 ? 33 : 33) : 32, 8, L.brows === 'thick' ? 3 : 2);
+  ({ flat: () => P(mc, 43, 50, 10, 2), grin: () => { P(mc, 40, 48, 16, 5); P('#fff', 41, 48, 14, 2); }, open: () => P('#3a1010', 45, 48, 6, 6), smirk: () => { P(mc, 44, 50, 9, 2); P(mc, 52, 48, 2, 2); }, frown: () => { P(mc, 43, 49, 10, 2); P(mc, 41, 51, 2, 2); P(mc, 53, 51, 2, 2); } }[L.mouth] || (() => { P(mc, 43, 51, 10, 2); P(mc, 41, 49, 2, 2); P(mc, 53, 49, 2, 2); }))();
+  ({ glasses: () => { x.strokeStyle = '#222'; x.lineWidth = 2; x.strokeRect(37, 35, 10, 10); x.strokeRect(49, 35, 10, 10); }, sunglasses: () => P('#111', 35, 35, 26, 8), beard: () => { P(hc, 32, 50, 32, 8); P(hc, 32, 40, 4, 14); P(hc, 60, 40, 4, 14); }, mustache: () => P(hc, 41, 46, 14, 3), goatee: () => P(hc, 44, 54, 8, 5),
+    freckles: () => { for (const [a, b] of [[37, 44], [40, 46], [56, 44], [59, 46]]) P('#8d5524', a, b, 2, 2); }, blush: () => { P('#f28482', 35, 44, 6, 3); P('#f28482', 55, 44, 6, 3); }, scar: () => { for (let i = 0; i < 5; i++) P('#9d4b4b', 56 + i, 33 + i * 2, 2, 2); }, bandana: () => P('#c1121f', 32, 26, 32, 4) }[L.extra] || (() => {}))();
   ({ short: () => { P(hc, 30, 16, 36, 10); }, buzz: () => P(hc, 32, 19, 32, 4), spiky: () => { P(hc, 30, 16, 36, 9); for (let i = 0; i < 5; i++) P(hc, 31 + i * 7, 8 + (i % 2) * 3, 5, 9); },
     mohawk: () => P(hc, 44, 6, 8, 18), afro: () => P(hc, 22, 4, 52, 26), bob: () => { P(hc, 30, 16, 36, 10); P(hc, 28, 22, 6, 24); P(hc, 62, 22, 6, 24); },
     long: () => { P(hc, 30, 16, 36, 10); P(hc, 26, 22, 7, 40); P(hc, 63, 22, 7, 40); }, ponytail: () => { P(hc, 30, 16, 36, 10); P(hc, 66, 24, 8, 26); },
-    bun: () => { P(hc, 30, 16, 36, 10); P(hc, 40, 4, 16, 13); }, twin: () => { P(hc, 30, 16, 36, 10); P(hc, 20, 26, 9, 22); P(hc, 67, 26, 9, 22); }, bald: () => {} })[st]();
+    bun: () => { P(hc, 30, 16, 36, 10); P(hc, 40, 4, 16, 13); },
+    curly: () => { for (let i = 0; i < 5; i++) P(hc, 28 + i * 8, 10 + (i % 2) * 3, 9, 12); P(hc, 28, 20, 6, 10); P(hc, 62, 20, 6, 10); }, sidepart: () => { P(hc, 30, 16, 36, 9); P(hc, 46, 22, 18, 5); P(hc, 62, 22, 4, 12); },
+    undercut: () => { P(hc, 34, 12, 28, 10); P(hc, 46, 20, 16, 5); }, mullet: () => { P(hc, 30, 16, 36, 10); P(hc, 28, 28, 6, 30); P(hc, 62, 28, 6, 30); }, pixie: () => { P(hc, 30, 16, 36, 10); P(hc, 34, 24, 16, 5); },
+    braid: () => { P(hc, 30, 16, 36, 10); for (let i = 0; i < 4; i++) P(hc, 64, 26 + i * 9, 8 - i, 8); }, twin: () => { P(hc, 30, 16, 36, 10); P(hc, 20, 26, 9, 22); P(hc, 67, 26, 9, 22); }, bald: () => {} })[st]?.();
 }
-for (const id of ['#f-skin', '#f-shirt', '#f-sex']) $(id).addEventListener('click', () => { marks.forEach((m) => m()); drawPreview(); });
+for (const id of ['#f-skin', '#f-shirt', '#f-sex', '#f-hair', '#f-style', '#f-eyes', '#f-brows', '#f-mouth', '#f-extra']) $(id).addEventListener('click', () => { marks.forEach((m) => m()); drawPreview(); });
 drawPreview();
 
 // คุณภาพกราฟิก (จำไว้ในเครื่อง)

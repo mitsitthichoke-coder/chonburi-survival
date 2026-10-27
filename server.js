@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { WorldCore } from './public/js/server-core.js';
 import { JOBS } from './public/js/data.js';
+import { cleanLook } from './public/js/look-core.js';
 import { installEconomy, cleanText } from './public/js/server-econ.js';
 import { newChar, jobKit } from './public/js/economy.js';
 import { Store } from './server/store.js';
@@ -104,11 +105,6 @@ function userByToken(token) {
 }
 const NAME_RE = /^[\p{L}\p{M}\p{N}_]{3,16}$/u;
 const BADNAME = (n) => cleanText(n) !== n;
-function cleanLook(l) {
-  const hex = (v, d) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : d);
-  const STYLES = ['short', 'buzz', 'spiky', 'mohawk', 'afro', 'bob', 'long', 'ponytail', 'bun', 'twin', 'bald'];
-  return { skin: hex(l?.skin, '#e0ac69'), shirt: hex(l?.shirt, '#2e86ab'), hair: hex(l?.hair, '#1b1b1b'), style: STYLES.includes(l?.style) ? l.style : undefined };
-}
 
 // จำกัดจำนวนครั้งต่อ IP
 const buckets = new Map();
@@ -192,7 +188,7 @@ async function api(req, res, route) {
     if (nameTaken(name, u.id)) return json(409, { error: 'ชื่อตัวละครนี้มีคนใช้แล้ว ลองชื่ออื่น' });
     if (sockets.has(u.id)) return json(409, { error: 'ออกจากเกมก่อนแก้ไขตัวละคร' });
     if (u.char) delete U.byChar[u.char.name.toLowerCase()];
-    u.char = { name, sex: body.sex === 'f' ? 'f' : 'm', look: cleanLook(body.look), job: cleanJob(body.job), hand: body.hand === 'l' ? 'l' : 'r' };
+    u.char = { name, sex: ['m', 'f', 'x'].includes(body.sex) ? body.sex : 'm', look: cleanLook(body.look), job: cleanJob(body.job), hand: body.hand === 'l' ? 'l' : 'r' };
     U.byChar[name.toLowerCase()] = u.id; store.saveUsers();
     return json(200, { user: publicUser(u) });
   }

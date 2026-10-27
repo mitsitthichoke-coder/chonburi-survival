@@ -3,10 +3,10 @@
 import { runAction, applyResult, sopCost, killReward, refundReward, maxSlots } from './economy.js';
 import { getLayout } from './citygen.js';
 import { getResources } from './resources-core.js';
-import { applyOp, collidersFor } from './building-core.js';
+import { applyOp, collidersFor, flowersNear, accessFor, canDemolish } from './building-core.js';
 import { heightAt, waterAt, hash2 } from './terrain.js';
 import { ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
-import { relLevel, canDo, applyAction, ACTIONS } from './social-core.js';
+import { relLevel, canDo, applyAction, ACTIONS, giftValue } from './social-core.js';
 import { petStats } from './pets.js';
 
 const BAD = ['ควย', 'เหี้ย', 'สัส', 'เย็ด', 'หี', 'แตด', 'fuck', 'shit', 'bitch', 'cunt', 'nigger'];
@@ -29,6 +29,7 @@ export function installEconomy(core) {
       now: () => Date.now(), rand: Math.random,
       wild: (fid) => { const f = self.fauna.get(+fid); return f && WILD[f.k] ? { k: f.k, x: f.x, z: f.z, hp: f.hp, maxHp: WILD[f.k].hp } : null; },
       npcPos: (nid) => { const i = NPCS.findIndex((n) => n.id === nid), f = self.fauna.get(100000 + i); return f ? { x: f.x, z: f.z } : null; },
+      structs: () => self.db.structures, myId: id,
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
       loot: (lid) => { const i = +String(lid).slice(1), L = self.lootList[i]; return L ? { ...L, until: self.db.loot[lid] || 0 } : null; },
@@ -117,6 +118,7 @@ export function installEconomy(core) {
         const st = this.db.structures[i];
         if (st.owner && st.owner !== id) return this.send(id, { t: 'notice', text: 'รื้อได้เฉพาะของที่ตัวเองสร้าง' });
         const P = me.p; if (Math.hypot(P[0] - st.x, P[2] - st.z) > 10) return this.send(id, { t: 'notice', text: 'อยู่ไกลเกินไป' });
+        const why = canDemolish(st, id); if (why) return this.send(id, { t: 'notice', text: why });
         this.db.structures.splice(i, 1); this.rebuildWalls(); this.broadcast({ t: 'sdel', id: m.id });
         return this.sendEcon(id, refundReward(ch, st));
       }
@@ -156,18 +158,18 @@ export function installEconomy(core) {
   core.econSop = function (id, ch, m) {
     const s = this.db.structures.find((x) => x.id === m.id); if (!s || !m.op) return;
     const me = this.players.get(id), P = me.p;
-    if (Math.hypot(P[0] - s.x, P[2] - s.z) > (m.op.o === 'move' ? 40 : m.op.o === 'water' && m.op.silent ? 90 : 6)) return this.send(id, { t: 'notice', text: 'อยู่ไกลเกินไป' });
+    if (Math.hypot(P[0] - s.x, P[2] - s.z) > (m.op.o === 'move' ? 40 : ['water', 'drink', 'bees'].includes(m.op.o) && m.op.silent ? 90 : 6)) return this.send(id, { t: 'notice', text: 'อยู่ไกลเกินไป' });
     const cost = sopCost(ch, s, m.op, this.env(id));
     if (cost.err) { if (!m.op.silent) this.send(id, { t: 'notice', text: cost.err }); return; }
-    const op = { ...m.op }; if (op.o === 'move') op.fuel = cost.fuel;
-    const canAccess = !s.owner || s.owner === id || relLevel(this.getRel(id, s.owner)) >= 2;
-    const r = applyOp(s, op, { now: Date.now(), by: id, canAccess });
+    const op = { ...m.op }; if (op.o === 'move') op.fuel = cost.fuel; if (cost.opx) Object.assign(op, cost.opx);
+    const fr = !s.owner || s.owner === id || relLevel(this.getRel(id, s.owner)) >= 2, role = accessFor(this.db.structures, s, id, fr), canAccess = fr || !!role;
+    const r = applyOp(s, op, { now: Date.now(), by: id, canAccess, role, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
     if (r.err) { if (!m.op.silent) this.send(id, { t: 'notice', text: r.err }); return; }
     Object.assign(s, r.patch);
     if ('open' in r.patch || 'x' in r.patch) this.rebuildWalls();
     this.broadcast({ t: 'supd', id: s.id, patch: r.patch });
     const give = { ...(cost.give || {}) }; for (const [k, q] of Object.entries(r.give || {})) give[k] = (give[k] || 0) + q;
-    this.sendEcon(id, applyResult(ch, { take: cost.take, give, xp: cost.xp, msg: m.op.silent ? null : r.msg, quietTake: true }));
+    this.sendEcon(id, applyResult(ch, { take: cost.take, give, xp: cost.xp, pet: cost.pet, msg: m.op.silent ? null : r.msg, quietTake: true }));
   };
 
   // ของขวัญ/รักษาระหว่างผู้เล่นต้องมีของจริง
@@ -189,7 +191,7 @@ export function installEconomy(core) {
     if (m.action === 'gift') {
       const r = runAction(ch, 'gift', { to: target.id, k: m.item }, this.env(id));
       if (r.err) return this.sendEcon(id, r);
-      rel.pts += Math.min(20, ITEMS[m.item]?.value || 2);
+      rel.pts += giftValue(ITEMS[m.item]);
       this.send(target.id, { t: 'notice', text: `🎁 ${me.name} ให้ ${ITEMS[m.item].name} กับคุณ` });
       this.relMsg(id, target.id); this.sendEcon(id, { ...r, quietTake: false }); return;
     }

@@ -1,9 +1,9 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild } from './data.js';
-import { relLevel } from './social-core.js';
-import { applyOp, collidersFor, refundFor } from './building-core.js';
+import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS } from './data.js';
+import { relLevel, giftValue } from './social-core.js';
+import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
 import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
@@ -120,7 +120,7 @@ export class WorldCore {
 
   // ---------- ผู้เล่นเข้า/ออก ----------
   hello(id, m) {
-    const me = { id, name: String(m.name || 'ผู้รอดชีวิต').slice(0, 20), sex: m.sex === 'f' ? 'f' : 'm', look: m.look, p: m.p || [0, 0, 0], ry: 0, anim: 0, hp: 100, pets: [], safe: true };
+    const me = { id, name: String(m.name || 'ผู้รอดชีวิต').slice(0, 20), sex: ['m', 'f', 'x'].includes(m.sex) ? m.sex : 'm', look: m.look, p: m.p || [0, 0, 0], ry: 0, anim: 0, hp: 100, pets: [], safe: true };
     const known = this.players.has(id);
     this.players.set(id, me);
     this.db.profiles[id] = { name: me.name, sex: me.sex };
@@ -157,7 +157,7 @@ export class WorldCore {
     switch (m.t) {
       case 'state':
         Object.assign(me, { p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: m.pets || [], safe: !!m.sf, sk: Math.min(1, Math.max(0.3, +m.sk || 1)) });
-        if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, v: m.v ?? null, cl: m.cl }, id);
+        if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
       case 'chat':
         this.broadcast({ t: 'chat', from: id, name: me.name, text: String(m.text).slice(0, 200) });
@@ -176,9 +176,10 @@ export class WorldCore {
         const i = db.structures.findIndex((x) => x.id === m.id); if (i < 0) return;
         const st = db.structures[i];
         if (st.owner && st.owner !== id) return this.send(id, { t: 'notice', text: 'รื้อได้เฉพาะของที่ตัวเองสร้าง' });
+        const why = canDemolish(st, id); if (why) return this.send(id, { t: 'notice', text: why });
         db.structures.splice(i, 1); this.rebuildWalls();
         this.broadcast({ t: 'sdel', id: m.id });
-        this.send(id, { t: 'give', items: refundFor(st), msg: 'รื้อแล้ว ได้วัสดุคืนครึ่งหนึ่ง' });
+        this.send(id, { t: 'give', items: refundFor(st), msg: 'รื้อแล้ว ได้วัสดุคืน' });
         this.dirty(); break;
       }
       case 'zdmg': case 'mdmg':
@@ -209,7 +210,7 @@ export class WorldCore {
     const chk = canDo(m.action, r, this.person(me.id), this.person(target.id));
     if (!chk.ok) return this.send(me.id, { t: 'notice', text: chk.why });
     if (m.action === 'gift') {
-      r.pts += Math.min(20, m.value || 2);
+      r.pts += Math.min(giftValue(ITEMS[m.item]), m.value || 2);
       this.send(target.id, { t: 'receive', item: m.item, qty: m.qty || 1, from: me.name });
       this.relMsg(me.id, target.id); this.dirty(); return;
     }
@@ -275,8 +276,8 @@ export class WorldCore {
   rebuildWalls() { this.walls = [...this.baseWalls, ...this.db.structures.flatMap(collidersFor)]; }
   structureOp(me, m) {
     const s = this.db.structures.find((x) => x.id === m.id); if (!s || !m.op) return;
-    const canAccess = !s.owner || s.owner === me.id || relLevel(this.getRel(me.id, s.owner)) >= 2;
-    const r = applyOp(s, m.op, { now: Date.now(), by: me.id, canAccess });
+    const fr = !s.owner || s.owner === me.id || relLevel(this.getRel(me.id, s.owner)) >= 2, role = accessFor(this.db.structures, s, me.id, fr), canAccess = fr || !!role;
+    const r = applyOp(s, m.op, { now: Date.now(), by: me.id, canAccess, role, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
     if (r.err) { if (!m.op.silent) this.send(me.id, { t: 'notice', text: r.err }); if (m.refund) this.send(me.id, { t: 'give', items: m.refund }); return; }
     Object.assign(s, r.patch);
     if ('open' in r.patch || 'x' in r.patch) this.rebuildWalls();
@@ -288,7 +289,7 @@ export class WorldCore {
   // ---------- สัตว์ป่า / สัตว์จรจัด / NPC ----------
   spawnFauna(k, x, z) {
     const hp = WILD[k]?.hp ?? { dog: 30, cat: 20, bird: 10 }[k];
-    const f = { id: this.fseq++, k, x, z, ry: Math.random() * 6.28, spd: 0, hp, t: 0, tame: {}, angry: 0 };
+    const f = { id: this.fseq++, k, x, z, ry: Math.random() * 6.28, spd: 0, hp, t: 0, tame: {}, angry: 0, home: { x, z } };
     this.fauna.set(f.id, f); return f;
   }
   damageFauna(fid, dmg, by) {
@@ -340,8 +341,14 @@ export class WorldCore {
         continue;
       }
       // สัตว์ป่า · ไดโนเสาร์กินเนื้อไล่ล่าผู้เล่นที่เข้าใกล้
-      const W = WILD[m.k] || {};
-      if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0)) { m.angry = 6; m.angryId = P.id; }
+      const W = WILD[m.k] || {}, H = m.home || (m.home = { x: m.x, z: m.z });
+      // อาณาเขต: ไดโนเสาร์/นักล่าไม่เข้าเมือง · ทุกตัวไม่ออกห่างถิ่นเกิน leash
+      if (W.noTown && inTownAt(m.x, m.z)) { m.angry = 0; this.moveMob(m, H.x, H.z, 4, dt); continue; }
+      if (m.angry > 0 && W.noTown && P && inTownAt(P.p[0], P.p[2])) m.angry = 0;
+      if (W.leash && Math.hypot(m.x - H.x, m.z - H.z) > W.leash) { m.angry = 0; m.alert = 0; this.moveMob(m, H.x, H.z, W.chase || 3, dt); continue; }
+      if (!m._ft || m.t - m._ft > 1) { m._ft = m.t; this._fires = this.db.structures.filter((s) => s.type === 'campfire'); }
+      if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0) && !nearFireOf(this._fires, P.p[0], P.p[2])) { m.angry = 6; m.angryId = P.id; }
+      if (m.angry > 0 && W.hostile && nearFireOf(this._fires, m.x, m.z, FIRE_SAFE + 2)) m.angry = 0; // นักล่ากลัวไฟ
       if (m.angry > 0) {
         m.angry -= dt;
         const T = this.players.get(m.angryId);
@@ -353,7 +360,7 @@ export class WorldCore {
       }
       const flee = W.flee ?? 10, fleeSpd = W.fleeSpd || 4;
       if ((flee && dP < flee) || (m.alert > 0 && flee)) { if (m.alert > 0) m.alert -= dt; this.moveMob(m, P.p[0], P.p[2], fleeSpd, dt, true); }
-      else this.wander(m, m.x, m.z, 10, m.k === 'chicken' ? 0.8 : 1.3, dt);
+      else this.wander(m, H.x, H.z, Math.min(25, (W.leash || 40) * 0.5), m.k === 'chicken' ? 0.8 : 1.3, dt);
     }
   }
   spawnFaunaTick() {
@@ -369,7 +376,7 @@ export class WorldCore {
       const spot = (a0, a1) => { for (let i = 0; i < 6; i++) { const a = Math.random() * Math.PI * 2, r = a0 + Math.random() * (a1 - a0), x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r; if (this.validSpot(x, z)) return [x, z]; } return null; };
       if (an < (town ? 2 : 7)) {
         const s = spot(35, 100);
-        if (s) { const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random(); this.spawnFauna(pickWild(zoo, r), ...s); }
+        if (s) { const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random(); this.spawnFauna(pickWild(zoo, r, inTownAt(s[0], s[1], 1.4)), ...s); }
       }
       if (town && st < 3) { const s = spot(20, 50); if (s) this.spawnFauna(['dog', 'cat', 'bird'][Math.floor(Math.random() * 3)], ...s); }
     }
@@ -415,8 +422,15 @@ export class WorldCore {
   tickZombies(dt) {
     const night = this.isNight(), day = this.dayNum();
     const alive = [...this.players.values()].filter((p) => p.hp > 0 && p.p);
+    const fires = this.db.structures.filter((s) => s.type === 'campfire'), bases = this.db.structures.filter((s) => s.type === 'basecore' && s.ok), now = Date.now();
     for (const zb of this.zombies.values()) {
+      // รั้วและบ้านของฐาน (ช่วงป้องกัน 60 วัน) กันผู้ติดเชื้อ: ถ้าหลุดเข้ามาให้ถอยออกไป
+      const sb = safeBaseAt(bases, zb.x, zb.z, now, 1);
+      if (sb) { const cx = (sb.box[0] + sb.box[2]) / 2, cz = (sb.box[1] + sb.box[3]) / 2, dx = zb.x - cx || 0.1, dz = zb.z - cz, L = Math.hypot(dx, dz) || 1; zb.x += (dx / L) * 3 * dt; zb.z += (dz / L) * 3 * dt; zb.ry = Math.atan2(dx, dz); zb.spd = 3; continue; }
       zb.t += dt; zb.cd -= dt;
+      // กลัวกองไฟ: ถ้าอยู่ใกล้กองไฟให้ถอยออกไป ไม่ไล่ใคร
+      const fire = nearFireOf(fires, zb.x, zb.z, FIRE_SAFE + 2);
+      if (fire && !ZTIERS[zb.tier | 0].boss) { const dx = zb.x - fire.f.x, dz = zb.z - fire.f.z, L = Math.hypot(dx, dz) || 1; zb.x += (dx / L) * 2.5 * dt; zb.z += (dz / L) * 2.5 * dt; zb.ry = Math.atan2(dx, dz); zb.spd = 2.5; continue; }
       const T = ZTIERS[zb.tier | 0], see = (night ? 40 : 24) * (T.boss ? 1.5 : 1);
       let tgt = null, td = see;
       zb.ignore ||= {};
@@ -424,7 +438,7 @@ export class WorldCore {
         if (zb.ignore[p.id] > zb.t) continue;
         const d = Math.hypot(p.p[0] - zb.x, p.p[2] - zb.z);
         // ย่อ/คลาน = มองเห็นได้ใกล้ลง (sk) ยกเว้นตัวที่ตื่นตัวอยู่แล้ว
-        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1)) { tgt = p; td = d; }
+        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1) && !(nearFireOf(fires, p.p[0], p.p[2]) && !T.boss) && !safeBaseAt(bases, p.p[0], p.p[2], now)) { tgt = p; td = d; }
       }
       if (!tgt && zb.alert > 0) { zb.alert -= dt; tgt = this.players.get(zb.alertId) || null; if (tgt && zb.ignore[tgt.id] > zb.t) tgt = null; if (tgt) td = Math.hypot(tgt.p[0] - zb.x, tgt.p[2] - zb.z); if (td > 70) tgt = null; }
       let tx, tz, spd;
@@ -503,7 +517,7 @@ export class WorldCore {
     this.tMs -= dt;
     if (this.tMs <= 0) {
       this.tMs = 0.25;
-      const K = { boar: 0, deer: 1, chicken: 2, dog: 3, cat: 4, bird: 5, npc: 6, raptor: 7, trike: 8 };
+      const K = { boar: 0, deer: 1, chicken: 2, dog: 3, cat: 4, bird: 5, npc: 6, raptor: 7, trike: 8, tiger: 9 };
       const m = [];
       for (const f of this.fauna.values()) m.push(f.k === 'npc' ? f.idx : f.id, K[f.k], Math.round(f.x * 10), Math.round(f.z * 10), Math.round(f.ry * 100), Math.round(f.spd * 10));
       this.broadcast({ t: 'ms', m });

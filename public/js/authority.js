@@ -2,7 +2,7 @@
 // - เซิร์ฟเวอร์สาธารณะ (Node): ส่งคำขอ แล้วเซิร์ฟเวอร์ตอบผลพร้อมกระเป๋าจริงกลับมา (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: ใช้กฎชุดเดียวกันจาก economy.js ในเครื่อง
 import { runAction, applyResult, sopCost, killReward, refundReward } from './economy.js';
-import { applyOp } from './building-core.js';
+import { applyOp, flowersNear, accessFor, canDemolish } from './building-core.js';
 import { waterAt } from './terrain.js';
 import { Net } from './net.js';
 
@@ -30,6 +30,7 @@ export class Authority {
     return {
       now: () => g.now(), rand: Math.random,
       npcPos: (nid) => { const e = g.ents.list.find((x) => !x.dead && x.id === nid); return e ? { x: e.pos.x, z: e.pos.z } : null; },
+      structs: () => W.structures, myId: g.id,
       ownCount: (type) => W.structures.filter((s) => s.type === type && (!s.owner || s.owner === g.id)).length,
       pos: () => g.player.pos,
       loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, until: L.until ? L.until + g.timeOffset : 0 }; },
@@ -71,22 +72,23 @@ export class Authority {
     if (this.server) return g.net.send({ t: 'sop', id: s.id, op });
     const env = this.env(), cost = sopCost(this.ch, s, op, env);
     if (cost.err) { if (!op.silent) g.ui.toast(cost.err, 'warn'); return; }
-    const op2 = { ...op }; if (op.o === 'move') op2.fuel = cost.fuel;
+    const op2 = { ...op }; if (op.o === 'move') op2.fuel = cost.fuel; if (cost.opx) Object.assign(op2, cost.opx);
     if (this.room) {
       // เล่นผ่านลิงก์: โลกอยู่ที่โฮสต์ ค่าใช้จ่ายหักในเครื่อง (โฮสต์คืนของให้ถ้าทำไม่สำเร็จ)
       applyResult(this.ch, { take: cost.take, give: cost.give, xp: cost.xp });
       g.net.send({ t: 'sop', id: s.id, op: op2, refund: cost.take });
       g.ui.refreshPanels(); return;
     }
-    const r = applyOp(s, op2, { now: g.now(), by: g.id, canAccess: true });
+    const r = applyOp(s, op2, { now: g.now(), by: g.id, canAccess: true, role: accessFor(g.world.structures, s, g.id, true), flowers: s.type === 'hive' ? flowersNear(g.world.structures, s, g.now()) : 0 });
     if (r.err) { if (!op.silent) g.ui.toast(r.err, 'warn'); return; }
     g.world.updateStructure(s.id, r.patch);
     const give = { ...(cost.give || {}) }; for (const [k, q] of Object.entries(r.give || {})) give[k] = (give[k] || 0) + q;
-    g.onEcon(applyResult(this.ch, { take: cost.take, give, xp: cost.xp, msg: op.silent ? null : r.msg }), null);
+    g.onEcon(applyResult(this.ch, { take: cost.take, give, xp: cost.xp, pet: cost.pet, msg: op.silent ? null : r.msg }), null);
   }
 
   sdel(s) {
     const g = this.g;
+    const why = canDemolish(s, g.id); if (why) return g.ui.toast(why, 'warn');
     if (this.server || this.room) return g.net.send({ t: 'sdel', id: s.id });
     g.world.removeStructure(s.id);
     g.onEcon(refundReward(this.ch, s), null);

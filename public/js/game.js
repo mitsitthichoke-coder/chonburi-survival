@@ -3,7 +3,7 @@ import { World, RES_TYPES } from './world.js';
 import { Entities } from './entities.js';
 import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
-import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX } from './models.js';
+import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
 import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
 import { distToCoast } from './terrain.js';
@@ -186,6 +186,12 @@ export class Game {
   handMul() { const dom = this.profile.hand === 'l' ? 'l' : 'r', using = this.lefty ? 'l' : 'r'; return dom === using ? 1.15 : 0.9; }
   holdItem(k) { return this.auth.do('hold', { k: k || null }); }
   setLefty(v) { return this.auth.do('hands', { lefty: !!v }); }
+  // ปุ่ม H / ปุ่มบนจอ: สลับอุปกรณ์ที่ถือระหว่างมือซ้าย–ขวา (มือถนัดได้พลัง +15%)
+  swapHands() {
+    const v = !this.lefty, dom = this.profile.hand === 'l';
+    this.setLefty(v);
+    this.ui.toast(`${v ? '🫲 ถือมือซ้าย' : '🫱 ถือมือขวา'}${v === dom ? ' (มือถนัด +15%)' : ' (ไม่ใช่มือถนัด)'}`);
+  }
   useItem(k) {
     if (!this.hasItem(k) || this.dead) return;
     const it = ITEMS[k], s = this.stats;
@@ -202,7 +208,7 @@ export class Game {
     if (it.device) return this.ui.toast(`${it.icon} ${it.name} ทำงานอัตโนมัติเมื่ออยู่ในกระเป๋า — ดูบนแผนที่มุมขวาบน`);
     if (it.med) {
       const m = it.med;
-      const needed = m.immune || (m.stopBleed && s.bleeding) || (m.fracture && s.fracture) || (m.infection && s.infection > 0) || (m.cureSick && s.sick > 0) || (m.hp && s.hp < this.maxHp());
+      const needed = m.immune || (m.stopBleed && s.bleeding) || (m.fracture && s.fracture) || ((m.fracture || m.stopBleed) && s.sprain > 0) || (m.infection && s.infection > 0) || (m.cureSick && s.sick > 0) || (m.hp && s.hp < this.maxHp());
       if (!needed) return this.ui.toast('ตอนนี้ยังไม่จำเป็นต้องใช้');
       return this.auth.do('use', { k });
     }
@@ -227,6 +233,7 @@ export class Game {
       if (m.immune) { this.immuneT = m.immune; this.ui.toast(`💉 ภูมิคุ้มกัน: ไม่ติดเชื้อเพิ่ม ${m.immune / 60} นาที`, 'level'); }
       if (m.stopBleed) s.bleeding = false;
       if (m.fracture) s.fracture = false;
+      if ((m.fracture || m.stopBleed) && s.sprain > 0) { s.sprain = 0; this.ui.toast('🦶 พันข้อเท้าแล้ว ขาแพลงหาย'); }
       if (m.infection) s.infection = clamp(s.infection + m.infection * medMul, 0, 100);
       if (m.cureSick) s.sick = 0;
       if (m.hp) s.hp = clamp(s.hp + m.hp * medMul, 0, this.maxHp());
@@ -360,7 +367,7 @@ export class Game {
   respawn() {
     const s = this.stats; this.dead = false;
     if (this.auth.server) this.net.send({ t: 'respawn' });
-    Object.assign(s, { hp: this.maxHp() * 0.6, hunger: 60, thirst: 60, stamina: 60, infection: 0, bleeding: false, fracture: false, sick: 0 });
+    Object.assign(s, { hp: this.maxHp() * 0.6, hunger: 60, thirst: 60, stamina: 60, infection: 0, bleeding: false, fracture: false, sprain: 0, sick: 0 });
     this.player.pos.set(this.spawnPoint.x, this.spawnPoint.y ?? heightAt(this.spawnPoint.x, this.spawnPoint.z) + 0.5, this.spawnPoint.z); this.player.vy = 0; this.player.climb = null;
     this.safeTime = 10; this.ui.hideDeath();
     for (const e of this.ents.list) if (e.kind === 'zombie' && e.pos.distanceTo(this.player.pos) < 40) this.ents.remove(e);
@@ -468,7 +475,7 @@ export class Game {
   // tool = ใช้เครื่องมือ (ได้วัตถุดิบพร้อมใช้) · มือเปล่า = ได้วัตถุดิบดิบที่ต้องแปรรูปก่อน
   // ตี/เก็บทรัพยากร: ผลจริง (ได้อะไร เท่าไร) ตัดสินโดยระบบเศรษฐกิจ
   harvest(r, hand = false) {
-    this.sfx.play(r.type === 'rock' ? 'stone' : r.type === 'tree' || r.type === 'palm' ? 'chop' : 'pickup');
+    this.sfx.play(r.type === 'rock' ? 'stone' : r.type === 'tree' || r.type === 'palm' || r.type === 'orange_tree' ? 'chop' : 'pickup');
     this.auth.do('hit', { id: r.id, hand });
   }
 
@@ -496,12 +503,12 @@ export class Game {
       if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, tool.dmg * this.dmgMul() * this.handMul(), this.player.pos); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
       return;
     }
-    // แห: โยนใส่สัตว์ป่าตรงหน้าเพื่อจับมาเลี้ยง
+    // แห: ทอดลงน้ำตรงหน้าเพื่อหาปลา
     if (tool?.net) {
-      let best = null, bd = tool.range + 0.5;
-      for (const e of this.ents.list) { if (e.dead || e.kind !== 'animal') continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.3) { bd = d; best = e; } }
-      if (!best) return this.ui.toast('🕸️ ไม่มีสัตว์ป่าตรงหน้า — เล็งไปที่กวาง หมูป่า ไก่ หรือแร็พเตอร์', 'warn');
-      return this.auth.do('capture', { id: best.netId || best.uid });
+      const P = this.player.pos; let spot = null;
+      for (let d = 2; d <= 5 && !spot; d += 0.5) { const x = P.x + dir.x * d, z = P.z + dir.z * d; if (waterAt(x, z)) spot = { x: +x.toFixed(2), z: +z.toFixed(2) }; }
+      if (!spot) return this.ui.toast('🕸️ หันหน้าไปทางน้ำ (ทะเล/อ่างเก็บน้ำ/บ่อ) แล้วทอดแห', 'warn');
+      this.sfx.play('splash'); return this.auth.do('castnet', spot);
     }
     const dmg = (tool ? tool.dmg : 6) * this.dmgMul() * this.handMul();
     const hit = this.ents.hitInFront(this.player.pos, dir, tool ? tool.range : 2.0, dmg);
@@ -543,6 +550,7 @@ export class Game {
       if (k === 'r' && !e.repeat) return this.ui.togglePanel('rel');
       if (k === 'k' && !e.repeat) return this.ui.togglePanel('char');
       if (k === 'g' && !e.repeat && !this.ui.open) return this.callPetsUp();
+      if (k === 'h' && !e.repeat && !this.ui.open) return this.swapHands();
       if (k === 'control' && !e.repeat && !this.ui.open) { e.preventDefault(); return this.setStance((this.stance + 1) % 3); }
       if (k === 'i' && !e.repeat) return this.ui.togglePanel('equip');
       if (k === 'p' && !e.repeat) return this.ui.togglePanel('pets');
@@ -725,11 +733,11 @@ export class Game {
     const w = waterAt(p.pos.x, p.pos.z);
     p.swim = !!w && p.pos.y < w.level - 0.9;
     const over = this.overloaded();
-    const sprint = (k.ShiftLeft || k.ShiftRight || this.touch?.sprint) && s.stamina > 1 && moving && !p.swim && !over;
+    const sprint = (k.ShiftLeft || k.ShiftRight || this.touch?.sprint) && s.stamina > 1 && moving && !p.swim && !over && !s.fracture; // ขาหักวิ่งไม่ได้
     if ((sprint || p.swim) && this.stance) this.setStance(0);
     let spd = p.swim ? 2.6 : sprint ? 7.8 : 4.6;
     spd *= [1, 0.55, 0.3][this.stance] * (hasPerk(this.ch, 'athlete', 1) ? 1.1 : 1);
-    if (s.fracture) spd *= 0.5; if (s.infection > 70) spd *= 0.8; if (this.social.preg[this.id]) spd *= 0.85;
+    if (s.fracture) spd *= 0.5; else if (s.sprain > 0) spd *= sprint ? 0.55 : 0.75; if (s.infection > 70) spd *= 0.8; if (this.social.preg[this.id]) spd *= 0.85;
     spd *= 1 + wearStats(this.wear).spd; if (over) spd *= 0.6;
     if (p.climb && fz < 0 && p.climb.dir === 'up') { p.climb = null; this.ui.toast('ปล่อยมือจากกำแพง'); }
     if (moving && !p.climb) {
@@ -763,7 +771,9 @@ export class Game {
         p.climb = { dir: 'down' }; p.vy = 0; p.lastRoof = null;
       }
       if (p.pos.y <= floor) {
-        if (p.vy < -17 && !s.fracture && !hasPerk(this.ch, 'athlete', 2)) { s.fracture = true; this.hurt(15, { src: 'ตกจากที่สูง' }); this.ui.toast('🦴 ขาหัก! ทำเฝือกไม้เพื่อรักษา', 'warn'); }
+        // ตกจากที่สูงมาก = ขาหัก (วิ่งไม่ได้) · ตกไม่สูงมาก = ขาแพลง (เดินกะเผลกได้ หายเองใน 2 นาที)
+        if (p.vy < -17 && !s.fracture && !hasPerk(this.ch, 'athlete', 2)) { s.fracture = true; s.sprain = 0; this.hurt(15, { src: 'ตกจากที่สูง' }); this.ui.toast('🦴 ขาหัก! วิ่งไม่ได้ — ทำเฝือกไม้เพื่อรักษา', 'warn'); }
+        else if (p.vy < -12.5 && !s.fracture && !(s.sprain > 0) && !hasPerk(this.ch, 'athlete', 1)) { s.sprain = 120; this.hurt(5, { src: 'ตกจากที่สูง' }); this.ui.toast('🦶 ขาแพลง! เดินกะเผลกได้ วิ่งได้ช้า — พักสักครู่หรือพันผ้าพันแผลจะหายเร็วขึ้น', 'warn'); }
         p.pos.y = floor; p.vy = 0; p.onGround = true;
       }
       p.lastRoof = p.onGround && roof !== null && p.pos.y - roof < 0.05 ? roof : null;
@@ -771,6 +781,7 @@ export class Game {
     if (p.speedNow > 0 && p.onGround) { this.stepT = (this.stepT || 0) + dt * p.speedNow; if (this.stepT > 2.3) { this.stepT = 0; this.sfx.play(p.swim ? 'splash' : 'step'); } }
     p.mesh.rotation.y = p.ry;
     p.mesh.userData.belly.visible = !!this.social.preg[this.id];
+    setInjury(p.mesh, injuryBits(this.stats)); tickInjury(p.mesh, dt);
     animateHuman(p.mesh, dt, p.speedNow, this.atkT, p.climb ? (p.climb.dir === 'up' ? 'climb' : 'down') : ['', 'crouch', 'crawl'][this.stance] || null);
     if (this.blockT > 0 && !p.climb) { this.blockT -= dt; p.mesh.userData[this.lefty ? 'rArm' : 'lArm'].rotation.x = -1.4; }
   }
@@ -881,6 +892,7 @@ export class Game {
     s.stamina = Math.max(0, s.stamina);
     let dhp = 0;
     if (s.hunger <= 0) dhp -= 0.5; if (s.thirst <= 0) dhp -= 0.8;
+    if (s.sprain > 0) { s.sprain -= dt; if (s.sprain <= 0) { s.sprain = 0; this.ui.toast('🦶 ขาแพลงหายแล้ว'); } }
     if (s.bleeding) { dhp -= 0.6; if (Math.random() < 0.004 * dt * 60 * 0.1) { s.bleeding = false; this.ui.toast('เลือดหยุดไหลเองแล้ว'); } }
     if (this.immuneT > 0) this.immuneT -= dt;
     if (s.infection > 0) { s.infection = Math.min(100, s.infection + 0.12 * dt * (hasPerk(this.ch, 'doctor', 2) ? 0.5 : 1)); if (s.infection >= 100) dhp -= 1.2; }
@@ -952,7 +964,7 @@ export class Game {
     if (this.net.online && this.netT <= 0) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
-      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
+      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
     }
   }
 }

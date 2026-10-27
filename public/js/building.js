@@ -1,17 +1,17 @@
 // โหมดก่อสร้าง: เลือกชิ้นส่วน → เห็นเงา (เขียว=วางได้ แดง=วางไม่ได้) → คลิกวาง · Q หมุน · X รื้อ
-import { PIECES, G, WALL_H, cellOf, cellCenter, slotPos, slotKey, baseY, refundFor } from './building-core.js';
+import { PIECES, coinCost, G, WALL_H, cellOf, cellCenter, slotPos, slotKey, baseY, refundFor } from './building-core.js';
 import { makeGhost } from './structures3d.js';
 import { heightAt, waterAt } from './terrain.js';
 import { skillLevel, ITEMS, buildCost, canBuild } from './data.js';
 
-const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'pond']);
+const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'pond']);
 
 export class Builder {
   constructor(game) { this.g = game; this.type = null; this.rot = 0; this.ghost = null; this.ghostKey = ''; this.demolish = false; this.cand = null; this.target = null; }
   get active() { return !!this.type || this.demolish; }
 
-  start(type) {
-    const g = this.g;
+  start(type, coin = false) {
+    const g = this.g; this.coin = coin;
     if (!canBuild(g.inv)) return g.ui.toast('ต้องมีค้อนก่อน — 🪵 ค้อนไม้ (ไม้ 3 + เส้นใย 1) หรือ 🔨 ค้อนช่างไม้', 'warn');
     if (skillLevel(g.skills.building) < PIECES[type].lvl) return g.ui.toast(`ต้องมีทักษะก่อสร้าง Lv${PIECES[type].lvl}`, 'warn');
     this.stop(); this.type = type; g.ui.closeAll();
@@ -56,7 +56,7 @@ export class Builder {
     const pos = slotPos(type, cx, cz, rot);
     let y = level.y, why = '';
     if (type === 'roof') y = level.y + WALL_H - (level.kind === 'floor' ? 0 : 0);
-    if (GROUND_ONLY.has(type) && level.kind !== 'ground') why = 'ต้องวางบนพื้นดิน';
+    if ((GROUND_ONLY.has(type) || type.startsWith('plot_')) && level.kind !== 'ground') why = 'ต้องวางบนพื้นดิน';
     if (def.snap === 'edge' && level.kind === 'ground') y = Math.min(heightAt(pos.x - (rot & 1 ? 0 : 1.4), pos.z - (rot & 1 ? 1.4 : 0)), heightAt(pos.x + (rot & 1 ? 0 : 1.4), pos.z + (rot & 1 ? 1.4 : 0)));
     const s = { type, x: pos.x, z: pos.z, y: +y.toFixed(2), rot, drop: type === 'foundation' ? +(level.drop + 0.3).toFixed(2) : undefined };
     const W = g.world;
@@ -92,7 +92,7 @@ export class Builder {
     if (this.demolish) return this.target ? `🗑️ รื้อ ${PIECES[this.target.type]?.name || ITEMS[this.target.vt]?.name || this.target.type} ${kb ? '(คลิก)' : '(✅)'}` : `🗑️ โหมดรื้อ — เล็งไปที่สิ่งที่คุณสร้าง ${kb ? '· Esc ออก' : ''}`;
     if (!this.cand) return '';
     const d = PIECES[this.type];
-    return `🔨 ${d.icon} ${d.name} · ${Object.entries(buildCost(this.g.auth.ch, d.cost)).map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')} — ${this.cand.ok ? (kb ? 'คลิก=วาง · Q=หมุน · X=รื้อ · Esc=ออก' : '✅ วาง · ↻ หมุน') : '❌ ' + this.cand.why}`;
+    return `🔨 ${d.icon} ${d.name} · ${this.coin || d.cost.jicoin ? `🪙${coinCost(d, ITEMS)}` : Object.entries(buildCost(this.g.auth.ch, d.cost)).map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')} — ${this.cand.ok ? (kb ? 'คลิก=วาง · Q=หมุน · X=รื้อ · Esc=ออก' : '✅ วาง · ↻ หมุน') : '❌ ' + this.cand.why}`;
   }
 
   // คลิก/✅
@@ -105,7 +105,7 @@ export class Builder {
     }
     const c = this.cand || this.candidate();
     if (!c.ok) return g.ui.toast(c.why, 'warn');
-    g.placeStructure({ ...c.s }); // ระบบเศรษฐกิจหักวัสดุและให้ประสบการณ์ก่อสร้าง
+    g.placeStructure({ ...c.s, coin: this.coin ? 1 : undefined }); // ระบบเศรษฐกิจหักวัสดุ (หรือเงินจิ) และให้ประสบการณ์ก่อสร้าง
     this.ghostKey = '';
   }
 }

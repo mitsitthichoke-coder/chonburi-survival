@@ -84,7 +84,7 @@ export class RoomNet {
       return;
     }
     if (m.t === 'state') {
-      this.setPresence({ g: this.gid, n: this.hello?.name, s: this.hello?.sex, lk: this.hello?.look, p: m.p, ry: m.ry, a: m.anim, hp: m.hp, eq: m.eq ?? null, pets: m.pets, v: m.v ?? null, cl: m.cl, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, sf: m.sf ? 1 : 0, host: this.isHost ? 1 : 0 });
+      this.setPresence({ g: this.gid, n: this.hello?.name, s: this.hello?.sex, lk: this.hello?.look, p: m.p, ry: m.ry, a: m.anim, hp: m.hp, eq: m.eq ?? null, pets: m.pets, v: m.v ?? null, cl: m.cl, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, sf: m.sf ? 1 : 0, host: this.isHost ? 1 : 0 });
       if (this.isHost) this.core.message(this.gid, m);
       return;
     }
@@ -138,7 +138,7 @@ export class RoomNet {
     for (const p of [...ch.joined, ...ch.updated]) {
       const pr = p.presence || {};
       if (p.sameTab || !pr.g || pr.g === this.gid) continue;
-      const st = { t: 'state', id: pr.g, name: pr.n, sex: pr.s, look: pr.lk, p: pr.p, ry: pr.ry, anim: pr.a, hp: pr.hp, eq: pr.eq ?? null, pets: pr.pets || [], v: pr.v ?? null, cl: pr.cl, cb: pr.cb | 0, lh: pr.lh | 0, st: pr.st | 0, en: pr.en | 0 };
+      const st = { t: 'state', id: pr.g, name: pr.n, sex: pr.s, look: pr.lk, p: pr.p, ry: pr.ry, anim: pr.a, hp: pr.hp, eq: pr.eq ?? null, pets: pr.pets || [], v: pr.v ?? null, cl: pr.cl, cb: pr.cb | 0, lh: pr.lh | 0, st: pr.st | 0, en: pr.en | 0, ij: pr.ij | 0 };
       if (pr.p) this.deliver(st);
       if (this.isHost) {
         if (!this.core.players.has(pr.g)) this.core.hello(pr.g, { name: pr.n, sex: pr.s, look: pr.lk, p: pr.p });

@@ -1,11 +1,14 @@
 // ทรัพยากรธรรมชาติทั้งแผนที่ (ต้นไม้ หิน พุ่มไม้ ฯลฯ) สร้างแบบกำหนดผลได้ — ไคลเอนต์และเซิร์ฟเวอร์ได้ชุดเดียวกัน
-import { WORLD, heightAt, waterAt, fbm, mulberry32, distToCoast } from './terrain.js';
+import { WORLD, heightAt, waterAt, fbm, mulberry32, distToCoast, hash2 } from './terrain.js';
 import { TOWNS, QUEST_SPOTS } from './data.js';
 import { getLayout, inCamp } from './citygen.js';
 
 export const RES_TYPES = {
-  tree: { name: 'ต้นไม้', hp: 5, drops: [['wood', 2, 3], ['fiber', 0, 1]], respawn: 8, r: 0.6, needTool: false },
-  palm: { name: 'ต้นมะพร้าว', hp: 3, drops: [['coconut', 1, 1], ['wood', 0, 1]], respawn: 6, r: 0.5 },
+  // ล้มต้นไม้ได้ไม้ 2 ชิ้น + ผลของต้นนั้น (ถ้ามี)
+  tree: { name: 'ต้นไม้', hp: 5, drops: [['wood', 2, 2], ['fiber', 0, 1]], respawn: 8, r: 0.6, needTool: false },
+  palm: { name: 'ต้นมะพร้าว', hp: 4, drops: [['wood', 2, 2], ['coconut', 1, 1]], respawn: 6, r: 0.5 },
+  orange_tree: { name: 'ต้นส้ม', hp: 4, drops: [['wood', 2, 2], ['orange', 2, 2]], respawn: 7, r: 0.5 },
+  pineapple: { name: 'ต้นสับปะรด', hp: 1, drops: [['pineapple', 1, 1], ['fiber', 0, 1]], respawn: 5, r: 0 },
   rock: { name: 'ก้อนหิน', hp: 5, drops: [['stone', 1, 2], ['scrap', 0, 0]], respawn: 10, r: 0.9 },
   bush: { name: 'พุ่มผลไม้ป่า', hp: 1, drops: [['berry', 2, 3], ['fiber', 1, 2]], respawn: 4, r: 0 },
   herb: { name: 'สมุนไพร (ฟ้าทะลายโจร)', hp: 1, drops: [['herb', 1, 2]], respawn: 5, r: 0 },
@@ -39,6 +42,10 @@ function generate() {
       type = roll < (forest ? 0.3 : 0.08) ? 'tree' : roll < 0.36 ? 'grass' : roll < 0.4 ? 'bush' : roll < 0.42 ? 'rock' : roll < 0.445 ? 'herb' : roll < 0.475 ? 'pebble' : roll < (forest ? 0.54 : 0.5) ? 'twig' : null;
     }
     if (!type) continue;
+    // ต้นไม้บางต้นเป็นต้นส้ม · หญ้าบางกอเป็นสับปะรด (ใช้ตำแหน่งสุ่มแบบคงที่ ไม่กระทบลำดับสุ่มเดิม)
+    const hh = hash2(Math.floor(px * 7), Math.floor(pz * 7));
+    if (type === 'tree' && !town && h <= 28 && hh < 0.14) type = 'orange_tree';
+    else if (type === 'grass' && d >= 30 && hh < 0.12) type = 'pineapple';
     out.push({ id: out.length, type, x: px, z: pz, y: h, s: 0.75 + rng() * 0.6, ry: rng() * 6.28 });
   }
   return out;

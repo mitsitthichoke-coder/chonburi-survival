@@ -15,9 +15,18 @@ function questBoxMesh() {
   lock.add(box(0.22, 0.2, 0.06, '#adb5bd', 0, 0, 0));
   lock.add(box(0.05, 0.14, 0.04, '#adb5bd', -0.07, 0.15, 0), box(0.05, 0.14, 0.04, '#adb5bd', 0.07, 0.15, 0), box(0.19, 0.04, 0.04, '#adb5bd', 0, 0.22, 0));
   g.add(lock); g.userData.lock = lock;
-  // ป้ายเหนือกล่อง: สีบอกสถานะ (แดง = ล็อก · เขียว = เปิดได้)
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshBasicMaterial({ color: '#e63946' }));
-  gem.position.y = 1.5; g.add(gem); g.userData.gem = gem;
+  // เสาธงสูงข้างกล่อง มองเห็นได้จากไกล: ธงสีบอกสถานะ (แดง = ยังล็อก · เขียว = เปิดได้) + ป้าย "!" ลอยบนยอดเสา
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 7, 8), mat('#dee2e6')); pole.position.set(0.8, 3.5, 0); pole.castShadow = true; g.add(pole);
+  g.add(box(0.5, 0.2, 0.5, '#6c757d', 0.8, 0.1, 0));
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), mat('#ffd60a')); top.position.set(0.8, 7.05, 0); g.add(top);
+  const flagM = new THREE.MeshBasicMaterial({ color: '#e63946', side: THREE.DoubleSide });
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1, 8, 1), flagM); flag.position.set(1.72, 6.35, 0); g.add(flag);
+  g.userData.flag = flag; g.userData.flagBase = flag.geometry.attributes.position.array.slice();
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.4), new THREE.MeshBasicMaterial({ color: '#e63946' }));
+  gem.position.set(0.8, 8.2, 0); g.add(gem); g.userData.gem = gem;
+  // แสงวงบนพื้น
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.3, 1.6, 24), new THREE.MeshBasicMaterial({ color: '#ffd60a', transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring); g.userData.ring = ring;
   return g;
 }
 function rareBoxMesh() {
@@ -54,7 +63,13 @@ export class Boxes {
     const g = this.g; this.t += dt;
     const R = this.rareMesh;
     if (R.visible) { R.rotation.y += dt * 0.8; R.userData.ring.scale.setScalar(1 + Math.sin(this.t * 3) * 0.15); R.userData.beam.material.opacity = 0.22 + Math.sin(this.t * 2) * 0.08; }
-    for (const { m } of this.q) if (m.visible) { m.userData.gem.rotation.y += dt * 2; m.userData.gem.position.y = 1.5 + Math.sin(this.t * 2) * 0.1; }
+    for (const { m } of this.q) if (m.visible) {
+      const u = m.userData; u.gem.rotation.y += dt * 2; u.gem.position.y = 8.2 + Math.sin(this.t * 2) * 0.25;
+      // ธงโบกสะบัด
+      const a = u.flag.geometry.attributes.position, b = u.flagBase;
+      for (let i = 0; i < a.count; i++) { const x = b[i * 3] + 0.9; a.array[i * 3 + 2] = Math.sin(x * 2.5 - this.t * 4) * 0.15 * x; }
+      a.needsUpdate = true; u.ring.material.opacity = 0.35 + Math.sin(this.t * 3) * 0.15;
+    }
     const qt = g.quest.done ? null : g.quest.cur.id === 'battery' ? g.quest.target() : null;
     this.beacon.visible = !!qt;
     if (qt) { this.beacon.position.set(qt.x, heightAt(qt.x, qt.z), qt.z); this.beacon.userData.arrow.position.y = 3.2 + Math.sin(this.t * 3) * 0.3; this.beacon.userData.arrow.rotation.y += dt * 2; }
@@ -64,7 +79,7 @@ export class Boxes {
     for (const { b, m } of this.q) {
       m.visible = !this.opened[b.id];
       const free = !this.lockOf(b);
-      m.userData.gem.material.color.set(free ? '#52b788' : '#e63946'); m.userData.lock.visible = !free;
+      m.userData.gem.material.color.set(free ? '#52b788' : '#e63946'); m.userData.flag.material.color.set(free ? '#52b788' : '#e63946'); m.userData.lock.visible = !free;
     }
     // กล่องหายาก
     const rb = rareBoxAt(g.now());

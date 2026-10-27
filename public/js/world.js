@@ -5,6 +5,8 @@ import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX } from './models.js';
 import { makeStructureMesh, updateStructureMesh } from './structures3d.js';
+import { TINTABLE, baseAt } from './building-core.js';
+import { mat as tintMat } from './models.js';
 import { collidersFor } from './building-core.js';
 
 export { RES_TYPES };
@@ -243,6 +245,8 @@ export class World {
       herb: [[new THREE.ConeGeometry(0.25, 0.6, 5).translate(0, 0.3, 0), '#80b918']],
       grass: [[new THREE.ConeGeometry(0.35, 0.9, 4).translate(0, 0.45, 0), '#a7c957']],
       twig: [[new THREE.CylinderGeometry(0.04, 0.05, 1.1, 4).rotateZ(Math.PI / 2).translate(0, 0.05, 0), '#8b5e34'], [new THREE.CylinderGeometry(0.03, 0.04, 0.8, 4).rotateZ(Math.PI / 2).rotateY(0.9).translate(0.1, 0.1, 0.05), '#a47148']],
+      orange_tree: [[new THREE.CylinderGeometry(0.16, 0.24, 2.2, 5).translate(0, 1.1, 0), '#6b4f2c'], [new THREE.IcosahedronGeometry(1.5, 0).translate(0, 3.1, 0), '#2d6a4f'], [new THREE.SphereGeometry(0.2, 5, 4).translate(0.9, 2.8, 0.6), '#f77f00'], [new THREE.SphereGeometry(0.2, 5, 4).translate(-0.7, 3.3, -0.8), '#f77f00'], [new THREE.SphereGeometry(0.2, 5, 4).translate(0.2, 2.5, -1.1), '#f77f00']],
+      pineapple: [[new THREE.ConeGeometry(0.45, 0.6, 6).translate(0, 0.3, 0), '#40916c'], [new THREE.SphereGeometry(0.22, 6, 5).scale(1, 1.4, 1).translate(0, 0.75, 0), '#e9c46a'], [new THREE.ConeGeometry(0.15, 0.35, 5).translate(0, 1.15, 0), '#52b788']],
       pebble: [[new THREE.DodecahedronGeometry(0.22, 0).translate(0, 0.08, 0), '#9a9a92'], [new THREE.DodecahedronGeometry(0.14, 0).translate(0.3, 0.05, 0.15), '#7d7d76']],
     };
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
@@ -254,7 +258,7 @@ export class World {
       for (const [type, arr] of Object.entries(types)) {
         this.resMesh[ck][type] = parts[type].map(([g, c]) => {
           const im = new THREE.InstancedMesh(g, mat(c), arr.length);
-          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock';
+          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock' || type === 'orange_tree';
           arr.forEach((r, i) => {
             Q.setFromEuler(new THREE.Euler(0, r.ry, 0)); S.setScalar(r.s);
             M.compose(new THREE.Vector3(r.x, r.y - 0.1, r.z), Q, S); im.setMatrixAt(i, M);
@@ -323,13 +327,30 @@ export class World {
     const m = makeStructureMesh(s);
     this.scene.add(m); this.structureMeshes.set(s.id, m); this.structures.push(s);
     this.rebuildColliders();
+    if (s.type === 'basecore') this.retintAll(); else if (TINTABLE.has(s.type)) this.retint(s);
   }
+  // สีฐาน: ชิ้นส่วนบ้าน/รั้วในรั้วของฐานเปลี่ยนสีตามที่เจ้าบ้านเลือก · ป้ายแสดงชื่อฐาน
+  retint(s) {
+    const m = this.structureMeshes.get(s.id); if (!m) return;
+    const b = baseAt(this.structures, s.x, s.z), col = b?.col;
+    if (m.userData.signLabel) m.userData.signLabel.userData.set(b ? `🏡 ${b.name}` : 'ป้ายชื่อฐาน (วางในรั้วของฐาน)', '#ffd166');
+    if ((m.userData.tint || null) === (col || null)) return;
+    m.userData.tint = col || null;
+    m.traverse((o) => {
+      if (!o.isMesh || o.isSprite || !o.material?.color) return;
+      o.userData.c0 ||= '#' + o.material.color.getHexString();
+      if (!col) { o.material = tintMat(o.userData.c0); return; }
+      const c = new THREE.Color(o.userData.c0).lerp(new THREE.Color(col), 0.65); o.material = tintMat('#' + c.getHexString());
+    });
+  }
+  retintAll() { for (const s of this.structures) if (TINTABLE.has(s.type)) this.retint(s); }
   updateStructure(id, patch) {
     const s = this.structures.find((x) => x.id === id); if (!s) return null;
     Object.assign(s, patch);
     const m = this.structureMeshes.get(id);
     if (m && ('x' in patch || 'z' in patch)) { m.position.x = s.x; m.position.z = s.z; m.rotation.y = s.type === 'vehicle' ? s.ry || 0 : m.rotation.y; }
     if ('open' in patch || 'x' in patch) this.rebuildColliders();
+    if (s.type === 'basecore' && ('col' in patch || 'ok' in patch || 'name' in patch || 'box' in patch)) this.retintAll();
     return s;
   }
   removeStructure(id) {

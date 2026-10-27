@@ -4,7 +4,7 @@
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
 import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf } from './data.js';
 import { RES_TYPES } from './resources-core.js';
-import { PIECES, FEEDS, CROPS, refundFor } from './building-core.js';
+import { PIECES, FEEDS, CROPS, PENS, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss } from './zombies-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
@@ -17,11 +17,12 @@ const FISH = {
   pond: [['raw_fish', 80], ['prawn', 10], ['big_fish', 8], ['golden_fish', 2]],
 };
 export const DROPS = {
-  zombie: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1]],
+  zombie: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1], ['copper_wire', 0.08], ['spark_plug', 0.04], ['moto_wheel', 0.02]],
   boar: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]],
   deer: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]],
   chicken: [['raw_meat', 1], ['egg', 0.4]],
   raptor: [['raw_meat', 1], ['raw_meat', 1], ['hide', 0.8], ['dino_bone', 0.6]],
+  tiger: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1]],
   trike: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['dino_bone', 1], ['dino_bone', 0.5]],
 };
 const PET_GIFT = { egg: [180, ['egg']], forager: [120, ['herb', 'berry', 'fiber', 'wood']], fisher: [150, ['raw_fish']], thief: [150, ['scrap', 'cloth']], meat: [180, ['raw_meat']] };
@@ -40,7 +41,7 @@ function roll(table, rand, boost = null) {
 export function rollLoot(rand) {
   const total = LOOT_TABLE.reduce((s, [, w]) => s + w, 0), out = {};
   const n = 2 + Math.floor(rand() * 3);
-  for (let i = 0; i < n; i++) { let r = rand() * total; for (const [item, w] of LOOT_TABLE) { r -= w; if (r <= 0) { out[item] = (out[item] || 0) + 1; break; } } }
+  for (let i = 0; i < n; i++) { let r = rand() * total; for (const [item, w] of LOOT_TABLE) { r -= w; if (r <= 0) { out[item] = (out[item] || 0) + (item === 'jicoin' ? 3 + Math.floor(rand() * 10) : 1); break; } } }
   return out;
 }
 // ราคาในร้าน NPC และมูลค่าของที่เอามาแลก
@@ -51,7 +52,15 @@ export const REPAIR_COST = {
 };
 export const repairCost = (ch, ev) => { const c = { ...REPAIR_COST[ev ? 'ev' : 'gas'] }; if (hasPerk(ch, 'mechanic', 0)) c.wheel = 2; return c; };
 export const shopPrice = (base, pts) => Math.ceil(base * (1 - Math.min(0.25, Math.max(0, pts) / 1000)));
-export const tradeValue = (k) => (ITEMS[k]?.value || 0) * 0.8;
+export const tradeValue = (k) => (k === 'jicoin' ? 1 : (ITEMS[k]?.value || 0) * 0.8);
+// เงินจิ (Ji-Coin): ได้จากการฆ่ามอนสเตอร์ ภารกิจหลัก กล่อง แผงขายของ และขายของให้ NPC
+export const SELL_RATE = 0.5, SELL_DAY_CAP = 150;
+export const deathCoinRate = (n) => (n <= 3 ? 0 : n <= 10 ? 0.1 : 0.2);
+export const sellPrice = (k) => Math.max(1, Math.floor((ITEMS[k]?.value || 0) * SELL_RATE));
+const QUEST_COINS = [0, 15, 20, 30, 40, 40, 120];
+const ZCOIN = { walker: [1, 3], runner: [2, 4], toxic: [3, 6], brute: [6, 12], boss: [80, 150] };
+const WCOIN = { boar: [1, 3], raptor: [5, 10], tiger: [6, 12], trike: [8, 14] };
+const coinRoll = (rand, [a, b]) => a + Math.floor(rand() * (b - a + 1));
 export function rollDrops(kind, rand) {
   const out = {};
   for (const [k, ch] of DROPS[kind] || []) if (rand() < ch) out[k] = (out[k] || 0) + 1;
@@ -78,7 +87,7 @@ const A = {
     if (dist(env, ch, L.x, L.z) > 4.5) return { err: 'อยู่ไกลเกินไป' };
     if (L.until > env.now()) return { err: 'ค้นไปแล้ว รอของใหม่อีกสักพัก', silent: true };
     const give = rollLoot(env.rand);
-    if (L.kind === 'car') { delete give.canned; give.scrap = (give.scrap || 0) + 1; for (const [k, c] of [['wheel', 0.3], ['car_seat', 0.15], ['battery_pack', 0.1], ['engine', 0.04]]) if (env.rand() < c) give[k] = (give[k] || 0) + 1; } // ถอดชิ้นส่วนจากรถร้าง
+    if (L.kind === 'car') { delete give.canned; give.scrap = (give.scrap || 0) + 1; for (const [k, c] of [['wheel', 0.3], ['moto_wheel', 0.2], ['steering_wheel', 0.15], ['spark_plug', 0.25], ['copper_wire', 0.35], ['car_seat', 0.15], ['battery_pack', 0.12], ['engine', 0.04], ['moto_engine', 0.05]]) if (env.rand() < c) give[k] = (give[k] || 0) + 1; } // ถอดชิ้นส่วนจากรถร้าง
     if (lucky(ch) && env.rand() < 0.3) { const ex = Object.keys(rollLoot(env.rand))[0]; give[ex] = (give[ex] || 0) + 1; }
     const r = { give: rollVariants(give, env.rand), xp: { survival: 3 }, loot: { id: p.id, until: env.now() + LOOT_RESPAWN } };
     if (L.kind === 'car' && ch.quest?.step === 2) { r.give.car_battery = 1; r.quest = 3; r.questMsg = 'battery'; }
@@ -95,29 +104,19 @@ const A = {
     if (lvl(ch, 'crafting') < 2 && !hasPerk(ch, 'mechanic', 0) && !hasPerk(ch, 'electrician', 0)) return { err: 'ต้องมีทักษะประดิษฐ์ Lv2 (หรือสเตตัสสายช่างยนต์/ช่างไฟฟ้า) จึงซ่อมรถได้' };
     return { take: cost, place: { type: 'vehicle', vt: ev ? 'ev_car' : 'pickup', x: +L.x.toFixed(2), z: +L.z.toFixed(2), ry: 0, fuel: ev ? 60 : 40 }, loot: { id: p.id, until: env.now() + 7 * 864e5 }, xp: { crafting: 30, electric: ev ? 20 : 0 }, msg: ev ? '⚡ ประกอบรถ EV สำเร็จ! ชาร์จไฟได้ที่แผงโซล่าเซลล์' : '🔧 ซ่อมรถร้างสำเร็จ! กลายเป็นรถกระบะน้ำมัน ขับได้เลย', sfx: 'craft' };
   },
-  // จับสัตว์ป่าด้วยแห: ยิ่งสัตว์บาดเจ็บยิ่งจับง่าย · เลี้ยงสัตว์ป่าได้ 1 ตัว
-  capture(ch, p, env) {
-    const net = ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool?.net; if (!net) return { err: 'ต้องถือแหจับสัตว์' };
-    const m = env.wild?.(p.id); if (!m) return { err: 'ไม่พบสัตว์ตัวนี้' };
-    const W = WILD[m.k]; if (!W?.net || !PET_TYPES[m.k]) return { err: `${W?.name || 'สัตว์ตัวนี้'}ตัวใหญ่เกินกว่าจะจับด้วยแห` };
-    if (dist(env, ch, m.x, m.z) > 5.5) return { err: 'อยู่ไกลเกินไป เข้าไปใกล้อีก' };
-    if (ch.pets.filter((x) => PET_TYPES[x.type]?.wild).length >= WILD_PET_MAX) return { err: `เลี้ยงสัตว์ป่าได้ ${WILD_PET_MAX} ตัวเท่านั้น` };
-    if (!cool(ch, 'net', 1.2, env.now())) return { silent: true, err: '-' };
-    const chance = 0.2 + 0.65 * (1 - Math.max(0, m.hp) / m.maxHp);
-    if (env.rand() > chance) return env.rand() < 0.3 ? { take: { [ch.equipped]: 1 }, msg: `🕸️ ${W.name}ดิ้นหลุด แหขาด! (ทำให้มันอ่อนแรงก่อนจะจับง่ายขึ้น)` } : { msg: `🕸️ ${W.name}ดิ้นหลุด! ลองใหม่ (โอกาส ${Math.round(chance * 100)}%)` };
-    const pet = rollPet(m.k); ch.pets.push(pet); env.tamed(p.id);
-    return { take: { [ch.equipped]: 1 }, pet, xp: { survival: 25 }, msg: `🕸️ จับ${W.name}ได้แล้ว! ตั้งชื่อว่า ${pet.name}` };
-  },
-  // ยิงอาวุธระยะไกล: ใช้กระสุน 1 นัด (ดาเมจคำนวณแบบเดียวกับการตี)
-  shoot(ch, p, env) {
-    const t = ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool; if (!t?.ranged) return { err: 'ต้องถืออาวุธยิงไกล' };
-    if (!cool(ch, 'shoot', 0.6, env.now())) return { silent: true, err: '-' };
-    if (!has(ch, t.ammo)) return { err: `ไม่มี${ITEMS[t.ammo].name}` };
-    return { take: { [t.ammo]: 1 }, quietTake: true, shot: true };
+  // ทอดแห: ถือแหแล้วโยนลงน้ำ ได้ปลาหลายตัวในครั้งเดียว
+  castnet(ch, p, env) {
+    const net = ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool?.net; if (!net) return { err: 'ต้องถือแหทอดปลา' };
+    const kind = env.fishKind(+p.x, +p.z); if (!kind || dist(env, ch, +p.x, +p.z) > 7) return { err: '🕸️ ต้องทอดแหลงน้ำ (หันหน้าไปทางทะเล/อ่างเก็บน้ำ)' };
+    if (!cool(ch, 'castnet', 8, env.now())) return { err: 'กำลังเก็บแห... รอสักครู่', silent: true };
+    const give = {}, n = 1 + Math.floor(env.rand() * (hasPerk(ch, 'fisher', 0) ? 4 : 3));
+    for (let i = 0; i < n; i++) { const it = roll(FISH[kind] || FISH.fresh, env.rand); give[it] = (give[it] || 0) + 1; }
+    const broke = env.rand() < 0.08;
+    return { give, take: broke ? { [ch.equipped]: 1 } : null, xp: { fishing: 4 + n * 2 }, msg: `🕸️ ทอดแหได้ปลา ${n} ตัว${broke ? ' — แหขาดแล้ว!' : ''}`, fish: Object.keys(give)[0] };
   },
   // ลงแต้มสเตตัสสายอาชีพ (+1 ต่อครั้ง)
   statup(ch, p) {
-    if (!JOBS[p.job]) return { err: 'ไม่รู้จักสายอาชีพนี้' };
+    if (!JOBS[p.job] || JOBS[p.job].free) return { err: 'ไม่รู้จักสายอาชีพนี้' };
     if (freePts(ch) <= 0) return { err: 'ไม่มีแต้มสเตตัสเหลือ (ได้เพิ่ม 1 แต้มทุกครั้งที่เลเวลตัวละครขึ้น)' };
     ch.jp = { ...jobPts(ch) }; ch.jp[p.job] = (ch.jp[p.job] || 0) + 1;
     const n = ch.jp[p.job], tier = PERK_PTS.indexOf(n);
@@ -132,6 +131,7 @@ const A = {
     if (used >= row[2]) return { err: `วันนี้${n.name}ไม่มี${ITEMS[row[0]].name}เหลือแล้ว พรุ่งนี้มาใหม่นะ` };
     const price = shopPrice(row[1], ch.social?.rels?.[n.id]?.pts || 0);
     let paid = 0; const take = {};
+    if (ITEMS[row[0]].coinOnly && Object.keys(p.pay || {}).some((k) => k !== 'jicoin')) return { err: `${ITEMS[row[0]].name} ซื้อได้ด้วยเงินจิเท่านั้น` };
     for (const [k, q] of Object.entries(p.pay || {})) {
       const qq = Math.floor(+q); if (!(qq > 0)) continue;
       if (!ITEMS[k] || ITEMS[k].quest || !has(ch, k, qq)) return { err: 'ของที่จะใช้แลกไม่พอ' };
@@ -142,6 +142,20 @@ const A = {
     return { take, give: { [row[0]]: 1 }, xp: { survival: 2 }, msg: `🤝 แลก ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} กับ${n.name}สำเร็จ`, traded: true };
   },
 
+  // ขายของให้ NPC รับเงินจิ (ราคาครึ่งหนึ่งของมูลค่า · NPC แต่ละคนรับซื้อได้วันละไม่เกิน SELL_DAY_CAP)
+  npcsell(ch, p, env) {
+    const n = NPCS.find((x) => x.id === p.npc); if (!n) return { err: 'ไม่พบผู้ค้า' };
+    const pos = env.npcPos?.(n.id); if (!pos || dist(env, ch, pos.x, pos.z) > 7) return { err: `ต้องอยู่ใกล้${n.name}` };
+    const k = p.k, q = Math.floor(+p.q) || 1;
+    if (!ITEMS[k] || ITEMS[k].quest || k === 'jicoin' || !(q > 0) || !has(ch, k, q)) return { err: 'ของไม่พอ' };
+    if (ch.equipped === k && (ch.inv[k] || 0) <= q) return { err: 'เลิกถือของชิ้นนี้ก่อนขาย' };
+    const day = Math.floor(env.now() / DAY_MS), key = 'sell:' + n.id, T = (ch.trade ||= {})[key], used = T && T.d === day ? T.n : 0;
+    const pay = sellPrice(k) * q;
+    if (used + pay > SELL_DAY_CAP) return { err: `วันนี้${n.name}รับซื้อได้อีกแค่ 🪙 ${Math.max(0, SELL_DAY_CAP - used)} เงินจิ` };
+    ch.trade[key] = { d: day, n: used + pay };
+    return { take: { [k]: q }, give: { jicoin: pay }, msg: `🪙 ขาย ${ITEMS[k].icon} ${ITEMS[k].name} ×${q} ให้${n.name} ได้ ${pay} เงินจิ`, traded: true };
+  },
+
   // กล่องภารกิจ: ต้องผ่านเงื่อนไขก่อน เปิดได้คนละครั้ง
   qbox(ch, p, env) {
     const b = QUEST_BOXES.find((x) => x.id === p.id); if (!b) return { err: 'ไม่พบกล่องนี้' };
@@ -150,7 +164,7 @@ const A = {
     if (dist(env, ch, b.x, b.z) > 4.5) return { err: 'อยู่ไกลเกินไป' };
     const lock = qboxLock(b, ch, charLevelOf(ch.skills)); if (lock) return { err: '🔒 ' + lock };
     B[b.id] = 1;
-    return { give: { ...b.give }, xp: { survival: 25 }, msg: `📦 เปิด${b.name}สำเร็จ!`, boxOpen: b.id };
+    return { give: { ...b.give, jicoin: 25 + QUEST_BOXES.indexOf(b) * 10 }, xp: { survival: 25 }, msg: `📦 เปิด${b.name}สำเร็จ! (+🪙 เงินจิ)`, boxOpen: b.id };
   },
   // กล่องหายาก: เกิดนาน ๆ ครั้ง ตำแหน่งสุ่ม ทุกคนเปิดได้คนละครั้งก่อนมันหายไป
   rare(ch, p, env) {
@@ -160,7 +174,7 @@ const A = {
     if (dist(env, ch, R.x, R.z) > 4.5) return { err: 'อยู่ไกลเกินไป' };
     for (const k of Object.keys(B)) if (k[0] === 'R') delete B[k]; // เก็บแค่กล่องล่าสุด
     B[R.id] = 1;
-    const give = rollRare(env.rand); if (lucky(ch)) { const ex = Object.keys(rollRare(env.rand))[0]; if (ex) give[ex] = (give[ex] || 0) + 1; }
+    const give = rollRare(env.rand); give.jicoin = 40 + Math.floor(env.rand() * 61); if (lucky(ch)) { const ex = Object.keys(rollRare(env.rand))[0]; if (ex) give[ex] = (give[ex] || 0) + 1; }
     return { give: rollVariants(give, env.rand, 0.5), xp: { survival: 50 }, msg: '✨ เปิดกล่องหายาก! ได้ของล้ำค่า', boxOpen: R.id };
   },
 
@@ -188,7 +202,7 @@ const A = {
     }
     if (R.type === 'rock' && env.rand() < 0.15) give.scrap = (give.scrap || 0) + 1;
     if (R.type === 'grass' && env.rand() < 0.12) give.seeds_veg = (give.seeds_veg || 0) + 1;
-    return { give, xp: { gathering: R.type === 'tree' || R.type === 'rock' ? 6 : 2 }, res: { id: p.id, until: env.now() + T.respawn * 60000 }, raw: !tool && T.drops.some(([k]) => RAW[k]) };
+    return { give, xp: { gathering: R.type === 'tree' || R.type === 'rock' || R.type === 'orange_tree' || R.type === 'palm' ? 6 : 2 }, res: { id: p.id, until: env.now() + T.respawn * 60000 }, raw: !tool && T.drops.some(([k]) => RAW[k]) };
   },
 
   craft(ch, p, env) {
@@ -209,6 +223,7 @@ const A = {
     if (it.med) return { take: { [p.k]: 1 }, fx: { med: it.med, item: p.k }, xp: { medicine: 6 } };
     if (it.chant) { if (!cool(ch, 'chant', 30, env.now())) return { err: '🙏 สวดมนต์ได้ทุก 30 วินาที' }; return { fx: { chant: true, item: p.k }, xp: { spirit: 12 } }; }
     if (it.device?.scout) { if (!cool(ch, 'drone', 90, env.now())) return { err: '🛸 โดรนกำลังชาร์จแบต (ใช้ได้ทุก 90 วินาที)' }; return { fx: { drone: true, item: p.k }, xp: { tech: 10 } }; }
+    if (it.respec) { const used = Object.values(jobPts(ch)).reduce((a, b) => a + b, 0); if (!used) return { err: 'ยังไม่ได้ลงแต้มสเตตัสเลย' }; ch.jp = {}; return { take: { [p.k]: 1 }, statup: true, msg: `🔄 ล้างแต้มสเตตัสแล้ว ได้คืน ${used} แต้ม — เปิดหน้าตัวละคร (K) เพื่อลงแต้มใหม่` }; }
     if (it.instrument) { if (!cool(ch, 'music', 20, env.now())) return { err: '🎸 พักนิ้วก่อน (เล่นได้ทุก 20 วินาที)' }; return { fx: { music: true, item: p.k }, xp: { recreation: 10 } }; }
     return { err: 'ใช้ไม่ได้' };
   },
@@ -237,16 +252,28 @@ const A = {
     const s = p.s || {}; if (typeof s.x !== 'number' || typeof s.z !== 'number') return { err: 'ตำแหน่งไม่ถูกต้อง' };
     if (dist(env, ch, s.x, s.z) > 9) return { err: 'วางไกลเกินไป' };
     const clean = { x: +s.x.toFixed(2), z: +s.z.toFixed(2), y: typeof s.y === 'number' ? +s.y.toFixed(2) : undefined, rot: (s.rot | 0) & 3, ry: +(+s.ry || 0).toFixed(2), drop: s.drop };
+    // คอก/แปลง/กระถาง/กล่องผึ้ง ต้องอยู่ในรั้วของฐานที่เรามีหน้าที่
+    const ptype = PIECES[s.type] ? s.type : ITEMS[p.item]?.place;
+    if (ptype && needsBase(ptype) && env.structs) {
+      const b = baseAt(env.structs(), s.x, s.z), role = roleIn(b, env.myId);
+      if (!b) return { err: '🏡 ต้องสร้างภายในรั้วของฐาน (สร้างบ้าน + รั้ว แล้ววาง "หลักบ้าน" เพื่อประกาศฐานก่อน)' };
+      if (!role || !roleAllows(role === 'resident' ? null : role, { type: ptype }, ptype === 'pot' || ptype.startsWith('plot_') ? 'plant' : 'breed')) return { err: '🔒 ต้องเป็นเจ้าบ้าน/รองเจ้าบ้าน หรือผู้ดูแลสัตว์/พืชของฐานนี้' };
+    }
+    if (s.type === 'basecore' && (env.ownCount?.('basecore') || 0) >= 1) return { err: 'มีหลักบ้านได้คนละ 1 หลัง' };
     if (PIECES[s.type]) {
       const P = PIECES[s.type];
+      if (P.hidden) return { err: 'สร้างชิ้นนี้ไม่ได้แล้ว' };
       if (!canBuild(ch.inv)) return { err: 'ต้องมีค้อน (ค้อนไม้ หรือ ค้อนช่างไม้)' };
       if (lvl(ch, 'building') < P.lvl) return { err: `ต้องมีทักษะก่อสร้าง Lv${P.lvl}` };
-      const cost = buildCost(ch, P.cost);
-      for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: 'วัสดุไม่พอ' };
-      return { take: cost, place: { ...clean, type: s.type }, xp: { building: 4 }, sfx: 'place' };
+      const cost = s.coin || P.cost.jicoin ? { jicoin: coinCost(P, ITEMS) } : buildCost(ch, P.cost);
+      for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: s.coin ? `🪙 เงินจิไม่พอ (ต้องใช้ ${cost.jicoin})` : 'วัสดุไม่พอ' };
+      const pl = { ...clean, type: s.type }; if (cost.jicoin) pl.paid = cost.jicoin;
+      // คอกสัตว์ใหม่มีสัตว์เริ่มต้น (เล้าไก่ = แม่ไก่โตแล้ว · คอกอื่น = ลูกสัตว์)
+      const PN = PENS[s.type]; if (PN) { const now = env.now(); pl.herd = Array.from({ length: PN.start }, () => ({ b: PN.startAdult ? now - PN.adult : now })); pl.wat = now + 5 * 60000; pl.lt = now; }
+      return { take: cost, place: pl, xp: { building: 4 }, sfx: 'place' };
     }
     const it = ITEMS[p.item]; if (!it?.place || !has(ch, p.item)) return { err: 'ไม่มีของชิ้นนี้' };
-    const st = { ...clean, type: it.place }; delete st.y;
+    const st = { ...clean, type: it.place }; if (it.place !== 'pot') delete st.y;
     if (it.vt) { st.vt = it.vt; if (['motorbike', 'pickup', 'ev_car', 'ev_bike'].includes(it.vt)) st.fuel = 60; }
     return { take: { [p.item]: 1 }, place: st, xp: { survival: 5 }, sfx: 'place' };
   },
@@ -368,10 +395,14 @@ const A = {
   },
 
   // ตาย: ของหายครึ่งหนึ่ง (ยกเว้นของภารกิจและเสื้อผ้าที่สวมอยู่)
-  died(ch) {
-    const take = {};
-    for (const [k, q] of Object.entries(ch.inv)) { const lose = Math.floor(q / 2); if (lose && !ITEMS[k]?.quest) take[k] = lose; }
-    return { take, quietTake: true };
+  // เงินจิที่พกติดตัว: ตาย 1–3 ครั้งในวันนั้นไม่เสีย · ครั้งที่ 4–10 หาย 10% · ครั้งที่ 11+ หาย 20% (เงินในคลังบ้านปลอดภัย)
+  died(ch, p, env) {
+    const take = {}, day = Math.floor(env.now() / DAY_MS), S = ch.stats;
+    S.dd = S.dd && S.dd.d === day ? { d: day, n: S.dd.n + 1 } : { d: day, n: 1 };
+    for (const [k, q] of Object.entries(ch.inv)) { if (k === 'jicoin') continue; const lose = Math.floor(q / 2); if (lose && !ITEMS[k]?.quest) take[k] = lose; }
+    const n = S.dd.n, rate = deathCoinRate(n), lost = Math.floor((ch.inv.jicoin || 0) * rate);
+    if (lost) take.jicoin = lost;
+    return { take, quietTake: true, msg: rate ? `💸 ตายครั้งที่ ${n} ของวันนี้ — เงินจิหาย ${lost} (${rate * 100}%) · ฝากเงินไว้ในคลังบ้านจะปลอดภัย` : `🪙 ตายครั้งที่ ${n}/3 ของวันนี้ — เงินจิยังไม่หาย`, deaths: n };
   },
 };
 
@@ -385,9 +416,45 @@ export function sopCost(ch, s, op, env) {
       const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด' };
       return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
     }
-    case 'feed': if (!FEEDS.includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีอาหาร' }; return { take: { [op.item]: 1 }, xp: { farming: 2 } };
+    case 'feed': { const P = PENS[s.type] && (s.type !== 'coop' || s.herd) ? PENS[s.type] : null; if (!(P ? P.foods : FEEDS).includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีอาหาร' }; return { take: { [op.item]: 1 }, xp: { farming: 2 } }; }
+    case 'till': if (!has(ch, 'hoe')) return { err: '⛏️ ต้องมีจอบ (ประดิษฐ์: ไม้ 2 + หิน 2)' }; return { xp: { farming: 2 } };
+    case 'fert': if (!has(ch, 'manure')) return { err: 'ต้องมีปุ๋ยคอก (ได้จากคอกหมู/วัว)' }; return { take: { manure: 1 }, xp: { farming: 2 } };
+    case 'drink': {
+      if (op.silent && env.raining()) return {};
+      if (ch.equipped && ITEMS[ch.equipped]?.tool?.water && has(ch, ch.equipped)) return { xp: { farming: 2 } };
+      const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ' };
+      return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
+    }
+    case 'breed': { const P = PENS[s.type]; if (P?.egg) { if (!has(ch, P.egg)) return { err: `ต้องมี${ITEMS[P.egg].name} 1 ฟองเพื่อฟัก` }; return { take: { [P.egg]: 1 }, xp: { farming: 6 } }; } return { xp: { farming: 8 } }; }
+    case 'butcher': return { xp: { survival: 4, farming: 4 } };
+    case 'list': { const q = op.qty | 0; if (!(q > 0) || !ITEMS[op.item] || ITEMS[op.item].quest || op.item === 'jicoin' || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; }
+    case 'declare': {
+      if (!env.structs) return {};
+      const c = baseCheck(env.structs(), s); if (!c.ok) return { err: '🏗️ ฐานยังไม่ครบ: ' + c.missing.join(' · ') };
+      if (env.structs().some((o) => o.type === 'basecore' && o.ok && o.id !== s.id && o.owner === s.owner)) return { err: 'ประกาศฐานได้คนละ 1 แห่ง' };
+      return { opx: { box: c.box }, xp: { building: 30 } };
+    }
+    case 'contrib': {
+      const need = HOUSE_UP[(s.lv || 1) + 1]; if (!need || !need[op.item]) return { err: 'ของนี้ไม่ได้อยู่ในรายการอัปเกรด' };
+      const q = Math.min(op.qty | 0, need[op.item] - (s.up?.[op.item] || 0), ch.inv[op.item] || 0); if (q <= 0) return { err: 'ของไม่พอ หรือเติมครบแล้ว' };
+      return { take: { [op.item]: q }, opx: { qty: q }, xp: { building: q } };
+    }
+    case 'color': if (!has(ch, 'jicoin', COLOR_COST)) return { err: `🪙 เปลี่ยนสีฐานใช้ ${COLOR_COST} เงินจิ` }; return { take: { jicoin: COLOR_COST } };
+    case 'repair': { const c = REPAIR_BASE(s.lv || 1); for (const [k, q] of Object.entries(c)) if (!has(ch, k, q)) return { err: `ซ่อมต้องใช้ ${Object.entries(c).map(([i, n]) => `${ITEMS[i].name} ${n}`).join(' + ')}` }; return { take: c, xp: { building: 10 } }; }
+    case 'bank': { const a = Math.trunc(+op.amt); if (a > 0) { if (!has(ch, 'jicoin', a)) return { err: 'เงินจิไม่พอ' }; return { take: { jicoin: a } }; } return {}; }
+    case 'pitem': { const q = op.qty | 0; if (q > 0) { if (!ITEMS[op.item] || ITEMS[op.item].quest || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; } return {}; }
+    case 'buy': { const r = (s.goods || [])[op.i | 0]; if (!r) return { err: 'ไม่พบสินค้า' }; if (!has(ch, 'jicoin', r.p)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${r.p})` }; return { take: { jicoin: r.p } }; }
     case 'stock': if (!['raw_fish', 'golden_fish'].includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีปลา' }; return { take: { [op.item]: 1 } };
     case 'store': { const q = op.qty | 0; if (q > 0) { if (!has(ch, op.item, q) || ITEMS[op.item]?.quest) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; } return {}; }
+    case 'bait': { if (!has(ch, op.item)) return { err: 'ไม่มีของที่จะใช้เป็นเหยื่อ' }; return { take: { [op.item]: 1 } }; }
+    case 'claim': {
+      // เปิดกรง: สัตว์ที่ติดมาเป็นสัตว์เลี้ยง (ตรวจจำนวนสูงสุดก่อน)
+      const type = cageCatch(s, env.now()); if (!type) return { err: 'ยังไม่มีสัตว์ติดกรง' };
+      if (PET_TYPES[type].wild) { if (ch.pets.filter((x) => PET_TYPES[x.type]?.wild).length >= WILD_PET_MAX) return { err: `เลี้ยงสัตว์ป่าได้ ${WILD_PET_MAX} ตัว — ปล่อยตัวเก่าก่อน (หรือรอเปิดกรงทีหลัง)` }; }
+      else if (ch.pets.filter((x) => x.type === type).length >= petCap(env.ownCount?.('pethouse') || 0, env.ownCount?.('bed') || 0)) return { err: `มี${PET_TYPES[type].name}ครบจำนวนแล้ว` };
+      const pet = rollPet(type); ch.pets.push(pet);
+      return { pet, xp: { survival: 20 }, petsChanged: true };
+    }
     case 'harvest': {
       // เกษตรกร: ผลผลิต ×2 (Lv8 ×3) และได้เมล็ดคืน
       const C = CROPS[s.crop], give = {};
@@ -427,6 +494,8 @@ export function runAction(ch, name, payload, env) {
   let r;
   try { r = fn(ch, payload || {}, env) || {}; } catch (e) { return { err: 'คำขอไม่ถูกต้อง' }; }
   if (r.err) return r;
+  // ภารกิจหลักแต่ละขั้นให้เงินจิครั้งเดียว
+  if (r.quest !== undefined && r.quest > (ch.boxes?.qc || 0) && QUEST_COINS[r.quest]) { (ch.boxes ||= {}).qc = r.quest; r.give = { ...(r.give || {}), jicoin: ((r.give || {}).jicoin || 0) + QUEST_COINS[r.quest] }; }
   if (r.place) { const s = env.place(ch, r.place); if (!s) return { err: 'วางไม่ได้' }; r.placed = s; }
   return applyResult(ch, r);
 }
@@ -436,6 +505,7 @@ export function killReward(ch, kind, rand, tier = 0) {
   const give = rollDrops(kind, rand);
   // ระดับสูงดรอปมากขึ้น · บอสดรอปของพิเศษ
   if (T && T.drops > 1) for (let i = 1; i < T.drops; i++) for (const [k, q] of Object.entries(rollDrops(kind, rand))) give[k] = (give[k] || 0) + q;
+  const cr = T ? ZCOIN[T.key] : WCOIN[kind]; if (cr) give.jicoin = (give.jicoin || 0) + coinRoll(rand, cr);
   if (T?.boss) for (const [k, q] of Object.entries(rollBoss(rand))) give[k] = (give[k] || 0) + q;
   if (T?.key === 'toxic' && rand() < 0.4) give.herb = (give.herb || 0) + 1;
   if (hasPerk(ch, 'hunter', 0) && kind !== 'zombie') { give.raw_meat = (give.raw_meat || 0) + 1; if (kind === 'boar' || kind === 'deer') give.hide = (give.hide || 0) + 1; }
@@ -444,12 +514,12 @@ export function killReward(ch, kind, rand, tier = 0) {
 export function refundReward(ch, s) {
   const give = refundFor(s);
   if (hasPerk(ch, 'builder', 1) && PIECES[s.type]) for (const [k, q] of Object.entries(buildCost(ch, PIECES[s.type].cost))) give[k] = Math.max(give[k] || 0, q);
-  return applyResult(ch, { give, msg: hasPerk(ch, 'builder', 1) ? '🏠 รื้อแล้ว ได้วัสดุคืนเต็ม' : 'รื้อแล้ว ได้วัสดุคืนครึ่งหนึ่ง' });
+  return applyResult(ch, { give, msg: '🏠 รื้อแล้ว ได้วัสดุคืน' });
 }
 // ชุดเริ่มต้นของอาชีพ (ให้ครั้งเดียวต่ออาชีพ)
 export function jobKit(ch) {
   const j = JOBS[ch.profile?.job] ? ch.profile.job : null; if (!j || ch.jobKit === j) return null;
-  if (!ch.jp) ch.jp = { [j]: START_PTS };
+  if (!ch.jp) ch.jp = JOBS[j].free ? {} : { [j]: START_PTS };
   ch.jobKit = j; return applyResult(ch, { give: { ...JOBS[j].kit }, msg: `${JOBS[j].icon} อาชีพ${JOBS[j].name}: ได้รับชุดเริ่มต้น` });
 }
 

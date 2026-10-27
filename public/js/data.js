@@ -18,6 +18,8 @@ const RAW_ITEMS = {
   bottle: { name: 'ขวดเปล่า', icon: '🍶', value: 2 },
   berry: { name: 'ผลไม้ป่า', icon: '🫐', value: 2, food: { hunger: 8, thirst: 3 } },
   coconut: { name: 'มะพร้าว', icon: '🥥', value: 4, food: { hunger: 6, thirst: 22 } },
+  orange: { name: 'ส้ม', icon: '🍊', value: 3, food: { hunger: 6, thirst: 12, infection: -2 } },
+  pineapple: { name: 'สับปะรด', icon: '🍍', value: 4, food: { hunger: 12, thirst: 14 } },
   raw_meat: { name: 'เนื้อดิบ', icon: '🥩', value: 3, food: { hunger: 10, sick: 0.35 } },
   cooked_meat: { name: 'เนื้อย่าง', icon: '🍖', value: 6, food: { hunger: 35, hp: 6 } },
   raw_fish: { name: 'ปลาสด', icon: '🐟', value: 3, food: { hunger: 8, sick: 0.3 } },
@@ -102,8 +104,12 @@ const RAW_ITEMS = {
   arrow: { name: 'ลูกธนู', icon: '➶', value: 1 },
   bolt: { name: 'ลูกดอกหน้าไม้', icon: '➹', value: 2 },
   // ---- ชิ้นส่วนรถ (คราฟท์แล้วประกอบเป็นยานพาหนะ) ----
-  wheel: { name: 'ล้อรถ', icon: '🛞', value: 8 },
-  engine: { name: 'เครื่องยนต์', icon: '⚙️', value: 30 },
+  wheel: { name: 'ล้อรถยนต์', icon: '🛞', value: 8 },
+  engine: { name: 'เครื่องยนต์รถยนต์', icon: '⚙️', value: 30 },
+  moto_wheel: { name: 'ล้อมอเตอร์ไซค์', icon: '⭕', value: 5 },
+  moto_engine: { name: 'เครื่องยนต์มอเตอร์ไซค์', icon: '🔩', value: 18 },
+  moto_ev_motor: { name: 'มอเตอร์ไฟฟ้ามอเตอร์ไซค์', icon: '⚡', value: 16 },
+  moto_battery: { name: 'แบตเตอรี่มอเตอร์ไซค์ไฟฟ้า', icon: '🔋', value: 20 },
   chassis: { name: 'โครงรถ', icon: '🔧', value: 18 },
   car_seat: { name: 'เบาะรถ', icon: '💺', value: 8 },
   battery_pack: { name: 'แบตเตอรี่ประกอบ', icon: '🔋', value: 14 },
@@ -113,6 +119,7 @@ const RAW_ITEMS = {
   ev_battery: { name: 'แบตเตอรี่ EV', icon: '🔋', value: 40 },
   ev_motor: { name: 'มอเตอร์ไฟฟ้า', icon: '⚡', value: 30 },
   copper_wire: { name: 'สายไฟทองแดง', icon: '🧵', value: 4 },
+  cage: { name: 'กรงดักสัตว์', icon: '🪤', value: 20, place: 'cage' },
   solar_panel: { name: 'แผงโซล่าเซลล์', icon: '🔆', value: 35, place: 'solar' },
   ev_car: { name: 'รถยนต์ไฟฟ้า EV', icon: '🚙', value: 120, place: 'vehicle', vt: 'ev_car' },
   ev_bike: { name: 'มอเตอร์ไซค์ไฟฟ้า', icon: '🛵', value: 70, place: 'vehicle', vt: 'ev_bike' },
@@ -147,7 +154,7 @@ const RAW_ITEMS = {
   wood_hammer: { name: 'ค้อนไม้', icon: '🪵', value: 3, builds: true, tool: { gather: 1, dmg: 7, range: 2.2, hammer: true } },
   stone_hammer: { name: 'ค้อนหินพื้นฐาน', icon: '🪨', value: 5, tool: { gather: 2.2, dmg: 12, range: 2.4, mine: true, hammer: true } },
   torch: { name: 'คบเพลิง', icon: '🔥', value: 4, tool: { gather: 0.5, dmg: 16, range: 2.4, light: true, fire: true } },
-  net: { name: 'แหจับสัตว์', icon: '🕸️', value: 6, tool: { gather: 0.3, dmg: 1, range: 4, net: true } },
+  net: { name: 'แหทอดปลา', icon: '🕸️', value: 6, tool: { gather: 0.3, dmg: 1, range: 5, net: true } },
   watering_can: { name: 'บัวรดน้ำ', icon: '🚿', value: 6, tool: { gather: 0.5, dmg: 3, range: 2, water: true } },
   rod: { name: 'เบ็ดตกปลาพื้นฐาน', icon: '🎣', value: 6, tool: { gather: 1, dmg: 4, range: 2, rod: true } },
   seeds_corn: { name: 'เมล็ดข้าวโพด', icon: '🌰', value: 2 },
@@ -157,6 +164,59 @@ const RAW_ITEMS = {
   veg: { name: 'ผักบุ้ง', icon: '🥬', value: 3, food: { hunger: 8, thirst: 5 } },
   stir_veg: { name: 'ผัดผักบุ้งไฟแดง', icon: '🥗', value: 10, food: { hunger: 32, thirst: 5, hp: 8 } },
   egg: { name: 'ไข่ไก่', icon: '🥚', value: 3, food: { hunger: 8, sick: 0.25 } },
+  // ---------- ฟาร์ม: เมล็ดพันธุ์ ผลผลิต สัตว์ ผึ้ง ดอกไม้ ----------
+  hoe: { name: 'จอบ', icon: '⛏️', value: 5, tool: { gather: 0.6, dmg: 6, range: 2.2 }, desc: 'พรวนดินแปลงผักก่อนปลูก (เก็บไว้ในกระเป๋าก็ใช้ได้)' },
+  flower_pot: { name: 'กระถางดอกไม้', icon: '🪴', value: 5, place: 'pot', desc: 'วางแล้วปลูกดอกไม้สวยงาม เก็บดอกไปให้เพื่อนได้' },
+  manure: { name: 'ปุ๋ยคอก', icon: '💩', value: 2, desc: 'ใส่แปลงผักให้โตเร็วขึ้น 30%' },
+  seeds_tomato: { name: 'เมล็ดมะเขือเทศ', icon: '🫘', value: 2 }, seeds_chili: { name: 'เมล็ดพริก', icon: '🫘', value: 2 },
+  seeds_potato: { name: 'หัวพันธุ์มันฝรั่ง', icon: '🥔', value: 3 }, seeds_cabbage: { name: 'เมล็ดกะหล่ำปลี', icon: '🫘', value: 2 },
+  seeds_carrot: { name: 'เมล็ดแครอท', icon: '🫘', value: 2 }, seeds_eggplant: { name: 'เมล็ดมะเขือยาว', icon: '🫘', value: 2 },
+  seeds_pumpkin: { name: 'เมล็ดฟักทอง', icon: '🫘', value: 3 }, seeds_watermelon: { name: 'เมล็ดแตงโม', icon: '🫘', value: 3 },
+  seeds_rice: { name: 'เมล็ดข้าวเปลือก', icon: '🌾', value: 2 },
+  seeds_sunflower: { name: 'เมล็ดทานตะวัน', icon: '🌻', value: 3 }, seeds_marigold: { name: 'เมล็ดดาวเรือง', icon: '🌼', value: 3 },
+  seeds_rose: { name: 'กิ่งพันธุ์กุหลาบ', icon: '🌹', value: 5 }, seeds_orchid: { name: 'หน่อกล้วยไม้', icon: '🪻', value: 6 },
+  seeds_jasmine: { name: 'กิ่งพันธุ์มะลิ', icon: '🤍', value: 4 }, seeds_tulip: { name: 'หัวพันธุ์ทิวลิป', icon: '🌷', value: 6 },
+  tomato: { name: 'มะเขือเทศ', icon: '🍅', value: 3, food: { hunger: 6, thirst: 8 } },
+  chili: { name: 'พริก', icon: '🌶️', value: 2, food: { hunger: 1, thirst: -6, stress: -3 } },
+  potato: { name: 'มันฝรั่ง', icon: '🥔', value: 3, food: { hunger: 6, sick: 0.1 } },
+  baked_potato: { name: 'มันฝรั่งอบ', icon: '🥔', value: 6, food: { hunger: 22, hp: 3 } },
+  cabbage: { name: 'กะหล่ำปลี', icon: '🥬', value: 3, food: { hunger: 8, thirst: 6 } },
+  carrot: { name: 'แครอท', icon: '🥕', value: 3, food: { hunger: 7, thirst: 3 } },
+  eggplant: { name: 'มะเขือยาว', icon: '🍆', value: 3, food: { hunger: 6, thirst: 4 } },
+  pumpkin: { name: 'ฟักทอง', icon: '🎃', value: 5, food: { hunger: 10 } },
+  watermelon: { name: 'แตงโม', icon: '🍉', value: 5, food: { hunger: 8, thirst: 30 } },
+  rice: { name: 'ข้าวสาร', icon: '🍚', value: 3, desc: 'หุงที่กองไฟก่อนกิน' },
+  cooked_rice: { name: 'ข้าวสวย', icon: '🍚', value: 6, food: { hunger: 28 } },
+  duck_egg: { name: 'ไข่เป็ด', icon: '🥚', value: 4, food: { hunger: 9, sick: 0.25 } },
+  milk: { name: 'นมวัวสด', icon: '🥛', value: 5, food: { hunger: 8, thirst: 20, hp: 3 } },
+  pork: { name: 'เนื้อหมูดิบ', icon: '🥓', value: 5, food: { hunger: 10, sick: 0.35 } },
+  beef: { name: 'เนื้อวัวดิบ', icon: '🥩', value: 6, food: { hunger: 10, sick: 0.35 } },
+  grilled_pork: { name: 'หมูย่าง', icon: '🍖', value: 10, food: { hunger: 40, hp: 8 } },
+  steak: { name: 'สเต็กเนื้อ', icon: '🥩', value: 12, food: { hunger: 45, hp: 10 } },
+  omelet: { name: 'ไข่เจียวมะเขือเทศ', icon: '🍳', value: 10, food: { hunger: 32, hp: 5 } },
+  somtam: { name: 'ส้มตำ', icon: '🥗', value: 10, food: { hunger: 25, thirst: 10, stress: -8 } },
+  pumpkin_soup: { name: 'ซุปฟักทอง', icon: '🍲', value: 12, food: { hunger: 35, thirst: 15, hp: 6 } },
+  beef_stew: { name: 'สตูว์เนื้อ', icon: '🍲', value: 22, food: { hunger: 65, thirst: 10, hp: 18 } },
+  pad_kaprao_pork: { name: 'ข้าวกะเพราหมูไข่ดาว', icon: '🍛', value: 22, food: { hunger: 70, hp: 15, stress: -12 } },
+  honey: { name: 'น้ำผึ้ง', icon: '🍯', value: 8, food: { hunger: 10, hp: 4, stress: -4 } },
+  beeswax: { name: 'ไขผึ้ง', icon: '🟨', value: 4 },
+  honey_orange: { name: 'น้ำส้มผสมน้ำผึ้ง', icon: '🧃', value: 12, food: { thirst: 35, hp: 6, infection: -4 }, returns: 'bottle' },
+  honey_herb: { name: 'ยาสมุนไพรน้ำผึ้ง', icon: '🧪', value: 14, food: { hp: 25, infection: -12, sick: -1 } },
+  honey_pork: { name: 'หมูทอดน้ำผึ้ง', icon: '🍖', value: 16, food: { hunger: 50, hp: 12, stress: -6 } },
+  candle: { name: 'เทียนไขผึ้ง', icon: '🕯️', value: 8, desc: 'ของขวัญที่หอมละมุน (พระสงฆ์ชอบ)' },
+  // ดอกไม้: มอบให้เพื่อน/ผู้เล่นอื่นเพื่อเพิ่มความสัมพันธ์มาก
+  sunflower: { name: 'ดอกทานตะวัน', icon: '🌻', value: 6, flower: true },
+  marigold: { name: 'ดอกดาวเรือง', icon: '🌼', value: 5, flower: true },
+  rose: { name: 'ดอกกุหลาบ', icon: '🌹', value: 10, flower: true },
+  orchid: { name: 'ดอกกล้วยไม้', icon: '🪻', value: 12, flower: true },
+  jasmine: { name: 'ดอกมะลิ', icon: '🤍', value: 7, flower: true },
+  tulip: { name: 'ดอกทิวลิป', icon: '🌷', value: 11, flower: true },
+  bouquet: { name: 'ช่อดอกไม้', icon: '💐', value: 30, flower: true, desc: 'ของขวัญสุดพิเศษ เพิ่มความสัมพันธ์มาก' },
+  garland: { name: 'พวงมาลัยมะลิ', icon: '📿', value: 20, flower: true, desc: 'มอบให้ผู้ใหญ่หรือพระสงฆ์' },
+  // เงินตรา
+  respec_potion: { name: 'ยาล้างแต้มสเตตัส', icon: '🔄', value: 250, coinOnly: true, respec: true, desc: 'คืนแต้มสเตตัสสายอาชีพทั้งหมด ให้กระจายใหม่ได้ (ซื้อด้วยเงินจิเท่านั้น)' },
+  jicoin: { name: 'เงินจิ (Ji-Coin)', icon: '🪙', value: 1, coin: true, desc: 'สกุลเงินของผู้รอดชีวิต ใช้ซื้อขายกับ NPC แผงขายของ และผู้เล่นอื่น' },
+
   fried_egg: { name: 'ไข่เจียว', icon: '🍳', value: 8, food: { hunger: 26, hp: 5 } },
   crab: { name: 'ปูม้า', icon: '🦀', value: 6, food: { hunger: 8, sick: 0.35 } },
   steamed_crab: { name: 'ปูนึ่ง', icon: '🦀', value: 12, food: { hunger: 30, hp: 10 } },
@@ -232,6 +292,34 @@ export const RECIPES = [
   { out: 'spear', need: { wood: 4, fiber: 2 }, skill: 'crafting', lvl: 1 },
   { out: 'bottle', need: { wood: 2 }, skill: 'crafting', lvl: 1, label: 'กระบอกไม้ไผ่ (ขวด)' },
   { out: 'campfire', need: { wood: 5, stone: 3 }, skill: 'crafting', lvl: 1 },
+  // ฟาร์ม
+  { out: 'hoe', need: { wood: 2, stone: 2 }, skill: 'farming', lvl: 1, label: 'จอบ (พรวนดินแปลงผัก)' },
+  { out: 'flower_pot', need: { stone: 3, fiber: 1 }, skill: 'crafting', lvl: 1, label: 'กระถางดอกไม้ (ปลูกดอกไม้สวยงาม)' },
+  { out: 'cooked_rice', need: { rice: 2, clean_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
+  { out: 'baked_potato', need: { potato: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'grilled_pork', need: { pork: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'steak', need: { beef: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'omelet', need: { egg: 2, tomato: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'omelet', need: { duck_egg: 2, tomato: 1 }, skill: 'cooking', lvl: 1, station: 'fire', label: 'ไข่เจียวไข่เป็ด' },
+  { out: 'somtam', need: { tomato: 1, chili: 1, carrot: 1 }, skill: 'cooking', lvl: 2 },
+  { out: 'pumpkin_soup', need: { pumpkin: 1, milk: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'beef_stew', need: { beef: 1, potato: 1, carrot: 1, clean_water: 1 }, skill: 'cooking', lvl: 3, station: 'fire', keepBottle: true },
+  { out: 'pad_kaprao_pork', need: { pork: 1, chili: 1, cooked_rice: 1, egg: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'honey_orange', need: { honey: 1, orange: 2, bottle: 1 }, skill: 'cooking', lvl: 1 },
+  { out: 'honey_herb', need: { honey: 1, herb: 2 }, skill: 'medicine', lvl: 2 },
+  { out: 'honey_pork', need: { honey: 1, pork: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'candle', need: { beeswax: 2, fiber: 1 }, skill: 'crafting', lvl: 1 },
+  { out: 'bouquet', need: { rose: 2, jasmine: 1, fiber: 1 }, skill: 'crafting', lvl: 1, label: 'ช่อดอกไม้ (กุหลาบ+มะลิ)' },
+  { out: 'bouquet', need: { tulip: 1, orchid: 1, sunflower: 1, fiber: 1 }, skill: 'crafting', lvl: 1, label: 'ช่อดอกไม้รวม' },
+  { out: 'garland', need: { jasmine: 4, fiber: 1 }, skill: 'crafting', lvl: 1 },
+  // เก็บเมล็ดพันธุ์จากผลผลิต
+  { out: 'seeds_tomato', need: { tomato: 1 }, skill: 'farming', lvl: 1, qty: 2, label: 'แกะเมล็ดมะเขือเทศ' },
+  { out: 'seeds_chili', need: { chili: 2 }, skill: 'farming', lvl: 1, qty: 2, label: 'แกะเมล็ดพริก' },
+  { out: 'seeds_potato', need: { potato: 1 }, skill: 'farming', lvl: 1, qty: 1, label: 'เก็บหัวพันธุ์มันฝรั่ง' },
+  { out: 'seeds_pumpkin', need: { pumpkin: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดฟักทอง' },
+  { out: 'seeds_watermelon', need: { watermelon: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดแตงโม' },
+  { out: 'seeds_sunflower', need: { sunflower: 1 }, skill: 'farming', lvl: 1, qty: 2, label: 'เก็บเมล็ดทานตะวัน' },
+  { out: 'seeds_rice', need: { rice: 2 }, skill: 'farming', lvl: 2, qty: 1, label: 'คัดข้าวเปลือกไว้ทำพันธุ์' },
   { out: 'bandage', need: { cloth: 2 }, skill: 'medicine', lvl: 1 },
   { out: 'bandage', need: { fiber: 6 }, skill: 'medicine', lvl: 2, label: 'ผ้าพันแผล (ใยพืช)' },
   { out: 'clean_water', need: { dirty_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
@@ -281,15 +369,19 @@ export const RECIPES = [
   { out: 'crossbow', need: { scrap: 8, wood: 3, fiber: 4, zipper: 1 }, skill: 'crafting', lvl: 4, label: 'หน้าไม้เหล็ก (ยิงแรงมาก)' },
   { out: 'bolt', need: { scrap: 1, twig: 2 }, skill: 'crafting', lvl: 3, qty: 4, label: 'ลูกดอกหน้าไม้ ×4' },
   // ชิ้นส่วนรถ + ประกอบยานพาหนะ
-  { out: 'wheel', need: { scrap: 3, rag: 2 }, skill: 'crafting', lvl: 2, label: 'ล้อรถ' },
-  { out: 'engine', need: { scrap: 10, zipper: 2, fuel: 1 }, skill: 'crafting', lvl: 3, label: 'เครื่องยนต์' },
+  { out: 'wheel', need: { scrap: 3, rag: 2 }, skill: 'crafting', lvl: 2, label: '🚗 ล้อรถยนต์' },
+  { out: 'engine', need: { scrap: 10, zipper: 2, fuel: 1 }, skill: 'crafting', lvl: 3, label: '🚗 เครื่องยนต์รถยนต์' },
+  { out: 'moto_wheel', need: { scrap: 2, rag: 1 }, skill: 'crafting', lvl: 1, label: '🏍️ ล้อมอเตอร์ไซค์' },
+  { out: 'moto_engine', need: { scrap: 6, zipper: 1, fuel: 1 }, skill: 'crafting', lvl: 2, label: '🏍️ เครื่องยนต์มอเตอร์ไซค์' },
+  { out: 'moto_ev_motor', need: { scrap: 5, copper_wire: 4 }, skill: 'electric', lvl: 1, job: 'electrician', label: '🛵 มอเตอร์ไฟฟ้ามอเตอร์ไซค์' },
+  { out: 'moto_battery', need: { battery_pack: 2, copper_wire: 2 }, skill: 'electric', lvl: 1, job: 'electrician', label: '🛵 แบตเตอรี่มอเตอร์ไซค์ไฟฟ้า' },
   { out: 'chassis', need: { scrap: 8, wood: 4 }, skill: 'crafting', lvl: 2, label: 'โครงรถ' },
   { out: 'car_seat', need: { cloth: 2, rag: 3 }, skill: 'crafting', lvl: 1, label: 'เบาะรถ' },
   { out: 'battery_pack', need: { scrap: 3, zipper: 2 }, skill: 'crafting', lvl: 2, label: 'แบตเตอรี่ประกอบ' },
   { out: 'raft_kit', need: { wood: 6, fiber: 4 }, skill: 'crafting', lvl: 1, label: 'ชุดลำแพไม้ไผ่' },
-  { out: 'bicycle', need: { wheel: 2, wood: 2 }, skill: 'crafting', lvl: 2, label: '🔧 ประกอบจักรยาน (ล้อ 2)' },
-  { out: 'motorbike', need: { wheel: 2, engine: 1, spark_plug: 1, fuel: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์น้ำมัน (ล้อ 2 + เครื่องยนต์ + หัวเทียน + น้ำมัน)' },
-  { out: 'ev_bike', need: { wheel: 2, ev_motor: 1, ev_battery: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ไฟฟ้า (ล้อ 2 + มอเตอร์ไฟฟ้า + แบต EV · ไม่ใช้น้ำมัน)' },
+  { out: 'bicycle', need: { moto_wheel: 2, wood: 2 }, skill: 'crafting', lvl: 2, label: '🔧 ประกอบจักรยาน (ล้อมอเตอร์ไซค์ 2 + ไม้ 2)' },
+  { out: 'motorbike', need: { moto_wheel: 2, moto_engine: 1, spark_plug: 1, fuel: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์น้ำมัน (ล้อมอไซค์ 2 + เครื่องยนต์มอไซค์ + หัวเทียน + น้ำมัน)' },
+  { out: 'ev_bike', need: { moto_wheel: 2, moto_ev_motor: 1, moto_battery: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ไฟฟ้า (ล้อมอไซค์ 2 + มอเตอร์ไฟฟ้ามอไซค์ + แบตมอไซค์ · ไม่ใช้น้ำมัน)' },
   { out: 'steering_wheel', need: { scrap: 2, hide: 1 }, skill: 'crafting', lvl: 2, label: 'พวงมาลัย' },
   { out: 'spark_plug', need: { scrap: 2, copper_wire: 1 }, skill: 'crafting', lvl: 2, label: 'หัวเทียน' },
   { out: 'copper_wire', need: { scrap: 1, rag: 1 }, skill: 'crafting', lvl: 1, qty: 2, label: 'สายไฟทองแดง ×2' },
@@ -345,7 +437,8 @@ export const RECIPES = [
   { out: 'stone_hammer', need: { wood: 2, stone: 3, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'ค้อนหินพื้นฐาน (ทุบก้อนหินใหญ่)' },
   { out: 'torch', need: { wood: 1, fiber: 1, rag: 1 }, skill: 'crafting', lvl: 1, label: 'คบเพลิง (ส่องสว่าง + สู้ผู้ติดเชื้อ)' },
   { out: 'torch', need: { twig: 2, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'คบเพลิง (จากกิ่งไม้)' },
-  { out: 'net', need: { fiber: 8, raw_fiber: 2 }, skill: 'crafting', lvl: 2, label: 'แหจับสัตว์ (จับสัตว์ป่ามาเลี้ยง)' },
+  { out: 'net', need: { fiber: 8, raw_fiber: 2 }, skill: 'fishing', lvl: 1, label: 'แหทอดปลา (ถือแล้วคลิกใส่น้ำ ได้ปลาหลายตัว)' },
+  { out: 'cage', need: { scrap: 6, wood: 4, fiber: 2 }, skill: 'crafting', lvl: 2, label: 'กรงดักสัตว์ (ใส่เหยื่อล่อ จับสัตว์ป่า/ไดโนเสาร์มาเลี้ยง)' },
   { out: 'rod', need: { wood: 1, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'เบ็ดตกปลาพื้นฐาน' },
   { out: 'watering_can', need: { scrap: 2, bottle: 1 }, skill: 'farming', lvl: 1, label: 'บัวรดน้ำ (รดแปลงผักได้โดยไม่ต้องใช้น้ำขวด)' },
   { out: 'grilled_corn', need: { corn: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
@@ -387,6 +480,9 @@ export const SPAWN_TOWN = 'bangsaen';
 // ช่องสวมใส่ และกระเป๋า
 export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้อ', legs: '👖 กางเกง/กระโปรง', hands: '🧤 ถุงมือ', socks: '🧦 ถุงเท้า', shoes: '👟 รองเท้า', back: '🎒 กระเป๋า', off: '🛡️ มือซ้าย' };
 export const BASE_SLOTS = 48;
+// กองไฟที่ผู้เล่นก่อ: ผู้ติดเชื้อและสัตว์นักล่าไม่กล้าเข้าใกล้ในรัศมีนี้
+export const FIRE_SAFE = 8;
+export const nearFireOf = (fires, x, z, r = FIRE_SAFE) => { for (const f of fires) { const d = Math.hypot(f.x - x, f.z - z); if (d < r) return { f, d }; } return null; };
 // ยานพาหนะไฟฟ้า: ชาร์จที่แผงโซล่าเซลล์เฉพาะตอนกลางวันที่มีแดด (ไม่ใช้น้ำมัน)
 export const ELECTRIC = new Set(['ev_car', 'ev_bike']);
 // มีค้อนที่ใช้สร้างบ้านไหม (ค้อนช่างไม้ หรือ ค้อนไม้)
@@ -395,7 +491,11 @@ export const canBuild = (inv) => Object.keys(inv || {}).some((k) => inv[k] > 0 &
 // ---------- จำนวนสัตว์เลี้ยง ----------
 // เริ่มต้นชนิดละ 1 ตัว (สุนัข แมว นก) · มีบ้าน (เตียง) + บ้านสัตว์เลี้ยง ได้เพิ่ม +1 ตัว/ชนิด ต่อหลัง · สัตว์ป่าจับด้วยแหได้ 1 ตัว
 // สัตว์ป่าที่จะเกิด: แถวสวนสัตว์เขาเขียวมีไดโนเสาร์หลุดออกมา (ที่อื่นพบได้ยาก)
-export const pickWild = (zoo, r) => (zoo ? (r < 0.3 ? 'raptor' : r < 0.45 ? 'trike' : r < 0.75 ? 'deer' : 'boar') : r < 0.02 ? 'raptor' : r < 0.04 ? 'trike' : r < 0.5 ? 'chicken' : r < 0.8 ? 'boar' : 'deer');
+export const pickWild = (zoo, r, town = false) => {
+  const k = zoo ? (r < 0.25 ? 'raptor' : r < 0.45 ? 'trike' : r < 0.55 ? 'tiger' : r < 0.8 ? 'deer' : 'boar') : r < 0.02 ? 'raptor' : r < 0.04 ? 'trike' : r < 0.07 ? 'tiger' : r < 0.5 ? 'chicken' : r < 0.8 ? 'boar' : 'deer';
+  return town && WILD[k].noTown ? 'chicken' : k; // ไดโนเสาร์/นักล่าไม่เกิดในเมือง
+};
+export const inTownAt = (x, z, pad = 1.15) => TOWNS.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < (t.r * pad) ** 2);
 export const PET_BASE = 1, PET_PER_HOUSE = 1, WILD_PET_MAX = 1;
 export const petCap = (houses, beds) => PET_BASE + (beds > 0 ? houses * PET_PER_HOUSE : 0);
 
@@ -418,6 +518,8 @@ export const JOBS = {
     perks: [[1, 'ปลดล็อก มือถือดัดแปลง / เรดาร์ / โดรน'], [4, 'อุปกรณ์ทุกชิ้นตรวจจับได้ไกลขึ้น ×2'], [8, 'แฮกสัญญาณ: เห็นตำแหน่งกล่องหายากและบอสตลอด']] },
   monk: { name: 'พระ', icon: '🙏', skill: 'spirit', xp: { spirit: 1.5, medicine: 1.2 }, kit: { prayer_beads: 1 }, desc: 'เพิ่มกำลังใจ ลดความตื่นตระหนกของทุกคน',
     perks: [[1, 'ตื่นตระหนกช้าลง 50% · สวดมนต์ลดความเครียดและให้ "กำลังใจ" ทุกคนรอบตัว · ปลดล็อก ลูกประคำ / ผ้ายันต์'], [4, 'เพื่อนที่อยู่ใกล้ตื่นตระหนกช้าลง · สวดมนต์ฟื้นพลังชีวิต +10'], [8, 'พลังเมตตา: หลังสวดมนต์ ผู้ติดเชื้อมองไม่เห็นคุณ 15 วินาที']] },
+  freelancer: { name: 'ฟรีแลนซ์', icon: '🧭', skill: 'survival', xp: {}, kit: { canned: 2, bandage: 1, bottle: 1 }, free: true, desc: 'ไม่ผูกสายอาชีพ เลือกเรียนรู้สายไหนก็ได้เองตามแต้มสเตตัส',
+    perks: [[1, 'เริ่มต้นได้แต้มสเตตัสว่าง 7 แต้ม (อาชีพอื่นได้ 5 แต้มลงสายตัวเอง) ลงสายไหนก็ได้'], [4, 'ได้ XP ทุกทักษะเพิ่ม 10%'], [8, 'ยิ่งลงหลายสายยิ่งเก่ง: ทุกสายที่มีแต้ม 3+ ได้ XP สายนั้นเพิ่มอีก 10%']] },
   electrician: { name: 'ช่างไฟฟ้า', icon: '🔌', skill: 'electric', xp: { electric: 1.5, crafting: 1.2 }, kit: { copper_wire: 4, battery_pack: 1 }, desc: 'สร้างแผงโซล่าเซลล์ ทำรถ EV และระบบชาร์จไฟ',
     perks: [[1, 'ปลดล็อก แผงโซล่าเซลล์ / แบตเตอรี่ EV / มอเตอร์ไฟฟ้า · ชาร์จไฟเร็วขึ้น ×2'], [4, 'รถไฟฟ้าใช้ไฟน้อยลง 40%'], [8, 'ชาร์จรถ EV ได้ทุกที่ตอนกลางวัน (แผงพกพา)']] },
   doctor: { name: 'หมอ', icon: '🩺', skill: 'medicine', xp: { medicine: 1.5 }, kit: { bandage: 3, herbal_med: 2 }, desc: 'รักษาอาการบาดเจ็บ ติดเชื้อ ป่วย',
@@ -433,15 +535,19 @@ export const JOBS = {
 // สร้างตัวละคร: สายอาชีพที่เลือกได้ 5 แต้ม · ทุกเลเวลตัวละครได้ +1 แต้ม เอาไปลงสายไหนก็ได้
 // ความสามารถขั้นที่ 1/2/3 ของแต่ละสาย ปลดล็อกเมื่อสเตตัสสายนั้นถึง 3/8/14 · XP โบนัสเพิ่มตามแต้ม (เต็มที่ 5 แต้ม)
 export const START_PTS = 5, PERK_PTS = [3, 8, 14];
-export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] ? { [ch.profile.job]: START_PTS } : {});
+export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] && !JOBS[ch.profile.job].free ? { [ch.profile.job]: START_PTS } : {});
+export const isFreelancer = (ch) => ch?.profile?.job === 'freelancer';
 export const charLvl = (ch) => Object.keys(ch?.skills || {}).reduce((s, k) => s + skillLevel(ch.skills[k]) - 1, 0) + 1;
-export const freePts = (ch) => START_PTS + charLvl(ch) - 1 - Object.values(jobPts(ch)).reduce((a, b) => a + b, 0);
+export const freePts = (ch) => START_PTS + (isFreelancer(ch) ? 2 : 0) + charLvl(ch) - 1 - Object.values(jobPts(ch)).reduce((a, b) => a + b, 0);
 // สายหลัก = สายที่มีแต้มมากที่สุด
 export const jobOf = (ch) => { let best = null, b = 0; for (const [k, v] of Object.entries(jobPts(ch))) if (JOBS[k] && v > b) { b = v; best = k; } return best; };
 // มีความสามารถขั้นที่ tier (0,1,2) ของสายนี้หรือยัง
 export const hasPerk = (ch, job, tier) => (jobPts(ch)[job] || 0) >= PERK_PTS[tier];
 // ตัวคูณประสบการณ์ของทักษะ s จากทุกสายที่ลงแต้มไว้
-export function xpMulOf(ch, s) { let m = 1; for (const [k, v] of Object.entries(jobPts(ch))) { const x = JOBS[k]?.xp?.[s]; if (x) m += (x - 1) * Math.min(1, v / 5); } return m; }
+export function xpMulOf(ch, s) {
+  let m = 1; for (const [k, v] of Object.entries(jobPts(ch))) { const x = JOBS[k]?.xp?.[s]; if (x) m += (x - 1) * Math.min(1, v / 5) + (isFreelancer(ch) && charLvl(ch) >= 8 && v >= 3 ? 0.1 : 0); }
+  return m + (isFreelancer(ch) && charLvl(ch) >= 4 ? 0.1 : 0);
+}
 // ตัวคูณดาเมจ (ใช้ทั้งในเครื่องและฝั่งเซิร์ฟเวอร์ตอนตรวจโกง)
 export const dmgMulOf = (ch) => (1 + (skillLevel(ch.skills?.combat) - 1) * 0.08) * (hasPerk(ch, 'hunter', 2) ? 1.35 : hasPerk(ch, 'hunter', 1) ? 1.2 : 1)
   * (hasPerk(ch, 'athlete', 2) ? 1.15 : 1) * (killPerk(ch, 4) ? 1.15 : killPerk(ch, 0) ? 1.05 : 1);
@@ -485,7 +591,7 @@ export const QUEST_SPOTS = {
 export const LOOT_TABLE = [
   ['canned', 18], ['bottle', 14], ['clean_water', 12], ['cloth', 16], ['scrap', 16],
   ['bandage', 9], ['antibiotic', 3], ['herb', 6], ['raw_fish', 4], ['coconut', 4],
-  ['seeds_corn', 7], ['seeds_veg', 7], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1],
+  ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 3], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
 ];
 
 export const NPCS = [
@@ -507,18 +613,18 @@ export const NPCS = [
 // จ่ายด้วยการแลกของ: ของที่เอามาแลกคิดมูลค่า 80% · ยิ่งสนิทยิ่งได้ส่วนลด (สูงสุด 25%)
 export const SHOPS = {
   doctor: [['bandage', 8, 5], ['herbal_med', 10, 4], ['splint', 8, 3], ['antibiotic', 24, 2], ['first_aid', 32, 1]],
-  mechanic: [['fuel', 8, 4], ['scrap', 5, 8], ['spark_plug', 7, 3], ['steering_wheel', 9, 2], ['wheel', 10, 4], ['bicycle', 35, 1], ['motorbike', 90, 1]],
+  mechanic: [['fuel', 8, 4], ['scrap', 5, 8], ['spark_plug', 7, 3], ['steering_wheel', 9, 2], ['wheel', 10, 4], ['moto_wheel', 6, 4], ['moto_engine', 22, 1], ['bicycle', 35, 1], ['motorbike', 90, 1]],
   entertainer: [['guitar', 30, 1], ['calm_tea', 8, 4], ['canned', 8, 4], ['coconut_dessert', 18, 2]],
   fisher: [['raw_fish', 4, 8], ['rod', 8, 2], ['rod_pro', 30, 1], ['big_fish', 12, 3], ['net', 14, 1]],
   hunter: [['spear', 12, 2], ['hide', 6, 4], ['raw_meat', 5, 6], ['shield_wood', 10, 2], ['hunter_cloak', 36, 1]],
-  it: [['phone', 40, 1], ['zradar', 60, 1], ['drone', 80, 1], ['scrap', 5, 6]],
-  farmer: [['seeds_corn', 3, 8], ['seeds_veg', 3, 8], ['corn', 4, 6], ['veg', 4, 6], ['coconut', 5, 4]],
+  it: [['respec_potion', 250, 1], ['phone', 40, 1], ['zradar', 60, 1], ['drone', 80, 1], ['scrap', 5, 6]],
+  farmer: [['seeds_corn', 3, 8], ['seeds_veg', 3, 8], ['seeds_tomato', 3, 6], ['seeds_chili', 3, 6], ['seeds_potato', 4, 6], ['seeds_cabbage', 3, 6], ['seeds_carrot', 3, 6], ['seeds_eggplant', 3, 6], ['seeds_pumpkin', 4, 4], ['seeds_watermelon', 4, 4], ['seeds_rice', 3, 6], ['seeds_sunflower', 4, 4], ['seeds_marigold', 4, 4], ['seeds_rose', 8, 2], ['seeds_orchid', 10, 2], ['seeds_jasmine', 6, 3], ['seeds_tulip', 10, 2], ['hoe', 6, 2], ['flower_pot', 6, 3], ['egg', 4, 4], ['duck_egg', 5, 3], ['honey', 12, 2], ['corn', 4, 6], ['veg', 4, 6]],
   athlete: [['energy_drink', 10, 3], ['protein_meal', 14, 2], ['sneakers', 14, 1], ['socks_wool', 8, 2]],
   engineer: [['stone_axe', 10, 2], ['stone_hammer', 8, 2], ['hammer', 10, 2], ['steel_axe', 36, 1], ['torch', 5, 4]],
   builder: [['wood', 2, 20], ['stone', 2, 20], ['wood_hammer', 5, 2], ['hammer', 10, 1]],
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
   electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],
-  monk: [['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
+  monk: [['respec_potion', 250, 1], ['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
 };
 
 export const PET_TYPES = {
@@ -530,15 +636,20 @@ export const PET_TYPES = {
   boar: { name: 'หมูป่า', foods: ['corn', 'veg', 'raw_meat'], perk: 'บึกบึน: พุ่งชนผู้ติดเชื้อและช่วยรับดาเมจแทน', base: { hp: 60, atk: 10 }, wild: true, innate: 'guardian', fight: true },
   chicken: { name: 'ไก่', foods: ['corn', 'berry', 'seeds_corn'], perk: 'ออกไข่ทุก 3 นาที', base: { hp: 14, atk: 2 }, wild: true },
   raptor: { name: 'แร็พเตอร์', foods: ['raw_meat', 'raw_fish', 'cooked_meat'], perk: 'นักล่าดึกดำบรรพ์: กัดแรงมาก', base: { hp: 70, atk: 18 }, wild: true, fight: true },
+  trike: { name: 'ไทรเซอราทอปส์', foods: ['veg', 'corn', 'berry', 'pineapple'], perk: 'ร่างยักษ์กินพืช: ทนมาก ช่วยชนผู้ติดเชื้อ', base: { hp: 150, atk: 14 }, wild: true, fight: true, innate: 'guardian' },
+  tiger: { name: 'เสือโคร่ง', foods: ['raw_meat', 'raw_fish'], perk: 'นักล่าเงียบ: กัดแรง ว่องไว', base: { hp: 80, atk: 16 }, wild: true, fight: true, innate: 'swift' },
 };
 // สัตว์ป่าในแผนที่ (ใช้ร่วมกันทั้งเครื่องผู้เล่นและเซิร์ฟเวอร์)
 // hostile = ไล่ทำร้ายผู้เล่นในระยะนี้ · angryHit = โกรธเมื่อโดนตี · net = จับด้วยแหได้
 export const WILD = {
-  boar: { name: 'หมูป่า', hp: 35, flee: 6, fleeSpd: 4.5, angryHit: true, dmg: 6, net: true },
-  deer: { name: 'กวาง', hp: 25, flee: 12, fleeSpd: 6.5, net: true },
-  chicken: { name: 'ไก่ป่า', hp: 8, flee: 12, fleeSpd: 3.5, net: true },
-  raptor: { name: 'แร็พเตอร์', hp: 70, hostile: 22, chase: 6.2, dmg: 12, bleed: 0.3, net: true, dino: true },
-  trike: { name: 'ไทรเซอราทอปส์', hp: 170, angryHit: true, chase: 4.2, dmg: 18, flee: 0, dino: true },
+  // diet: herb = กินพืช (ไม่ทำร้ายใครก่อน) · meat = กินเนื้อ (ไล่ล่า) · omni = กินทั้งสองอย่าง (สู้กลับเมื่อโดนตี)
+  // leash = รัศมีอาณาเขตจากจุดเกิด · noTown = ไม่เดินเข้าเมือง
+  boar: { name: 'หมูป่า', hp: 35, flee: 6, fleeSpd: 4.5, angryHit: true, dmg: 6, diet: 'omni', leash: 70 },
+  deer: { name: 'กวาง', hp: 25, flee: 12, fleeSpd: 6.5, diet: 'herb', leash: 80 },
+  chicken: { name: 'ไก่ป่า', hp: 8, flee: 12, fleeSpd: 3.5, diet: 'herb', leash: 50 },
+  tiger: { name: 'เสือโคร่ง', hp: 90, hostile: 18, chase: 6.5, dmg: 14, bleed: 0.3, diet: 'meat', leash: 55, noTown: true },
+  raptor: { name: 'แร็พเตอร์', hp: 70, hostile: 22, chase: 6.2, dmg: 12, bleed: 0.3, dino: true, diet: 'meat', leash: 45, noTown: true },
+  trike: { name: 'ไทรเซอราทอปส์', hp: 170, angryHit: true, chase: 4.2, dmg: 18, flee: 0, dino: true, diet: 'herb', leash: 45, noTown: true },
 };
 
 // ความสามารถพิเศษของสัตว์เลี้ยง (สุ่มตอนทำให้เชื่อง แต่ละตัวได้ไม่เหมือนกัน)

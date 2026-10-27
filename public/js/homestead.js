@@ -1,10 +1,11 @@
 // บ้าน ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ บ้านสัตว์เลี้ยง และยานพาหนะ (ฝั่งผู้เล่น)
-import { PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY } from './building-core.js';
+import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
-import { ITEMS , hasPerk } from './data.js';
+import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'bed', 'storage', 'plot', 'coop', 'pond', 'pethouse', 'vehicle']);
+const INTERACT = new Set(['door', 'gate', 'bed', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
 export class Homestead {
@@ -21,7 +22,9 @@ export class Homestead {
     const g = this.g;
     if (s.owner !== g.id) return;
     if (s.type === 'bed' || s.type === 'shelter') { g.spawnPoint = { x: s.x, z: s.z, y: s.type === 'bed' ? baseY(s) + 0.6 : undefined }; g.ui.toast('🛏️ ตั้งจุดเกิดใหม่ที่นี่แล้ว'); }
-    if (s.type === 'coop') g.ui.toast('🐔 แม่ไก่ 2 ตัวย้ายเข้าเล้าแล้ว — ให้อาหาร (ข้าวโพด/ผัก/ผลไม้ป่า) แล้วจะออกไข่');
+    if (PENS[s.type]) g.ui.toast(`${PIECES[s.type].icon} ${PENS[s.type].name}ย้ายเข้าคอกแล้ว — ให้อาหารและน้ำ แล้วจะให้ผลผลิตเมื่อโตเต็มวัย`);
+    if (s.type === 'hive') g.ui.toast('🐝 ปลูกดอกไม้ (ทานตะวัน/ดาวเรือง หรือกระถางดอกไม้) ให้บานใกล้กล่อง ผึ้งจะมาทำรัง');
+    if (isPlot(s.type)) g.ui.toast('⛏️ พรวนดินด้วยจอบก่อน แล้วค่อยปลูก');
   }
   demolish(s) {
     const g = this.g;
@@ -43,15 +46,23 @@ export class Homestead {
       const v = g.vehicle.s;
       return { text: `🛑 ลงจาก${VEH[v.vt].name}${VEH[v.vt]?.fuel ? ` (⛽ ${Math.round(v.fuel ?? 0)}%)` : ''}`, act: () => this.dismount() };
     }
-    const s = g.world.nearestStructure(P.x, P.z, 2.6, (o) => INTERACT.has(o.type) && (o.type === 'vehicle' || Math.abs(baseY(o) - P.y) < 2.5));
+    const s = g.world.nearestStructure(P.x, P.z, 2.6, (o) => (INTERACT.has(o.type) || isPlot(o.type)) && (o.type === 'vehicle' || Math.abs(baseY(o) - P.y) < 2.5));
     if (!s) return null;
     const now = g.now(), mine = !s.owner || s.owner === g.id;
     switch (s.type) {
       case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'storage': return { text: '🧰 เปิดหีบเก็บของ', act: () => g.ui.openStructure(s) };
-      case 'coop': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
-      case 'plot': return this.plotTarget(s, now);
+      case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'hive': case 'stall': case 'basecore': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
+      case 'plot': case 'pot': return this.plotTarget(s, now);
+      case 'cage': {
+        // กรงดักสัตว์: ใส่เหยื่อ → รอ → เปิดกรงรับสัตว์เลี้ยง
+        const caught = cageCatch(s, now);
+        if (caught) return { text: `🐾 มี${PET_TYPES[caught].name}ติดกรง! เปิดกรงรับมาเลี้ยง`, act: () => this.op(s, { o: 'claim' }) };
+        if (s.bait) return { text: `🪤 รอสัตว์มาติดกรง... ${Math.min(99, Math.floor(((now - s.bt) / TRAP_MS) * 100))}% (เหยื่อ: ${ITEMS[s.bait].name})`, act: () => {} };
+        const bait = [...BAIT_MEAT, ...BAIT_PLANT].find((k) => g.hasItem(k));
+        return { text: bait ? `🪤 ใส่เหยื่อ ${ITEMS[bait].icon} ${ITEMS[bait].name} (เนื้อ = ล่อสัตว์กินเนื้อ · พืช = ล่อสัตว์กินพืช)` : '🪤 กรงว่าง — ต้องมีเหยื่อ: เนื้อ/ปลา หรือ ผัก/ข้าวโพด/ผลไม้', act: () => { if (bait) this.op(s, { o: 'bait', item: bait }); } };
+      }
       case 'vehicle': {
         const V = VEH[s.vt];
         if (V?.electric && (s.fuel ?? 0) < 95) {
@@ -65,18 +76,24 @@ export class Homestead {
         return { text: `${ITEMS[s.vt].icon} ขี่${V.name}${VEH[s.vt]?.fuel ? ` (${V.electric ? '🔋' : '⛽'} ${Math.round(s.fuel ?? 0)}%)` : ''}`, act: () => this.mount(s) };
       }
     }
+    if (isPlot(s.type)) return this.plotTarget(s, now);
     return null;
   }
   plotTarget(s, now) {
     const g = this.g;
+    const where = s.type === 'pot' ? 'กระถาง' : 'แปลง';
     if (!s.crop) {
-      const seed = Object.entries(CROPS).find(([, c]) => g.hasItem(c.seed));
-      if (!seed) return { text: '🌱 แปลงผักว่าง — ต้องมีเมล็ดข้าวโพด / เมล็ดผักบุ้ง / สมุนไพร', act: () => g.ui.toast('หาเมล็ดได้จากกล่องเสบียง หรือจากการเก็บเกี่ยว', 'warn') };
-      const [key, c] = seed;
-      return { text: `🌱 ปลูก${c.name} (ใช้${ITEMS[c.seed].name})`, act: () => this.op(s, { o: 'plant', crop: key }) };
+      const ok = cropsFor(s.type), names = ok.map((k) => CROPS[k].name).join('/');
+      if (needsTill(s) && !s.tl) return g.hasItem('hoe') ? { text: `⛏️ พรวนดิน${PIECES[s.type].name}ก่อนปลูก`, act: () => { g.atkT = 1; g.player.mesh.userData.atkStyle = 'smash'; this.op(s, { o: 'till' }); } } : { text: `⛏️ ${PIECES[s.type].name} — ต้องพรวนดินด้วยจอบก่อน (ประดิษฐ์: ไม้ 2 + หิน 2)`, act: () => g.ui.toast('ประดิษฐ์จอบได้ในแท็บกระเป๋า/สร้างบ้าน', 'warn') };
+      const seed = ok.find((k) => g.hasItem(CROPS[k].seed));
+      if (!seed) return { text: `🌱 ${where}ว่าง — ต้องมีเมล็ด/กิ่งพันธุ์ (${names.length > 40 ? names.slice(0, 40) + '…' : names})`, act: () => g.ui.toast('ซื้อเมล็ดได้ที่ร้านเกษตรกร (ปลายฟ้า บ้านบึง) หรือค้นกล่องเสบียง', 'warn') };
+      const c = CROPS[seed];
+      return { text: `🌱 ปลูก${c.name} (ใช้${ITEMS[c.seed].name})`, act: () => this.op(s, { o: 'plant', crop: seed }) };
     }
     const p = cropProgress(s, now), C = CROPS[s.crop];
-    if (p >= 1) return { text: `🧺 เก็บเกี่ยว${C.name}`, act: () => this.op(s, { o: 'harvest' }) };
+    if (p >= 1) return { text: `🧺 เก็บ${C.flower ? 'ดอก' : 'เกี่ยว'}${C.name}`, act: () => this.op(s, { o: 'harvest' }) };
+    if (s.wt && isPlot(s.type) && !s.lo && g.hasItem('hoe')) return { text: `⛏️ พรวนดินรอบต้น${C.name} (ผลผลิต +1) · ${Math.floor(p * 100)}%`, act: () => { g.atkT = 1; g.player.mesh.userData.atkStyle = 'smash'; this.op(s, { o: 'till' }); } };
+    if (s.wt && !s.fb && g.hasItem('manure')) return { text: `💩 ใส่ปุ๋ยคอกให้${C.name} (โตเร็วขึ้น) · ${Math.floor(p * 100)}%`, act: () => this.op(s, { o: 'fert' }) };
     if (!s.wt) {
       const w = ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
       if (g.weather.rain) return { text: `🌧️ ฝนรดน้ำให้${C.name}แล้ว (${Math.floor(p * 100)}%)`, act: () => this.op(s, { o: 'water' }) };
@@ -99,6 +116,59 @@ export class Homestead {
     const g = this.g, now = g.now(), acts = [];
     const feed = FEEDS.find((k) => g.hasItem(k));
     let info = '';
+    const P = PENS[s.type];
+    if (P && (s.type !== 'coop' || s.herd || s.wat !== undefined)) {
+      // คอกสัตว์: อาหาร น้ำ อายุ ผลผลิต
+      const herd = herdOf(s, now), fl = fedLeft(s, now), wl = waterLeft(s, now), n = penGoods(s, now);
+      const pf = P.foods.find((k) => g.hasItem(k)), water = ITEMS[g.equipped]?.tool?.water ? 'can' : ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
+      const ageTxt = herd.map((a, i) => { const st = ageStage(P, a, now), m = a.b < 0 ? '' : ` ${Math.floor((now - a.b) / 60000)} นาที`; return `${PIECES[s.type].icon}${i + 1}: ${STAGE_NAME[st]}${m}`; }).join(' · ') || 'ไม่มีสัตว์ในคอก';
+      info = `${ageTxt}<br>🍽️ อาหาร: ${fl ? mmss(fl) : '<b class="miss">หิว</b>'} · 💧 น้ำ: ${wl ? mmss(wl) : '<b class="miss">กระหายน้ำ</b>'} · 🧺 ผลผลิต: <b>${n}</b>/${P.cap} ${ITEMS[P.prod[0]].icon}
+        <br><small>ให้ผลผลิตเมื่อ "อิ่ม + มีน้ำ" และโตเต็มวัย (ลูก ${Math.round(P.adult / 60000)} นาที → โต · แก่หลัง ${Math.round(P.old / 60000)} นาที ผลผลิตลดครึ่ง · อายุขัย ${Math.round(P.life / 60000)} นาที) · อาหาร: ${P.foods.map((k) => ITEMS[k].icon).join('')}</small>`;
+      acts.push({ label: `🧺 เก็บผลผลิต (${n})`, dis: !n, run: () => this.op(s, { o: 'collect' }) });
+      acts.push({ label: pf ? `🍽️ ให้อาหาร (${ITEMS[pf].name})` : `🍽️ ให้อาหาร (ต้องมี ${P.foods.slice(0, 4).map((k) => ITEMS[k].name).join('/')})`, dis: !pf || fl > FEED_MAX - FEED_MS, run: () => this.op(s, { o: 'feed', item: pf }) });
+      acts.push({ label: water ? `💧 ให้น้ำ${water === 'can' ? ' (บัวรดน้ำ)' : ` (${ITEMS[water].name})`}` : '💧 ให้น้ำ (ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ)', dis: !water || wl > WATER_MAX - WATER_MS, run: () => this.op(s, { o: 'drink' }) });
+      acts.push(P.egg ? { label: `🐣 ฟักไข่ (ใช้${ITEMS[P.egg].name} · ${herd.length}/${P.max})`, dis: !g.hasItem(P.egg) || herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) } : { label: `🍼 ผสมพันธุ์ (ต้องมีตัวโต 2 ตัว · ${herd.length}/${P.max})`, dis: herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) });
+      acts.push({ label: `🔪 ชำแหละ 1 ตัว (ได้${ITEMS[P.meat[0]].name} ×${P.meat[1]})`, dis: !herd.some((a) => ageStage(P, a, now) !== 'baby'), run: () => { if (confirm(`ชำแหละ${P.name} 1 ตัว?`)) this.op(s, { o: 'butcher' }); } });
+      return { info, acts };
+    }
+    if (s.type === 'hive') {
+      const fl = flowersNear(g.world.structures, s, now), n = hiveHoney(s, now);
+      info = s.bees ? `🐝 มีผึ้งทำรังแล้ว · ดอกไม้บานรอบ ๆ: <b>${fl}</b> · 🍯 น้ำผึ้ง: <b>${n}</b>/${HONEY_CAP}<br><small>ดอกไม้ยิ่งมาก ผึ้งยิ่งทำน้ำผึ้งเร็ว (ปลูกในรัศมี 12 หน่วย) · เก็บได้ทั้งน้ำผึ้งและไขผึ้ง เอาไปคราฟท์ยา อาหาร เทียน</small>`
+        : `ยังไม่มีผึ้ง · ดอกไม้บานรอบ ๆ: <b>${fl}</b><br><small>ปลูกทานตะวัน/ดาวเรืองในแปลง หรือดอกไม้ในกระถาง ให้บานเกินครึ่งใกล้กล่องนี้ ผึ้งจะบินมาทำรัง</small>`;
+      acts.push({ label: s.bees ? '🔄 ตรวจรังผึ้ง' : '🐝 เรียกผึ้ง (ต้องมีดอกไม้บานใกล้ ๆ)', run: () => this.op(s, { o: 'bees' }) });
+      acts.push({ label: `🍯 เก็บน้ำผึ้ง (${n})`, dis: !n, run: () => this.op(s, { o: 'collect' }) });
+      return { info, acts };
+    }
+    if (s.type === 'basecore') {
+      const role = roleIn(s, g.id);
+      if (!s.ok) {
+        const c = baseCheck(g.world.structures, s);
+        info = `หลักบ้านยังไม่ได้ประกาศเป็นฐาน<br>ต้องมี (รอบหลักบ้าน 30 หน่วย): ${Object.values(BASE_NEED).map(([n, name]) => `${name} ${n}`).join(' · ')}<br>${c.ok ? '<b class="have">✅ ครบแล้ว ประกาศฐานได้เลย</b>' : `<b class="miss">ยังขาด: ${c.missing.join(' · ')}</b>`}<br><small>หลังประกาศฐาน: มาร์คบนแผนที่ · คอกสัตว์/แปลงผัก/กระถาง/กล่องผึ้ง/บ่อปลา สร้างได้เฉพาะในรั้ว · รั้วและบ้านกันผู้ติดเชื้อ 60 วัน</small>`;
+        if (s.owner === g.id) acts.push({ label: '🏡 ประกาศเป็นฐาน', dis: !c.ok, run: () => { const name = prompt('ตั้งชื่อฐาน', `บ้านของ${g.profile.name}`); if (name !== null) this.op(s, { o: 'declare', name }); } });
+        return { info, acts };
+      }
+      const L = HOUSE_LV[s.lv || 1], pl = protectLeft(s, now), boss = role === 'owner' || role === 'deputy';
+      info = `🏡 <b>${s.name}</b> · ระดับบ้าน <b>${s.lv || 1}</b>/5 · หน้าที่ของคุณ: ${role ? ROLES[role] : 'ไม่ใช่สมาชิก'}
+        <br>🛡️ กันผู้ติดเชื้อ: ${pl ? `<b class="have">เหลือ ${(pl / GAME_DAY_MS).toFixed(1)} วันในเกม</b>` : '<b class="miss">หมดแล้ว — ซ่อมแซมเพื่อเริ่มนับใหม่</b>'}
+        ${role ? `<br>🏦 คลังส่วนรวม: <b>${s.bank || 0}</b>/${L.bank} · 🔐 คลังส่วนตัวของคุณ: <b>${s.pv?.[g.id] || 0}</b>/${L.pv} · 🪙 ในกระเป๋า ${g.inv.jicoin || 0}` : ''}
+        <br><small>เงินในคลังไม่หายเมื่อตาย (เงินที่พกติดตัว: ตายครั้งที่ 4–10 ของวันหาย 10% · ครั้งที่ 11+ หาย 20%)</small>`;
+      if (!role) return { info, acts };
+      const ask = (t, max) => { const v = Math.floor(+prompt(t, String(max))); return v > 0 ? Math.min(v, max) : 0; };
+      acts.push({ label: '🏦 ฝากเข้าคลังส่วนรวม', dis: !g.inv.jicoin, run: () => { const a = ask('ฝากเงินจิเข้าคลังส่วนรวมกี่เหรียญ?', g.inv.jicoin || 0); if (a) this.op(s, { o: 'bank', amt: a }); } });
+      if (boss) acts.push({ label: '🏦 ถอนจากคลังส่วนรวม', dis: !s.bank, run: () => { const a = ask('ถอนกี่เหรียญ?', s.bank || 0); if (a) this.op(s, { o: 'bank', amt: -a }); } });
+      acts.push({ label: '🔐 ฝากเข้าคลังส่วนตัว', dis: !g.inv.jicoin, run: () => { const a = ask('ฝากเงินจิเข้าคลังส่วนตัวกี่เหรียญ?', g.inv.jicoin || 0); if (a) this.op(s, { o: 'bank', amt: a, priv: 1 }); } });
+      acts.push({ label: '🔐 ถอนจากคลังส่วนตัว', dis: !s.pv?.[g.id], run: () => { const a = ask('ถอนกี่เหรียญ?', s.pv?.[g.id] || 0); if (a) this.op(s, { o: 'bank', amt: -a, priv: 1 }); } });
+      if (boss) { const rc = REPAIR_BASE(s.lv || 1); acts.push({ label: `🔧 ซ่อมแซมรั้วและบ้าน (${Object.entries(rc).map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')}) — นับ 60 วันใหม่`, run: () => this.op(s, { o: 'repair' }) }); }
+      if (role !== 'owner') acts.push({ label: '🚪 ออกจากบ้านนี้', run: () => { if (confirm('ออกจากบ้านนี้?')) this.op(s, { o: 'leave' }); } });
+      return { info, acts };
+    }
+    if (s.type === 'stall') {
+      const mine = !s.owner || s.owner === g.id;
+      info = `${mine ? 'แผงของคุณ' : 'แผงของผู้เล่นอื่น'} · สินค้า ${(s.goods || []).length}/${STALL_MAX} รายการ${mine ? ` · 🪙 เงินในแผง: <b>${s.cash || 0}</b>` : ''}<br><small>${mine ? 'เลือกของในกระเป๋าด้านล่างเพื่อวางขาย (ตั้งราคาเป็นเงินจิ) · ผู้เล่นอื่นซื้อได้แม้คุณไม่อยู่' : `คุณมี 🪙 ${g.inv.jicoin || 0} เงินจิ`}</small>`;
+      (s.goods || []).forEach((r, i) => acts.push(mine ? { label: `↩️ เก็บคืน ${ITEMS[r.k].icon} ${ITEMS[r.k].name} ×${r.q} (🪙${r.p})`, run: () => this.op(s, { o: 'unlist', i }) } : { label: `🛒 ซื้อ ${ITEMS[r.k].icon} ${ITEMS[r.k].name} (เหลือ ${r.q}) — 🪙 ${r.p}`, dis: (g.inv.jicoin || 0) < r.p, run: () => this.op(s, { o: 'buy', i, item: r.k, price: r.p }) }));
+      if (mine) acts.push({ label: `🪙 เก็บเงินจิจากแผง (${s.cash || 0})`, dis: !s.cash, run: () => this.op(s, { o: 'cashout' }) });
+      return { info, acts };
+    }
     if (s.type === 'coop') {
       const n = coopEggs(s, now), fl = fedLeft(s, now);
       info = `🥚 ไข่ในเล้า: <b>${n}</b>/8 · 🍽️ อิ่มอีก ${fl ? mmss(fl) : '— หิว (ไม่ออกไข่)'}<br><small>ไก่ออกไข่ 1 ฟองทุก 3 นาทีขณะอิ่ม</small>`;
@@ -110,6 +180,7 @@ export class Homestead {
       info = `🐟 พันธุ์ปลาในบ่อ: <b>${s.stock || 0}</b>/6${s.gold ? ' (มีปลาทอง ×2)' : ''} · ปลาที่จับได้: <b>${n}</b>/8 · 🍽️ อิ่มอีก ${fl ? mmss(fl) : '— หิว'}<br><small>ปล่อยปลาเป็นพันธุ์ก่อน ยิ่งมากยิ่งเพิ่มเร็ว · ตกปลาในบ่อด้วยเบ็ดได้ด้วย</small>`;
       acts.push({ label: fish ? `🐟 ปล่อย${ITEMS[fish].name}ลงบ่อ` : '🐟 ปล่อยปลา (ต้องมีปลาสด)', dis: !fish || (s.stock || 0) >= 6, run: () => this.op(s, { o: 'stock', item: fish }) });
       acts.push({ label: `🎣 จับปลาในบ่อ (${n})`, dis: !n, run: () => this.op(s, { o: 'collect' }) });
+      info += '<br><small>🐟 ปลาไม่ต้องให้น้ำ — แค่ให้อาหาร</small>';
       acts.push({ label: feed ? `🍞 ให้อาหารปลา (${ITEMS[feed].name})` : '🍞 ให้อาหารปลา (ต้องมีผัก/ข้าวโพด/ผลไม้ป่า)', dis: !feed || fl > FEED_MAX - FEED_MS || !(s.stock > 0), run: () => this.op(s, { o: 'feed', item: feed }) });
     } else if (s.type === 'pethouse') {
       const here = g.pets.filter((p) => p.home === s.id);
@@ -190,11 +261,20 @@ export class Homestead {
       if (m) m.visible = !(s.driver && s.driver !== g.id && g.ents.remotes.has(s.driver));
       if (m && !(g.vehicle && g.vehicle.s === s) && m.visible) { const W = waterAt(s.x, s.z); m.position.y = s.vt === 'raft' && W ? W.level - 0.05 : heightAt(s.x, s.z); m.rotation.y = s.ry || 0; }
     }
+    // ผึ้ง: ตรวจกล่องผึ้งของเราเป็นระยะ (ผึ้งมาทำรังเมื่อมีดอกไม้บาน)
+    if ((this.beeT = (this.beeT || 0) - dt) <= 0) {
+      this.beeT = 20;
+      for (const s of g.world.structures) if (s.type === 'hive' && s.owner === g.id && Math.hypot(s.x - P.x, s.z - P.z) < 80) { const fl = flowersNear(g.world.structures, s, g.now()); if ((!s.bees && fl) || (s.bees && fl !== (s.fl || 0))) this.op(s, { o: 'bees', silent: true }); }
+    }
     // ฝนรดน้ำแปลงผักให้
     this.rainT -= dt;
     if (this.rainT <= 0) {
       this.rainT = 8;
-      if (g.weather.rain) for (const s of g.world.structures) if (s.type === 'plot' && s.crop && !s.wt && Math.hypot(s.x - P.x, s.z - P.z) < 80) this.op(s, { o: 'water', silent: true });
+      if (g.weather.rain) for (const s of g.world.structures) {
+        if (Math.hypot(s.x - P.x, s.z - P.z) >= 80) continue;
+        if (isGrow(s.type) && s.crop && !s.wt) this.op(s, { o: 'water', silent: true });
+        else if (PENS[s.type] && s.owner === g.id && s.herd && waterLeft(s, g.now()) < WATER_MS) this.op(s, { o: 'drink', silent: true }); // ฝนเติมรางน้ำให้
+      }
     }
   }
   vehicleFor(vt) { return VEH[vt]; }

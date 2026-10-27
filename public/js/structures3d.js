@@ -1,7 +1,7 @@
 // โมเดล 3D ของชิ้นส่วนบ้าน รั้ว ฟาร์ม เล้าไก่ บ่อปลา และยานพาหนะ
 import * as THREE from 'three';
-import { mat, makeAnimal, animateAnimal, makeCampfire, makeShelter, makeWatchtower } from './models.js';
-import { G, WALL_H, FENCE_H, CROPS, cropProgress, coopEggs, pondFish, baseY } from './building-core.js';
+import { makeLabel, mat, makeAnimal, animateAnimal, makeCampfire, makeShelter, makeWatchtower } from './models.js';
+import { G, WALL_H, FENCE_H, CROPS, cropProgress, coopEggs, pondFish, baseY, cageCatch, PENS, herdOf, ageStage, penGoods, isPlot, hiveHoney, plotCrop } from './building-core.js';
 
 const WOOD = '#a0764a', WOOD_D = '#7f5539', PLANK = '#c49a6c', ROOF = '#8d5b3a';
 function box(w, h, d, c, x = 0, y = 0, z = 0, m) {
@@ -17,10 +17,19 @@ export function makeStructureMesh(s) {
   root.position.set(s.x, s.type === 'vehicle' ? 0 : baseY(s), s.z);
   root.userData.s = s;
   const add = (o) => (root.add(o), o);
-  switch (s.type) {
+  switch (isPlot(s.type) ? 'plot' : s.type) {
     case 'campfire': add(makeCampfire()); root.userData.flame = root.children[0].userData.flame; break;
     case 'shelter': { const m = add(makeShelter()); m.rotation.y = s.ry || 0; break; }
     case 'watchtower': add(makeWatchtower()); break;
+    case 'cage': {
+      // กรงดักสัตว์: โครงเหล็ก + ซี่กรง + จานเหยื่อ (มีสัตว์ติดแล้วจะเห็นอยู่ข้างใน)
+      const g = add(new THREE.Group()); g.rotation.y = s.ry || 0;
+      g.add(box(2.2, 0.1, 2.2, '#495057', 0, 0.05, 0), box(2.2, 0.1, 2.2, '#495057', 0, 1.8, 0));
+      for (let i = 0; i < 6; i++) { const t = -1.05 + i * 0.42; g.add(box(0.05, 1.75, 0.05, '#adb5bd', t, 0.9, -1.05), box(0.05, 1.75, 0.05, '#adb5bd', t, 0.9, 1.05), box(0.05, 1.75, 0.05, '#adb5bd', -1.05, 0.9, t), box(0.05, 1.75, 0.05, '#adb5bd', 1.05, 0.9, t)); }
+      root.userData.baitDish = g.add(box(0.4, 0.06, 0.4, '#8d6e4a', 0, 0.13, 0)) && g.children[g.children.length - 1];
+      root.userData.cageGroup = g;
+      break;
+    }
     case 'solar': {
       // แผงโซล่าเซลล์: เสา + แผงเอียงรับแดด + กล่องอินเวอร์เตอร์
       const g = add(new THREE.Group()); g.rotation.y = s.ry || 0;
@@ -85,6 +94,56 @@ export function makeStructureMesh(s) {
       add(box(2.7, 0.18, 2.7, '#5c4033', 0, 0.09, 0));
       for (let i = -1; i <= 1; i++) add(box(2.6, 0.06, 0.3, '#6f4e37', 0, 0.2, i * 0.85));
       root.userData.cropGroup = add(new THREE.Group());
+      // ป้ายชนิดพืช (แปลงแยกชนิด)
+      const ck = plotCrop(s.type);
+      if (ck) { add(box(0.06, 0.7, 0.06, WOOD_D, 1.25, 0.35, 1.25)); add(box(0.4, 0.3, 0.04, CROPS[ck].color, 1.25, 0.75, 1.25)); }
+      break;
+    }
+    case 'pot': {
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.22, 0.45, 10), mat('#bc6c25')); pot.position.y = 0.22; pot.castShadow = true; add(pot);
+      add(box(0.5, 0.04, 0.5, '#5c4033', 0, 0.44, 0)).scale.set(0.9, 1, 0.9);
+      root.userData.cropGroup = add(new THREE.Group()); root.userData.potted = true;
+      break;
+    }
+    case 'duckpen': case 'pigpen': case 'cowpen': {
+      const P = PENS[s.type], ground = { duckpen: '#a3b18a', pigpen: '#6f4e37', cowpen: '#8a9a5b' }[s.type];
+      add(box(2.8, 0.1, 2.8, ground, 0, 0.05, 0));
+      for (const [x, z, w, d] of [[0, -1.4, 2.8, 0.1], [0, 1.4, 2.8, 0.1], [-1.4, 0, 0.1, 2.8], [1.4, 0, 0.1, 2.8]]) { add(box(w, 0.08, d, WOOD, x, 0.85, z)); add(box(w, 0.08, d, WOOD, x, 0.45, z)); }
+      for (const [x, z] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4], [0, -1.4], [0, 1.4]]) add(box(0.12, 1.05, 0.12, WOOD_D, x, 0.52, z));
+      if (s.type === 'duckpen') { const w = new THREE.Mesh(new THREE.CircleGeometry(0.7, 14), new THREE.MeshPhongMaterial({ color: '#4ea8de', shininess: 80 })); w.rotation.x = -Math.PI / 2; w.position.set(0.6, 0.12, 0.6); add(w); }
+      // รางอาหาร + รางน้ำ
+      add(box(1.0, 0.2, 0.3, WOOD_D, -0.7, 0.15, -1.1)); root.userData.trough = add(box(0.9, 0.06, 0.22, '#e9c46a', -0.7, 0.26, -1.1));
+      add(box(0.8, 0.2, 0.3, '#6c757d', 0.7, 0.15, -1.1)); root.userData.waterBox = add(box(0.7, 0.06, 0.22, '#4ea8de', 0.7, 0.26, -1.1));
+      root.userData.penAnimal = P.animal; root.userData.penGroup = add(new THREE.Group()); root.userData.goods = add(new THREE.Group());
+      break;
+    }
+    case 'hive': {
+      add(box(0.12, 0.5, 0.12, WOOD_D, -0.25, 0.25, -0.25)); add(box(0.12, 0.5, 0.12, WOOD_D, 0.25, 0.25, -0.25)); add(box(0.12, 0.5, 0.12, WOOD_D, -0.25, 0.25, 0.25)); add(box(0.12, 0.5, 0.12, WOOD_D, 0.25, 0.25, 0.25));
+      for (let i = 0; i < 3; i++) add(box(0.7, 0.18, 0.6, i % 2 ? '#f4d35e' : '#e9c46a', 0, 0.6 + i * 0.19, 0));
+      add(box(0.8, 0.06, 0.7, ROOF, 0, 1.2, 0)); add(box(0.2, 0.04, 0.04, '#222', 0, 0.55, 0.31));
+      root.userData.bees = add(new THREE.Group());
+      for (let i = 0; i < 6; i++) { const b = box(0.07, 0.05, 0.09, i % 2 ? '#ffd60a' : '#222', 0, 1, 0); b.castShadow = false; b.userData.a = i * 1.1; root.userData.bees.add(b); }
+      root.userData.honey = add(box(0.15, 0.2, 0.15, '#f4a261', 0.45, 0.1, 0.3));
+      break;
+    }
+    case 'sign': {
+      const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;
+      g.add(box(0.14, 2.2, 0.14, WOOD_D, -0.9, 1.1, 0), box(0.14, 2.2, 0.14, WOOD_D, 0.9, 1.1, 0), box(2.1, 0.8, 0.1, PLANK, 0, 1.8, 0));
+      const lb = makeLabel('ฐาน', '#ffd166'); lb.position.y = 2.7; lb.scale.set(3.2, 0.8, 1); root.add(lb); root.userData.signLabel = lb;
+      break;
+    }
+    case 'basecore': {
+      add(box(0.9, 1.2, 0.8, '#495057', 0, 0.6, 0)); add(box(0.95, 0.1, 0.85, '#ffd166', 0, 1.25, 0)); add(box(0.3, 0.3, 0.05, '#adb5bd', 0, 0.7, 0.42));
+      const fl = new THREE.Mesh(new THREE.OctahedronGeometry(0.22), new THREE.MeshBasicMaterial({ color: '#ffd60a' })); fl.position.y = 1.7; add(fl); root.userData.coreGem = fl;
+      break;
+    }
+    case 'stall': {
+      const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;
+      g.add(box(2.2, 0.9, 0.9, WOOD, 0, 0.45, 0), box(2.3, 0.06, 1.0, PLANK, 0, 0.92, 0));
+      for (const x of [-1.05, 1.05]) g.add(box(0.08, 2.2, 0.08, WOOD_D, x, 1.1, -0.4));
+      for (let i = 0; i < 6; i++) g.add(box(0.4, 0.05, 1.2, i % 2 ? '#e63946' : '#f1faee', -1.0 + i * 0.4, 2.25, -0.1));
+      g.add(box(1.2, 0.35, 0.05, '#ffd60a', 0, 1.9, 0.5));
+      const sg = new THREE.Group(); g.add(sg); root.userData.stallGoods = sg;
       break;
     }
     case 'coop': {
@@ -141,6 +200,12 @@ export function makeVehicle(vt) {
 // อัปเดตภาพตามสถานะ (เปิดประตู พืชโต ไข่ ปลา) — เรียกเป็นระยะ
 export function updateStructureMesh(root, now, dt) {
   const s = root.userData.s, u = root.userData;
+  if (u.cageGroup) {
+    const caught = cageCatch(s, now);
+    if ((u.caught || null) !== caught) { if (u.caughtMesh) u.cageGroup.remove(u.caughtMesh); u.caught = caught; u.caughtMesh = null; if (caught) { const m = makeAnimal(caught); const big = caught === 'trike' ? 0.5 : caught === 'raptor' || caught === 'tiger' ? 0.7 : 1; m.scale.setScalar(big); u.cageGroup.add(m); u.caughtMesh = m; } }
+    if (u.caughtMesh) animateAnimal(u.caughtMesh, dt, 0.5);
+    if (u.baitDish) u.baitDish.material = mat(s.bait ? '#c1121f' : '#8d6e4a');
+  }
   if (u.hinge) { const want = s.open ? -Math.PI / 2 * 0.95 : 0; u.hinge.rotation.y += (want - u.hinge.rotation.y) * Math.min(1, dt * 8); }
   if (u.cropGroup) {
     const key = s.crop ? `${s.crop}:${Math.floor(cropProgress(s, now) * 4)}` : '';
@@ -148,15 +213,44 @@ export function updateStructureMesh(root, now, dt) {
       u.cropKey = key; u.cropGroup.clear();
       if (s.crop) {
         const p = cropProgress(s, now), C = CROPS[s.crop], ripe = p >= 1;
-        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
-          const h = 0.15 + p * (s.crop === 'corn' ? 1.6 : 0.6);
-          const st = new THREE.Mesh(new THREE.ConeGeometry(0.12 + p * 0.15, h, 5), mat(p < 0.3 ? '#95d5b2' : '#40916c'));
-          st.position.set(i * 0.8, 0.2 + h / 2, j * 0.85); u.cropGroup.add(st);
-          if (ripe) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), mat(C.color)); f.position.set(i * 0.8 + 0.08, 0.25 + h * 0.75, j * 0.85); u.cropGroup.add(f); }
+        const spots = u.potted ? [[0, 0]] : [-1, 0, 1].flatMap((i) => [-1, 0, 1].map((j) => [i * 0.8, j * 0.85]));
+        const y0 = u.potted ? 0.45 : 0.2, tall = s.crop === 'corn' || s.crop === 'sunflower' ? 1.6 : s.crop === 'rice' ? 0.9 : C.low ? 0.35 : 0.6;
+        for (const [x, z] of spots) {
+          const h = 0.15 + p * tall;
+          const st = new THREE.Mesh(C.low ? new THREE.SphereGeometry(0.1 + p * 0.22, 6, 4) : new THREE.ConeGeometry(0.12 + p * 0.15, h, 5), mat(p < 0.3 ? '#95d5b2' : s.crop === 'rice' && ripe ? '#e9c46a' : '#40916c'));
+          st.position.set(x, y0 + (C.low ? 0.08 : h / 2), z); if (C.low) st.scale.y = 0.6; u.cropGroup.add(st);
+          // ดอกไม้บานตั้งแต่ครึ่งทาง · ผลไม้เห็นเมื่อสุก
+          if (ripe || (C.flower && p >= 0.5)) {
+            const big = C.low ? 0.2 : C.flower ? (s.crop === 'sunflower' ? 0.22 : 0.14) : 0.12;
+            const f = new THREE.Mesh(C.flower ? new THREE.CylinderGeometry(big, big, 0.05, 8) : new THREE.SphereGeometry(big, 6, 4), mat(C.color));
+            if (C.flower) { f.rotation.x = 0.4; const c = new THREE.Mesh(new THREE.SphereGeometry(big * 0.35, 5, 4), mat(s.crop === 'sunflower' ? '#6b4226' : '#ffd60a')); c.position.set(x, y0 + h + 0.03, z + 0.03); u.cropGroup.add(c); }
+            f.position.set(x + (C.flower ? 0 : 0.08), C.low ? y0 + 0.12 : y0 + (C.flower ? h : h * 0.75), z); u.cropGroup.add(f);
+          }
         }
       }
     }
     u.cropGroup.children.forEach((c) => { c.material.emissive?.setHex(0); });
+  }
+  if (u.penGroup) {
+    const P = PENS[s.type], herd = herdOf(s, now), key = herd.map((a) => ageStage(P, a, now)).join(',');
+    if (u.herdKey !== key) {
+      u.herdKey = key; u.penGroup.clear();
+      herd.forEach((a, i) => { const m = makeAnimal(u.penAnimal); m.scale.setScalar(ageStage(P, a, now) === 'baby' ? 0.55 : 1); m.position.set(-0.6 + (i % 2) * 1.1, 0.1, 0.1 + Math.floor(i / 2) * 0.7); m.userData.t = i * 2; u.penGroup.add(m); });
+    }
+    const fed = (s.fed || 0) > now, wet = (s.wat || 0) > now;
+    u.trough.visible = fed; u.waterBox.visible = wet;
+    u.penGroup.children.forEach((m, i) => { m.userData.t += dt; m.position.x = -0.6 + (i % 2) * 1.1 + Math.sin(m.userData.t * 0.4) * 0.3; m.rotation.y = Math.sin(m.userData.t * 0.3) * 2.5; animateAnimal(m, dt, fed && wet ? 0.6 : 0.15); });
+    const n = penGoods(s, now);
+    if (u.goodN !== n) { u.goodN = n; u.goods.clear(); const c = { egg: '#fff8e7', duck_egg: '#e8f0e8', milk: '#ffffff', manure: '#5c4033' }[P.prod[0]]; for (let i = 0; i < Math.min(n, 8); i++) { const e = P.prod[0] === 'milk' ? box(0.14, 0.22, 0.14, c) : new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 4), mat(c)); e.position.set(1.0 - (i % 4) * 0.18, 0.18, 1.0 - Math.floor(i / 4) * 0.2); u.goods.add(e); } }
+  }
+  if (u.bees) {
+    u.bees.visible = !!s.bees;
+    if (s.bees) u.bees.children.forEach((b) => { b.userData.a += dt * 2.5; b.position.set(Math.cos(b.userData.a) * 0.6, 1.0 + Math.sin(b.userData.a * 1.7) * 0.3, Math.sin(b.userData.a * 1.3) * 0.6); });
+    u.honey.visible = hiveHoney(s, now) > 0;
+  }
+  if (u.stallGoods) {
+    const key = (s.goods || []).map((r) => r.k).join(',');
+    if (u.goodsKey !== key) { u.goodsKey = key; u.stallGoods.clear(); (s.goods || []).slice(0, 8).forEach((r, i) => u.stallGoods.add(box(0.2, 0.2, 0.2, ['#e63946', '#f4a261', '#2a9d8f', '#e9c46a', '#9b5de5'][i % 5], -0.9 + i * 0.25, 1.05, 0.1))); }
   }
   if (u.hens) {
     const fed = (s.fed || 0) > now;
@@ -169,6 +263,7 @@ export function updateStructureMesh(root, now, dt) {
     if (u.fishN !== n) { u.fishN = n; u.fishGroup.clear(); for (let i = 0; i < n; i++) { const f = box(0.25, 0.06, 0.1, s.gold && i === 0 ? '#ffb703' : '#adb5bd', 0, 0.2, 0); f.userData.a = i * 0.8; u.fishGroup.add(f); } }
     u.fishGroup.children.forEach((f, i) => { f.userData.a += dt * (0.6 + i * 0.1); const r = 0.4 + (i % 3) * 0.25; f.position.x = Math.cos(f.userData.a) * r; f.position.z = Math.sin(f.userData.a) * r; f.rotation.y = -f.userData.a; });
   }
+  if (u.coreGem) { u.coreGem.rotation.y += dt * 1.5; u.coreGem.material.color.set(s.ok ? '#52b788' : '#ffd60a'); }
   if (u.flame) u.flame.scale.y = 0.8 + Math.random() * 0.4;
 }
 

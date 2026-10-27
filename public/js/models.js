@@ -34,11 +34,11 @@ const limb = (w, h, d, color, x, y, z) => {
   const m = box(w, h, d, color, 0, -h / 2, 0); g.add(m); return g;
 };
 
-export const SKINS = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac'];
+import { SKINS, HAIR_STYLES } from './look-core.js';
+export { SKINS, HAIR_STYLES };
 
 // ตัวละครมนุษย์ low-poly  look = {skin, shirt, pants, hair}
 // ทรงผม (เลือกได้ตอนสร้างตัวละคร)
-export const HAIR_STYLES = { short: 'สั้น', buzz: 'เกรียน', spiky: 'ตั้งชี้', mohawk: 'โมฮอว์ก', afro: 'แอฟโฟร', bob: 'บ็อบ', long: 'ยาว', ponytail: 'หางม้า', bun: 'มวยผม', twin: 'แกะสองข้าง', bald: 'โล้น' };
 function addHair(head, style, sex, c) {
   if (!HAIR_STYLES[style]) style = sex === 'f' ? 'long' : 'short';
   const H = (w, h, d, x, y, z) => head.add(box(w, h, d, c, x, y, z));
@@ -54,8 +54,48 @@ function addHair(head, style, sex, c) {
     case 'ponytail': cap(); H(0.36, 0.2, 0.1, 0, 0.2, -0.16); H(0.12, 0.36, 0.12, 0, 0.0, -0.26); break;
     case 'bun': cap(); H(0.36, 0.2, 0.1, 0, 0.2, -0.16); H(0.2, 0.18, 0.2, 0, 0.42, -0.1); break;
     case 'twin': cap(); H(0.36, 0.18, 0.1, 0, 0.2, -0.16); for (const x of [-0.22, 0.22]) H(0.1, 0.32, 0.1, x, 0.06, -0.1); break;
+    case 'curly': for (const [x, z] of [[-0.12, -0.1], [0, -0.1], [0.12, -0.1], [-0.12, 0.04], [0, 0.04], [0.12, 0.04], [-0.12, 0.14], [0.12, 0.14]]) H(0.14, 0.14, 0.14, x, 0.33, z); H(0.38, 0.16, 0.12, 0, 0.2, -0.16); break;
+    case 'sidepart': cap(); H(0.36, 0.14, 0.08, 0, 0.22, -0.15); H(0.22, 0.08, 0.1, 0.08, 0.32, 0.15); H(0.05, 0.16, 0.3, 0.18, 0.22, 0); break;
+    case 'undercut': H(0.3, 0.12, 0.34, 0, 0.36, 0.01); H(0.36, 0.04, 0.36, 0, 0.3, 0); H(0.2, 0.06, 0.12, 0.06, 0.4, 0.14); break;
+    case 'mullet': cap(); H(0.36, 0.42, 0.1, 0, 0.06, -0.16); H(0.3, 0.08, 0.06, 0, 0.3, 0.16); break;
+    case 'pixie': cap(); H(0.36, 0.16, 0.08, 0, 0.22, -0.15); H(0.24, 0.08, 0.06, -0.06, 0.28, 0.17); break;
+    case 'braid': cap(); H(0.36, 0.2, 0.1, 0, 0.2, -0.16); for (let i = 0; i < 4; i++) H(0.11 - i * 0.01, 0.12, 0.11 - i * 0.01, 0, 0.04 - i * 0.12, -0.24); break;
     case 'bald': break;
   }
+}
+// หน้าตา: ตา ปาก คิ้ว และของเสริม (แว่น/เครา/กระ ฯลฯ)
+function addFace(head, L, eyeC, hair, skin) {
+  const F = (w, h, c, x, y, z = 0.175) => { const m = box(w, h, 0.02, c, x, y, z); head.add(m); return m; };
+  const eyes = L.eyes || 'normal';
+  for (const sx of [-1, 1]) {
+    const x = 0.08 * sx;
+    if (eyes === 'round') { F(0.08, 0.08, '#fff', x, 0.15); F(0.04, 0.05, eyeC, x, 0.15, 0.188); }
+    else if (eyes === 'sleepy') F(0.07, 0.025, eyeC, x, 0.14);
+    else if (eyes === 'sharp') { const m = F(0.08, 0.035, eyeC, x, 0.15); m.rotation.z = 0.25 * sx; }
+    else if (eyes === 'happy') { const a = F(0.04, 0.02, eyeC, x - 0.015, 0.15); a.rotation.z = 0.6; const b = F(0.04, 0.02, eyeC, x + 0.015, 0.15); b.rotation.z = -0.6; }
+    else if (eyes === 'wink' && sx > 0) F(0.07, 0.02, eyeC, x, 0.145);
+    else F(0.06, 0.05, eyeC, x, 0.15);
+  }
+  const bc = new THREE.Color(hair).multiplyScalar(0.8).getStyle();
+  const br = L.brows || 'thin';
+  if (br !== 'none') for (const sx of [-1, 1]) { const m = F(0.08, br === 'thick' ? 0.035 : 0.018, bc, 0.08 * sx, 0.215); if (br === 'angry') m.rotation.z = -0.35 * sx; }
+  const mc = '#7a2e2e';
+  ({ smile: () => { F(0.1, 0.022, mc, 0, 0.03); F(0.025, 0.02, mc, -0.055, 0.045); F(0.025, 0.02, mc, 0.055, 0.045); },
+    flat: () => F(0.09, 0.02, mc, 0, 0.035), grin: () => { F(0.14, 0.05, mc, 0, 0.035); F(0.12, 0.018, '#fff', 0, 0.05, 0.188); },
+    open: () => F(0.06, 0.06, '#3a1010', 0, 0.03), smirk: () => { const m = F(0.09, 0.02, mc, 0.02, 0.035); m.rotation.z = 0.25; },
+    frown: () => { F(0.1, 0.022, mc, 0, 0.04); F(0.025, 0.02, mc, -0.055, 0.025); F(0.025, 0.02, mc, 0.055, 0.025); } })[L.mouth || 'smile']?.();
+  switch (L.extra) {
+    case 'glasses': for (const sx of [-1, 1]) { F(0.11, 0.015, '#222', 0.08 * sx, 0.2, 0.19); F(0.11, 0.015, '#222', 0.08 * sx, 0.1, 0.19); F(0.015, 0.1, '#222', 0.08 * sx + 0.05 * sx, 0.15, 0.19); F(0.015, 0.1, '#222', 0.08 * sx - 0.05 * sx, 0.15, 0.19); } break;
+    case 'sunglasses': F(0.3, 0.07, '#111', 0, 0.155, 0.19); break;
+    case 'beard': head.add(box(0.36, 0.14, 0.06, bc, 0, -0.01, 0.16)); for (const sx of [-1, 1]) head.add(box(0.04, 0.2, 0.3, bc, 0.17 * sx, 0.03, 0)); break;
+    case 'mustache': F(0.14, 0.03, bc, 0, 0.065, 0.19); break;
+    case 'goatee': F(0.08, 0.07, bc, 0, -0.01, 0.18); break;
+    case 'freckles': for (const [x, y] of [[-0.11, 0.1], [-0.07, 0.09], [-0.09, 0.075], [0.11, 0.1], [0.07, 0.09], [0.09, 0.075]]) F(0.015, 0.015, '#8d5524', x, y, 0.18); break;
+    case 'blush': for (const sx of [-1, 1]) F(0.06, 0.03, '#f28482', 0.11 * sx, 0.09, 0.18); break;
+    case 'scar': { const m = F(0.02, 0.12, '#9d4b4b', 0.1, 0.14, 0.19); m.rotation.z = 0.4; break; }
+    case 'bandana': head.add(box(0.37, 0.07, 0.37, '#c1121f', 0, 0.24, 0)); head.add(box(0.06, 0.14, 0.04, '#c1121f', 0.05, 0.18, -0.19)); break;
+  }
+  void skin;
 }
 export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   const skin = kind === 'zombie' ? '#7d9a6a' : look.skin || SKINS[0];
@@ -65,16 +105,14 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   const s = kind === 'child' ? 0.55 : kind === 'baby' ? 0.32 : 1;
   const g = new THREE.Group();
   const inner = new THREE.Group(); inner.scale.setScalar(s); g.add(inner);
-  const shoulder = sex === 'f' ? 0.5 : 0.6;
+  const shoulder = sex === 'f' ? 0.5 : sex === 'x' ? 0.55 : 0.6;
   const body = box(shoulder, 0.7, 0.3, shirt, 0, 1.25, 0); inner.add(body);
   if (sex === 'f') inner.add(box(0.56, 0.22, 0.34, shirt, 0, 0.98, 0));
   const head = new THREE.Group(); head.position.set(0, 1.62, 0); inner.add(head);
   head.add(box(0.34, 0.36, 0.34, skin, 0, 0.12, 0));
   addHair(head, kind === 'zombie' ? (sex === 'f' ? 'long' : 'short') : look.style, sex, hair);
   // ตา
-  const eyeC = kind === 'zombie' ? '#e63946' : '#111';
-  head.add(box(0.06, 0.05, 0.02, eyeC, -0.08, 0.15, 0.175));
-  head.add(box(0.06, 0.05, 0.02, eyeC, 0.08, 0.15, 0.175));
+  addFace(head, kind === 'zombie' ? {} : look, kind === 'zombie' ? '#e63946' : '#111', hair, skin);
   const lArm = limb(0.14, 0.62, 0.14, shirt, -shoulder / 2 - 0.08, 1.58, 0);
   const rArm = limb(0.14, 0.62, 0.14, shirt, shoulder / 2 + 0.08, 1.58, 0);
   lArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -0.34, 0));
@@ -92,6 +130,42 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   return g;
 }
 
+// อาการบาดเจ็บบนตัวละคร (แบบน่ารัก ไม่น่ากลัว เหมาะกับเด็ก): ij = บิต 1 เลือดออก · 2 ขาหัก · 4 ติดเชื้อ
+// เลือดออก = พลาสเตอร์สีชมพูที่แก้ม/แขน · ขาหัก = เฝือกสีขาวมีสติกเกอร์ดาว + เดินกะเผลก · ติดเชื้อ = หน้าเขียวอ่อน ๆ + ฟองสบู่สีเขียว
+export function setInjury(g, ij = 0) {
+  const u = g.userData; if (u.ijKey === ij) return; u.ijKey = ij;
+  for (const o of u.ijParts || []) o.parent?.remove(o);
+  const parts = u.ijParts = [];
+  const put = (parent, o) => { parent.add(o); parts.push(o); return o; };
+  if (ij & 1) {
+    // พลาสเตอร์ลายกากบาท
+    const pl = (parent, x, y, z, rz) => { const a = put(parent, box(0.12, 0.05, 0.02, '#ffc8dd', x, y, z)); a.rotation.z = rz; const b = put(parent, box(0.12, 0.05, 0.02, '#ffc8dd', x, y, z + 0.002)); b.rotation.z = -rz; };
+    pl(u.head, 0.1, 0.06, 0.18, 0.6); pl(u.rArm.children[0], 0, -0.2, 0.075, 0.6);
+  }
+  if (ij & 2) {
+    put(u.lLeg.children[0], box(0.22, 0.42, 0.24, '#f8f9fa', 0, -0.2, 0));
+    put(u.lLeg.children[0], box(0.08, 0.08, 0.02, '#ffd60a', 0, -0.15, 0.125)); put(u.lLeg.children[0], box(0.06, 0.06, 0.02, '#4cc9f0', 0.04, -0.3, 0.125));
+  }
+  if (ij & 8) {
+    // ขาแพลง: ผ้าพันข้อเท้าสีครีม
+    put(u.rLeg.children[0], box(0.21, 0.16, 0.23, '#f2e8cf', 0, -0.36, 0)); put(u.rLeg.children[0], box(0.22, 0.03, 0.24, '#e9c46a', 0, -0.33, 0));
+  }
+  if (ij & 4) {
+    const bub = new THREE.Group(); bub.position.set(0, 0.5, 0);
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.05 + i * 0.015, 8, 6), new THREE.MeshBasicMaterial({ color: '#b7e4c7', transparent: true, opacity: 0.8 })); b.userData.a = i * 2.1; bub.add(b); }
+    put(u.head, bub); u.bubbles = bub;
+    put(u.head, box(0.345, 0.12, 0.02, '#b7e4c7', 0, 0.06, 0.172)).material = new THREE.MeshBasicMaterial({ color: '#95d5b2', transparent: true, opacity: 0.45 });
+  } else u.bubbles = null;
+  u.limp = !!(ij & 10);
+}
+export function tickInjury(g, dt) {
+  const u = g.userData;
+  if (u.bubbles) for (const b of u.bubbles.children) { b.userData.a += dt * 1.5; const t = b.userData.a % 3; b.position.set(Math.sin(b.userData.a * 2) * 0.15, t * 0.15, Math.cos(b.userData.a) * 0.1); b.material.opacity = 0.8 - t * 0.25; }
+  if (u.limp) u.inner.rotation.z = Math.sin(performance.now() / 160) * 0.05;
+  else if (u.inner) u.inner.rotation.z = 0;
+}
+export const injuryBits = (s) => (s.bleeding ? 1 : 0) | (s.fracture ? 2 : 0) | (s.infection >= 15 ? 4 : 0) | (!s.fracture && s.sprain > 0 ? 8 : 0);
+
 // เสื้อผ้าที่สวม: ซ้อนกล่องสีบนส่วนต่าง ๆ ของตัว (wear = {head, body, legs, hands, socks, shoes, back} → key ของไอเท็ม)
 export function setOutfit(g, wear, ITEMS) {
   wear = Object.fromEntries(Object.entries(wear || {}).map(([s, k]) => [s, k ? String(k).split('~')[0] : k])); // ของสุ่มสเตตัสหน้าตาเหมือนของปกติ
@@ -100,7 +174,7 @@ export function setOutfit(g, wear, ITEMS) {
   const out = u.outfit = []; u.shield = null;
   const put = (parent, o) => { parent.add(o); out.push(o); return o; };
   const W = (slot) => wear?.[slot] && ITEMS[wear[slot]]?.wear;
-  const sw = u.sex === 'f' ? 0.5 : 0.6;
+  const sw = u.sex === 'f' ? 0.5 : u.sex === 'x' ? 0.55 : 0.6;
   const h = W('head');
   if (h) {
     if (wear.head === 'hat_cloth') { put(u.head, box(0.38, 0.12, 0.38, h.color, 0, 0.33, 0)); put(u.head, box(0.38, 0.04, 0.18, h.color, 0, 0.27, 0.24)); }
@@ -289,6 +363,14 @@ export function makeAnimal(type) {
     for (let i = 0; i < 4; i++) g.add(box(0.06, 0.16, 0.12, '#bc4749', 0, 1.36, 0.3 - i * 0.28));
     g.add(box(0.08, 0.3, 0.08, d, -0.22, 0.95, 0.45), box(0.08, 0.3, 0.08, d, 0.22, 0.95, 0.45));
     for (const x of [-0.18, 0.18]) { const l = limb(0.16, 0.8, 0.2, d, x, 0.8, -0.1); legs.push(l); g.add(l); }
+  } else if (type === 'tiger') {
+    // เสือโคร่ง: สีส้ม ลายดำ
+    const c = '#f77f00', d = '#1b1b1b';
+    g.add(box(0.6, 0.55, 1.4, c, 0, 0.85, 0)); g.add(box(0.5, 0.45, 0.45, c, 0, 1.05, 0.85)); g.add(box(0.3, 0.2, 0.2, '#fefae0', 0, 0.95, 1.1));
+    for (let i = 0; i < 5; i++) g.add(box(0.62, 0.56, 0.06, d, 0, 0.86, -0.55 + i * 0.27));
+    g.add(box(0.1, 0.12, 0.08, c, -0.16, 1.32, 0.8), box(0.1, 0.12, 0.08, c, 0.16, 1.32, 0.8));
+    const tail = box(0.1, 0.1, 0.8, c, 0, 1.0, -1.05); tail.rotation.x = -0.4; g.add(tail);
+    addLegs(c, 0.16, 0.6, 0.22, 0.5);
   } else if (type === 'trike') {
     // ไทรเซอราทอปส์: ตัวใหญ่ สี่ขา แผงคอ สามเขา
     const c = '#9c6644', d = '#7f5539';
@@ -297,6 +379,20 @@ export function makeAnimal(type) {
     g.add(box(0.1, 0.1, 0.7, '#f2e8cf', -0.3, 1.85, 1.95), box(0.1, 0.1, 0.7, '#f2e8cf', 0.3, 1.85, 1.95), box(0.09, 0.09, 0.4, '#f2e8cf', 0, 1.45, 2.1));
     const tail = box(0.4, 0.4, 1.1, d, 0, 1.2, -1.6); tail.rotation.x = 0.3; g.add(tail);
     addLegs(d, 0.36, 0.9, 0.5, 0.8);
+  } else if (type === 'duck') {
+    g.add(box(0.3, 0.26, 0.45, '#f8f9fa', 0, 0.3, 0)); g.add(box(0.18, 0.2, 0.18, '#f8f9fa', 0, 0.55, 0.2));
+    g.add(box(0.14, 0.05, 0.16, '#f4a261', 0, 0.52, 0.34)); g.add(box(0.04, 0.04, 0.02, '#111', -0.06, 0.6, 0.29), box(0.04, 0.04, 0.02, '#111', 0.06, 0.6, 0.29));
+    addLegs('#f4a261', 0.05, 0.16, 0.07, 0.0);
+  } else if (type === 'pig') {
+    g.add(box(0.6, 0.5, 0.9, '#ffafcc', 0, 0.55, 0)); g.add(box(0.42, 0.4, 0.32, '#ffafcc', 0, 0.62, 0.55));
+    g.add(box(0.22, 0.16, 0.08, '#ff8fab', 0, 0.56, 0.74)); g.add(box(0.1, 0.1, 0.05, '#ff8fab', -0.13, 0.86, 0.5), box(0.1, 0.1, 0.05, '#ff8fab', 0.13, 0.86, 0.5));
+    addLegs('#ff8fab', 0.13, 0.3, 0.2, 0.3);
+  } else if (type === 'cow') {
+    g.add(box(0.75, 0.7, 1.4, '#f8f9fa', 0, 1.0, 0)); for (const [x, z] of [[0.2, 0.2], [-0.25, -0.35], [0.3, -0.45]]) g.add(box(0.36, 0.5, 0.3, '#222', x, 1.02, z));
+    g.add(box(0.45, 0.45, 0.5, '#f8f9fa', 0, 1.2, 0.85)); g.add(box(0.36, 0.2, 0.12, '#ffc8dd', 0, 1.05, 1.12));
+    g.add(box(0.06, 0.18, 0.06, '#e9d8a6', -0.18, 1.5, 0.8), box(0.06, 0.18, 0.06, '#e9d8a6', 0.18, 1.5, 0.8));
+    g.add(box(0.2, 0.12, 0.2, '#ffc8dd', 0, 0.62, -0.2));
+    addLegs('#e9ecef', 0.16, 0.65, 0.25, 0.5);
   } else if (type === 'bird') {
     g.add(box(0.16, 0.16, 0.28, '#1d1d1d', 0, 0.15, 0)); g.add(box(0.06, 0.05, 0.1, '#f4d35e', 0, 0.18, 0.18));
     const wl = box(0.3, 0.03, 0.16, '#222', -0.2, 0.2, 0), wr = box(0.3, 0.03, 0.16, '#222', 0.2, 0.2, 0);
@@ -315,6 +411,8 @@ const PET_BODY = {
   boar: [0.7, 0.6, 1.2, 0.75, 0.85, 0.55, 0.85, 0.75, 0.45, [0.22, 0.4]],
   chicken: [0.3, 0.3, 0.4, 0.35, 0.5, 0.15, 0.6, 0.18, 0.18, [0.06, 0.0]],
   raptor: [0.5, 0.55, 1.1, 1.05, 1.3, 0.4, 1.45, 0.65, 0.36, [0.18, -0.1]],
+  trike: [1.4, 1.2, 2.4, 1.4, 1.6, 1.15, 1.8, 1.55, 0.9, [0.5, 0.8]],
+  tiger: [0.6, 0.55, 1.4, 0.85, 1.0, 0.65, 1.15, 0.85, 0.5, [0.22, 0.5]],
 };
 export function setPetGear(g, type, gear, ITEMS) {
   if (g.userData.gear) g.remove(g.userData.gear);

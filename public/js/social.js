@@ -1,4 +1,4 @@
-import { newRel, relLevel, canDo, applyAction, ACTIONS, REL_LEVELS } from './social-core.js';
+import { newRel, relLevel, canDo, applyAction, ACTIONS, REL_LEVELS, giftValue } from './social-core.js';
 import { ITEMS, NPCS, PREG_MS, CHILD_MS, CHILD_NAMES, jobOf } from './data.js';
 
 const NPC_LINES = [
@@ -47,7 +47,7 @@ export class Social {
     if (action === 'gift') {
       const { item } = extra; if (!this.g.hasItem(item) || ITEMS[item]?.quest) return;
       const liked = this.isNpc(id) && NPCS.find((n) => n.id === id).likes === item;
-      const value = Math.min(20, (ITEMS[item].value || 1) * (liked ? 3 : 1));
+      const value = giftValue(ITEMS[item], liked);
       if (!this.isNpc(id)) {
         // เซิร์ฟเวอร์ย้ายของจากกระเป๋าจริงให้ผู้รับเอง / เล่นผ่านลิงก์: หักในเครื่องแล้วให้โฮสต์ส่งต่อ
         if (!this.g.auth.server) this.g.removeItem(item, 1);
@@ -56,7 +56,8 @@ export class Social {
       const res = this.g.auth.do('gift', { to: id, k: item });
       if (res?.err) return;
       r.pts += value;
-      ui.toast(liked ? `${other.name}: "ว้าว! ${ITEMS[item].name} ของที่ชอบเลย ขอบคุณมาก!" (+${value})` : `${other.name} รับ ${ITEMS[item].name} ไว้ (+${value})`);
+      if (ITEMS[item].flower) this.g.sfx.play('quest');
+      ui.toast(ITEMS[item].flower ? `${other.name}: "ดอกไม้สวยจัง ขอบคุณนะ 💐" (+${Math.round(value)})` : liked ? `${other.name}: "ว้าว! ${ITEMS[item].name} ของที่ชอบเลย ขอบคุณมาก!" (+${value})` : `${other.name} รับ ${ITEMS[item].name} ไว้ (+${value})`);
       return this.changed(id);
     }
     if (action === 'heal') {

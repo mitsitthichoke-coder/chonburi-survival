@@ -22,6 +22,8 @@ export function relLevel(r) {
 export const relName = (r) => REL_LEVELS[relLevel(r)].name;
 export const relColor = (r) => REL_LEVELS[relLevel(r)].color;
 
+// แต้มความสัมพันธ์จากของขวัญ: ดอกไม้ได้มากเป็นพิเศษ (ช่อดอกไม้/พวงมาลัยสูงสุด)
+export const giftValue = (it, liked) => !it ? 2 : it.flower ? Math.min(40, Math.max(12, it.value * 2) * (liked ? 1.5 : 1)) : Math.min(20, (it.value || 1) * (liked ? 3 : 1));
 // การกระทำที่ทำกับอีกฝ่ายได้
 export const ACTIONS = {
   talk: { label: '💬 พูดคุย', minLvl: 0, pts: 2, cd: 30 },
@@ -48,7 +50,7 @@ export function canDo(action, r, a, b, now = Date.now()) {
   if (action === 'propose' && r.bond !== 'none') return { ok: false, why: 'เป็นคนรักกันอยู่แล้ว' };
   if (action === 'marry' && r.bond !== 'lover') return { ok: false, why: 'ต้องเป็นคนรักกันก่อน' };
   if (A.opposite) {
-    if (a.sex === b.sex) return { ok: false, why: 'การตั้งครรภ์ต้องเป็นคู่ชาย–หญิง (ลองรับเลี้ยงเด็กกำพร้าแทนได้เมื่อเป็นครอบครัว)' };
+    if (a.sex === b.sex || a.sex === 'x' || b.sex === 'x') return { ok: false, why: 'การตั้งครรภ์ต้องเป็นคู่ชาย–หญิง (ลองรับเลี้ยงเด็กกำพร้าแทนได้เมื่อเป็นครอบครัว)' };
     if (a.pregnant || b.pregnant) return { ok: false, why: 'มีคนกำลังตั้งครรภ์อยู่แล้ว' };
   }
   return { ok: true };

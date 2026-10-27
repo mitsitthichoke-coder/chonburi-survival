@@ -7,10 +7,14 @@ import { heightAt, hash2 } from './terrain.js';
 export const TRAP_MS = 3 * 60000;
 export const BAIT_MEAT = ['raw_meat', 'cooked_meat', 'raw_fish', 'pork', 'beef'], BAIT_PLANT = ['veg', 'corn', 'berry', 'pineapple', 'orange', 'seeds_corn', 'carrot', 'cabbage', 'tomato', 'watermelon'];
 const ZOO = { x: (101.03 - 100.70) * 2160 - 648, z: (13.075 - 13.24) * 2212 }; // สวนสัตว์เปิดเขาเขียว
+// สัตว์ที่ติดกรง: เลือกได้ว่าจะ 🐾 เลี้ยงเป็นสัตว์เลี้ยง · 🏡 นำเข้าคอกในฟาร์ม (ต้องมีคอกชนิดนั้น) · 🍖 แปรรูปเป็นอาหาร · 🌿 ปล่อยคืนป่า
+export const CAGE_FARM = { chicken: 'coop', duck: 'duckpen', boar: 'pigpen' };
+export const CAGE_FOOD = { chicken: { raw_meat: 1 }, duck: { raw_meat: 2 }, boar: { raw_meat: 3, hide: 1 }, deer: { raw_meat: 3, hide: 2 }, raptor: { raw_meat: 4, hide: 2 }, trike: { raw_meat: 6, hide: 3 }, tiger: { raw_meat: 4, hide: 3 } };
+export const CAGE_NAME = { duck: 'เป็ด' };
 export function cageCatch(s, now) {
   if (!s.bait || !s.bt || now - s.bt < TRAP_MS) return null;
   const zoo = Math.hypot(s.x - ZOO.x, s.z - ZOO.z) < 150, meat = BAIT_MEAT.includes(s.bait);
-  const list = meat ? (zoo ? ['raptor', 'tiger', 'raptor', 'dog'] : ['dog', 'cat', 'boar', 'cat']) : (zoo ? ['trike', 'deer', 'trike', 'chicken'] : ['deer', 'chicken', 'boar', 'chicken']);
+  const list = meat ? (zoo ? ['raptor', 'tiger', 'raptor', 'dog'] : ['dog', 'cat', 'boar', 'cat']) : (zoo ? ['trike', 'deer', 'trike', 'chicken'] : ['deer', 'chicken', 'boar', 'duck', 'chicken', 'duck']);
   return list[Math.floor(hash2(Math.floor(s.bt / 1000), s.id.length * 977) * list.length)];
 }
 
@@ -208,7 +212,13 @@ export function applyOp(s, op, ctx) {
       return { patch: { bait: op.item, bt: now }, msg: '🪤 วางเหยื่อแล้ว รอสัตว์มาติดกรงประมาณ 3 นาที' };
     case 'claim':
       if (s.type !== 'cage' || !cageCatch(s, now)) return { err: 'ยังไม่มีสัตว์ติดกรง' };
-      return { patch: { bait: null, bt: null }, msg: '🐾 เปิดกรงแล้ว' };
+      return { patch: { bait: null, bt: null }, msg: { farm: '🏡 ใส่กรงหิ้วแล้ว — นำไปปล่อยที่คอกในฟาร์ม', food: '🍖 แปรรูปเป็นอาหารแล้ว', free: '🌿 ปล่อยสัตว์คืนป่าแล้ว' }[op.mode] || '🐾 เปิดกรงแล้ว' };
+    case 'addlive': {
+      // ปล่อยสัตว์ที่จับจากกรงเข้าคอก (เป็นตัวโตเต็มวัย)
+      const P = PENS[s.type]; if (!P) return { err: 'ปล่อยได้เฉพาะในคอกสัตว์' };
+      const st = settlePen(s, now); if (st.herd.length >= P.max) return { err: `คอกนี้เต็มแล้ว (${P.max} ตัว)` };
+      return { patch: { ...st, herd: [...st.herd, { b: now - P.adult }] }, msg: `🐾 ปล่อย${P.name}เข้าคอกแล้ว` };
+    }
     case 'door':
       if (s.lock && !ctx.canAccess) return { err: '🔒 ประตูนี้ล็อกไว้ (เปิดได้เฉพาะเจ้าของและเพื่อนของเจ้าของ)' };
       return { patch: { open: !s.open } };

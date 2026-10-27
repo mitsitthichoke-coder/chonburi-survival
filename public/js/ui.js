@@ -499,6 +499,13 @@ export class UI {
     }
     if (el._h !== h) { el._h = h; el.innerHTML = h; }
   }
+  // หน้าต่างให้เลือกหลายตัวเลือก (opts: {label, run, dis: false | ข้อความเหตุผล})
+  choice(title, opts) {
+    const m = $('#ctx-menu'); document.exitPointerLock?.();
+    m.innerHTML = `<b>${esc(title)}</b>${opts.map((o, i) => `<button data-ci="${i}" ${o.dis ? 'disabled' : ''}>${esc(o.label)}${o.dis ? `<br><small>${esc(o.dis)}</small>` : ''}</button>`).join('')}<button data-ci="x">✖ ยกเลิก</button>`;
+    m.hidden = false; m.style.left = Math.max(8, innerWidth / 2 - 130) + 'px'; m.style.top = Math.max(8, innerHeight / 2 - 120) + 'px';
+    m.onclick = (ev) => { ev.stopPropagation(); const b = ev.target.closest('[data-ci]'); if (!b) return; m.hidden = true; const o = opts[+b.dataset.ci]; if (o && !o.dis) o.run(); };
+  }
   // เมนูคลิกขวาที่ไอเท็มในกระเป๋า
   itemMenu(k, x, y) {
     const g = this.g, it = ITEMS[k], m = $('#ctx-menu'), sv = salvageOf(k), pinned = g.hotbar.includes(k);

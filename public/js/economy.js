@@ -4,7 +4,7 @@
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
 import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
-import { PIECES, FEEDS, CROPS, PENS, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss } from './zombies-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
@@ -504,6 +504,7 @@ export function sopCost(ch, s, op, env) {
       const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ' };
       return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
     }
+    case 'addlive': if (ITEMS[op.item]?.live !== s.type || !has(ch, op.item)) return { err: 'ไม่มีสัตว์ที่ปล่อยเข้าคอกนี้ได้' }; return { take: { [op.item]: 1 }, xp: { farming: 4 } };
     case 'breed': { const P = PENS[s.type]; if (P?.egg) { if (!has(ch, P.egg)) return { err: `ต้องมี${ITEMS[P.egg].name} 1 ฟองเพื่อฟัก` }; return { take: { [P.egg]: 1 }, xp: { farming: 6 } }; } return { xp: { farming: 8 } }; }
     case 'butcher': return { xp: { survival: 4, farming: 4 } };
     case 'list': { const q = op.qty | 0; if (!(q > 0) || !ITEMS[op.item] || ITEMS[op.item].quest || op.item === 'jicoin' || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; }
@@ -529,6 +530,15 @@ export function sopCost(ch, s, op, env) {
     case 'claim': {
       // เปิดกรง: สัตว์ที่ติดมาเป็นสัตว์เลี้ยง (ตรวจจำนวนสูงสุดก่อน)
       const type = cageCatch(s, env.now()); if (!type) return { err: 'ยังไม่มีสัตว์ติดกรง' };
+      const mode = op.mode || 'pet';
+      if (mode === 'free') return { xp: { survival: 5 } };
+      if (mode === 'food') { const f = CAGE_FOOD[type]; if (!f) return { err: 'สัตว์ตัวนี้แปรรูปไม่ได้ — เลี้ยงหรือปล่อยคืนป่า' }; return { give: { ...f }, xp: { survival: 10, cooking: 4 } }; }
+      if (mode === 'farm') {
+        const pen = CAGE_FARM[type]; if (!pen) return { err: 'สัตว์ตัวนี้เลี้ยงในฟาร์มไม่ได้' };
+        if (!(env.ownCount?.(pen) > 0)) return { err: `ต้องสร้าง${PIECES[pen].name}ก่อน — ตอนนี้เลือกเลี้ยงเป็นสัตว์เลี้ยงหรือแปรรูปอาหารได้` };
+        return { give: { ['live_' + type]: 1 }, xp: { farming: 10, survival: 5 } };
+      }
+      if (!PET_TYPES[type]) return { err: 'สัตว์ตัวนี้เป็นสัตว์เลี้ยงไม่ได้ — นำเข้าคอกหรือแปรรูปอาหาร' };
       if (PET_TYPES[type].wild) { if (ch.pets.filter((x) => PET_TYPES[x.type]?.wild).length >= WILD_PET_MAX) return { err: `เลี้ยงสัตว์ป่าได้ ${WILD_PET_MAX} ตัว — ปล่อยตัวเก่าก่อน (หรือรอเปิดกรงทีหลัง)` }; }
       else if (ch.pets.filter((x) => x.type === type).length >= petCap(env.ownCount?.('pethouse') || 0, env.ownCount?.('bed') || 0)) return { err: `มี${PET_TYPES[type].name}ครบจำนวนแล้ว` };
       const pet = rollPet(type); ch.pets.push(pet);

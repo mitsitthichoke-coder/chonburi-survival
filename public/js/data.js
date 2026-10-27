@@ -221,6 +221,10 @@ const RAW_ITEMS = {
   tulip: { name: 'ดอกทิวลิป', icon: '🌷', value: 11, flower: true },
   bouquet: { name: 'ช่อดอกไม้', icon: '💐', value: 30, flower: true, desc: 'ของขวัญสุดพิเศษ เพิ่มความสัมพันธ์มาก' },
   garland: { name: 'พวงมาลัยมะลิ', icon: '📿', value: 20, flower: true, desc: 'มอบให้ผู้ใหญ่หรือพระสงฆ์' },
+  // สัตว์มีชีวิตที่จับจากกรง (หิ้วไปปล่อยเข้าคอก)
+  live_chicken: { name: 'ไก่ป่ามีชีวิต (กรงหิ้ว)', icon: '🐓', value: 8, live: 'coop', desc: 'นำไปปล่อยที่เล้าไก่ (เปิดคอกแล้วกดปล่อย)' },
+  live_duck: { name: 'เป็ดมีชีวิต (กรงหิ้ว)', icon: '🦆', value: 9, live: 'duckpen', desc: 'นำไปปล่อยที่เล้าเป็ด' },
+  live_boar: { name: 'หมูป่ามีชีวิต (กรงหิ้ว)', icon: '🐗', value: 14, live: 'pigpen', desc: 'นำไปปล่อยที่คอกหมู' },
   // เงินตรา
   respec_potion: { name: 'ยาล้างแต้มสเตตัส', icon: '🔄', value: 250, coinOnly: true, respec: true, desc: 'คืนแต้มสเตตัสสายอาชีพทั้งหมด ให้กระจายใหม่ได้ (ซื้อด้วยเงินจิเท่านั้น)' },
   jicoin: { name: 'เงินจิ (Ji-Coin)', icon: '🪙', value: 1, coin: true, desc: 'สกุลเงินของผู้รอดชีวิต ใช้ซื้อขายกับ NPC แผงขายของ และผู้เล่นอื่น' },

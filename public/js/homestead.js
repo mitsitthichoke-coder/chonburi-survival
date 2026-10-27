@@ -1,5 +1,5 @@
 // บ้าน ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ บ้านสัตว์เลี้ยง และยานพาหนะ (ฝั่งผู้เล่น)
-import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX } from './building-core.js';
+import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, CAGE_FARM, CAGE_FOOD, CAGE_NAME, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
@@ -59,7 +59,15 @@ export class Homestead {
       case 'cage': {
         // กรงดักสัตว์: ใส่เหยื่อ → รอ → เปิดกรงรับสัตว์เลี้ยง
         const caught = cageCatch(s, now);
-        if (caught) return { text: `🐾 มี${PET_TYPES[caught].name}ติดกรง! เปิดกรงรับมาเลี้ยง`, act: () => this.op(s, { o: 'claim' }) };
+        if (caught) {
+          const nm = PET_TYPES[caught]?.name || CAGE_NAME[caught] || caught, pen = CAGE_FARM[caught], hasPen = pen && g.world.structures.some((o) => o.type === pen && (!o.owner || o.owner === g.id));
+          return { text: `🐾 มี${nm}ติดกรง! เลือกว่าจะทำอะไร`, act: () => g.ui.choice(`🪤 ${nm}ติดกรงแล้ว — เลือก:`, [
+            { label: '🐾 เลี้ยงเป็นสัตว์เลี้ยง', dis: !PET_TYPES[caught] && 'เป็นสัตว์เลี้ยงไม่ได้', run: () => this.op(s, { o: 'claim', mode: 'pet' }) },
+            { label: pen ? `🏡 นำเข้า${PIECES[pen].name.split(' ')[0]}ในฟาร์ม` : '🏡 นำเข้าฟาร์ม', dis: !pen ? 'สัตว์นี้เลี้ยงในฟาร์มไม่ได้' : !hasPen && `ต้องสร้าง${PIECES[pen].name.split(' ')[0]}ก่อน`, run: () => this.op(s, { o: 'claim', mode: 'farm' }) },
+            { label: CAGE_FOOD[caught] ? `🍖 แปรรูปเป็นอาหาร (${Object.entries(CAGE_FOOD[caught]).map(([k, q]) => ITEMS[k].icon + q).join(' ')})` : '🍖 แปรรูปอาหาร', dis: !CAGE_FOOD[caught] && 'สัตว์ตัวนี้แปรรูปไม่ได้', run: () => this.op(s, { o: 'claim', mode: 'food' }) },
+            { label: '🌿 ปล่อยคืนป่า', run: () => this.op(s, { o: 'claim', mode: 'free' }) },
+          ]) };
+        }
         if (s.bait) return { text: `🪤 รอสัตว์มาติดกรง... ${Math.min(99, Math.floor(((now - s.bt) / TRAP_MS) * 100))}% (เหยื่อ: ${ITEMS[s.bait].name})`, act: () => {} };
         const bait = [...BAIT_MEAT, ...BAIT_PLANT].find((k) => g.hasItem(k));
         return { text: bait ? `🪤 ใส่เหยื่อ ${ITEMS[bait].icon} ${ITEMS[bait].name} (เนื้อ = ล่อสัตว์กินเนื้อ · พืช = ล่อสัตว์กินพืช)` : '🪤 กรงว่าง — ต้องมีเหยื่อ: เนื้อ/ปลา หรือ ผัก/ข้าวโพด/ผลไม้', act: () => { if (bait) this.op(s, { o: 'bait', item: bait }); } };
@@ -130,6 +138,8 @@ export class Homestead {
       info = `${ageTxt}<br>🍽️ อาหาร: ${fl ? mmss(fl) : '<b class="miss">หิว</b>'} · 💧 น้ำ: ${wl ? mmss(wl) : '<b class="miss">กระหายน้ำ</b>'} · 🧺 ผลผลิต: <b>${n}</b>/${P.cap} ${ITEMS[P.prod[0]].icon}
         <br><small>ให้ผลผลิตเมื่อ "อิ่ม + มีน้ำ" และโตเต็มวัย (ลูก ${Math.round(P.adult / 60000)} นาที → โต · แก่หลัง ${Math.round(P.old / 60000)} นาที ผลผลิตลดครึ่ง · อายุขัย ${Math.round(P.life / 60000)} นาที) · อาหาร: ${P.foods.map((k) => ITEMS[k].icon).join('')}</small>`;
       acts.push({ label: `🧺 เก็บผลผลิต (${n})`, dis: !n, run: () => this.op(s, { o: 'collect' }) });
+      const live = Object.keys(g.inv).find((k) => g.inv[k] > 0 && ITEMS[k]?.live === s.type);
+      if (live) acts.push({ label: `🐾 ปล่อย${ITEMS[live].name.split(' ')[0]}เข้าคอก`, dis: herd.length >= P.max, run: () => this.op(s, { o: 'addlive', item: live }) });
       acts.push({ label: pf ? `🍽️ ให้อาหาร (${ITEMS[pf].name})` : `🍽️ ให้อาหาร (ต้องมี ${P.foods.slice(0, 4).map((k) => ITEMS[k].name).join('/')})`, dis: !pf || fl > FEED_MAX - FEED_MS, run: () => this.op(s, { o: 'feed', item: pf }) });
       acts.push({ label: water ? `💧 ให้น้ำ${water === 'can' ? ' (บัวรดน้ำ)' : ` (${ITEMS[water].name})`}` : '💧 ให้น้ำ (ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ)', dis: !water || wl > WATER_MAX - WATER_MS, run: () => this.op(s, { o: 'drink' }) });
       acts.push(P.egg ? { label: `🐣 ฟักไข่ (ใช้${ITEMS[P.egg].name} · ${herd.length}/${P.max})`, dis: !g.hasItem(P.egg) || herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) } : { label: `🍼 ผสมพันธุ์ (ต้องมีตัวโต 2 ตัว · ${herd.length}/${P.max})`, dis: herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) });

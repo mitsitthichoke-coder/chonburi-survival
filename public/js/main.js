@@ -80,6 +80,7 @@ function showAccount() {
   $('#f-name-label').textContent = 'ชื่อตัวละคร (ห้ามซ้ำกับผู้เล่นคนอื่น)';
   if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; refreshSegs(); }
   $('#b-online').textContent = C ? '▶️ เข้าเกม' : '✨ สร้างตัวละครและเข้าเกม';
+  if (account.mustChange) { $('#pwbox').hidden = false; $('#p-err').textContent = 'คุณใช้รหัสผ่านชั่วคราว กรุณาตั้งรหัสผ่านใหม่'; }
 }
 async function initServerMode() {
   if (!sameHost || useRoom) return;
@@ -99,6 +100,13 @@ $('#a-go-login').onclick = async () => { try { signedIn(await api('/api/login', 
 $('#a-go-reg').onclick = async () => {
   if ($('#r-pass').value !== $('#r-pass2').value) return aerr('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
   try { signedIn(await api('/api/register', { email: $('#r-email').value, username: $('#r-user').value, password: $('#r-pass').value })); $('#f-name').focus(); } catch (e) { aerr(e.message); }
+};
+$('#a-pwbtn').onclick = () => { $('#pwbox').hidden = !$('#pwbox').hidden; $('#p-err').textContent = ''; };
+$('#p-cancel').onclick = () => { $('#pwbox').hidden = true; };
+$('#p-go').onclick = async () => {
+  const pe = (t, ok) => { $('#p-err').textContent = t; $('#p-err').style.color = ok ? '#52b788' : ''; };
+  if ($('#p-new').value !== $('#p-new2').value) return pe('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
+  try { const j = await api('/api/password', { old: $('#p-old').value, password: $('#p-new').value }); token = j.token; account = j.user; try { localStorage.setItem(TOKEN_KEY, token); } catch { /* ignore */ } ['#p-old', '#p-new', '#p-new2'].forEach((s) => ($(s).value = '')); pe('✅ เปลี่ยนรหัสผ่านแล้ว (เครื่องอื่นถูกออกจากระบบ)', true); setTimeout(() => { $('#pwbox').hidden = true; }, 1500); } catch (e) { pe(e.message); }
 };
 $('#a-logout').onclick = async () => { try { await api('/api/logout', {}); } catch { /* ignore */ } token = null; account = null; try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ } showAccount(); };
 // ตรวจชื่อตัวละครซ้ำขณะพิมพ์ (โหมดเซิร์ฟเวอร์)

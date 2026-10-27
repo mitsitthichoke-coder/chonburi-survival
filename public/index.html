@@ -22,7 +22,7 @@
   .card .sub { color: var(--muted); margin: 4px 0 18px; }
   .row { margin: 12px 0; } .row label { display: block; font-weight: 600; margin-bottom: 6px; }
   input[type=text] { width: 100%; font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: var(--text); }
-  #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #acct { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
+  #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #pwbox { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; } #acct { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #pwbox[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
   .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } #f-style button { padding: 5px 9px; font-size: 13px; }
   .seg.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .seg button.job { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; } .seg button.job small { font-size: 11px; opacity: .8; }
   @media (max-width: 520px) { .seg.jobs { grid-template-columns: repeat(2, 1fr); } }
@@ -163,21 +163,28 @@
     <div id="auth" hidden>
       <div class="seg atabs"><button data-a="login" class="on">🔑 เข้าสู่ระบบ</button><button data-a="register">📝 สมัครเล่นเกม</button></div>
       <div id="a-login">
-        <div class="row"><label>ชื่อผู้ใช้ หรือ อีเมล</label><input id="a-user" type="text" autocomplete="username" maxlength="254"></div>
+        <div class="row"><label>ชื่อผู้ใช้ / อีเมล / เบอร์โทร</label><input id="a-user" type="text" autocomplete="username" maxlength="254"></div>
         <div class="row"><label>รหัสผ่าน</label><input id="a-pass" type="password" autocomplete="current-password" maxlength="72"></div>
         <div class="go"><button class="primary" id="a-go-login">เข้าสู่ระบบ</button></div>
       </div>
       <div id="a-reg" hidden>
-        <div class="row"><label>อีเมล</label><input id="r-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com"></div>
+        <div class="row"><label>อีเมล หรือ เบอร์โทรศัพท์</label><input id="r-email" type="text" autocomplete="email" maxlength="254" placeholder="you@example.com หรือ 0812345678"></div>
         <div class="row"><label>ชื่อผู้ใช้ (ใช้เข้าสู่ระบบ ตั้งเองได้)</label><input id="r-user" type="text" autocomplete="username" maxlength="16" placeholder="3–16 ตัว ตัวอักษร/ตัวเลข/_"></div>
         <div class="row"><label>รหัสผ่าน (ตั้งเองได้ อย่างน้อย 6 ตัว)</label><input id="r-pass" type="password" autocomplete="new-password" maxlength="72"></div>
         <div class="row"><label>ยืนยันรหัสผ่าน</label><input id="r-pass2" type="password" autocomplete="new-password" maxlength="72"></div>
         <div class="go"><button class="primary" id="a-go-reg">สมัครแล้วไปสร้างตัวละคร</button></div>
-        <p class="hint">ขั้นตอน: ① สมัครด้วยอีเมล + ชื่อผู้ใช้ + รหัสผ่าน → ② สร้างตัวละครครั้งแรก (ชื่อตัวละครห้ามซ้ำกับคนอื่น) → ③ เข้าเกม</p>
+        <p class="hint">ขั้นตอน: ① สมัครด้วยอีเมลหรือเบอร์โทร + ชื่อผู้ใช้ + รหัสผ่าน → ② สร้างตัวละครครั้งแรก (ชื่อตัวละครห้ามซ้ำกับคนอื่น) → ③ เข้าเกม</p>
       </div>
       <p class="aerr" id="a-err"></p>
     </div>
-    <div id="acct" hidden><span>👤 <b id="acct-name"></b></span> <button id="a-logout">ออกจากระบบ</button></div>
+    <div id="acct" hidden><span>👤 <b id="acct-name"></b></span> <span><button id="a-pwbtn">🔑 เปลี่ยนรหัสผ่าน</button> <button id="a-logout">ออกจากระบบ</button></span></div>
+    <div id="pwbox" hidden>
+      <div class="row"><label>รหัสผ่านเดิม</label><input id="p-old" type="password" autocomplete="current-password" maxlength="72"></div>
+      <div class="row"><label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว แนะนำ 10 ตัวขึ้นไป ผสมตัวอักษรกับตัวเลข)</label><input id="p-new" type="password" autocomplete="new-password" maxlength="72"></div>
+      <div class="row"><label>ยืนยันรหัสผ่านใหม่</label><input id="p-new2" type="password" autocomplete="new-password" maxlength="72"></div>
+      <div class="go"><button class="primary" id="p-go">บันทึกรหัสผ่านใหม่</button><button class="secondary" id="p-cancel">ยกเลิก</button></div>
+      <p class="aerr" id="p-err"></p>
+    </div>
     <div id="form">
       <div class="row"><label id="f-name-label">ชื่อตัวละคร</label><input id="f-name" type="text" maxlength="16" placeholder="เช่น ต้นข้าว"><div class="hint" id="f-name-ok"></div></div>
       <div class="row"><label>บทบาท (เพศของตัวละคร)</label><div class="seg" id="f-sex"><button data-v="m">👨 ชาย</button><button data-v="f">👩 หญิง</button></div></div>

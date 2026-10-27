@@ -79,8 +79,10 @@ function claimOwner(u, key, ip) {
   return null;
 }
 const cleanJob = (j) => (JOBS[j] ? j : 'engineer');
-const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email ? u.email.replace(/^(.).*(@.*)$/, '$1***$2') : null, char: u.char || null, admin: isAdmin(u) });
-U.byEmail ||= {}; U.byChar ||= {};
+const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email ? u.email.replace(/^(.).*(@.*)$/, '$1***$2') : u.phone ? u.phone.slice(0, 3) + '*****' + u.phone.slice(-2) : null, char: u.char || null, admin: isAdmin(u), mustChange: !!u.mustChange });
+U.byEmail ||= {}; U.byChar ||= {}; U.byPhone ||= {};
+// เบอร์โทร: เก็บเฉพาะตัวเลข (+66 แปลงเป็น 0)
+const normPhone = (v) => { let d = String(v || '').replace(/[\s\-().]/g, ''); if (/^\+66\d{8,9}$/.test(d)) d = '0' + d.slice(3); return /^0\d{8,9}$/.test(d) || /^\+\d{8,15}$/.test(d) ? d : null; };
 // บัญชีเก่า (ก่อนมีระบบตัวละครแยก): ใช้ชื่อผู้ใช้เป็นชื่อตัวละครถ้ายังว่าง
 for (const u of Object.values(U.users)) if (!u.char && u.look) { const k = u.username.toLowerCase(); if (!U.byChar[k]) { u.char = { name: u.username, sex: u.sex, look: u.look, job: cleanJob(u.job) }; U.byChar[k] = u.id; } }
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
@@ -128,22 +130,25 @@ async function api(req, res, route) {
   const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (route === '/api/register' && req.method === 'POST') {
     if (limited('reg:' + ip, 5, 3600e3)) return json(429, { error: 'สมัครบ่อยเกินไป ลองใหม่ภายหลัง' });
-    const username = String(body.username || '').trim(), password = String(body.password || ''), email = String(body.email || '').trim().toLowerCase();
-    if (!EMAIL_RE.test(email) || email.length > 254) return json(400, { error: 'กรุณาใส่อีเมลให้ถูกต้อง' });
-    if (U.byEmail[email]) return json(409, { error: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
+    const username = String(body.username || '').trim(), password = String(body.password || ''), contact = String(body.email || '').trim().toLowerCase();
+    // สมัครด้วยอีเมล หรือ เบอร์โทรศัพท์ก็ได้
+    const email = EMAIL_RE.test(contact) && contact.length <= 254 ? contact : null, phone = email ? null : normPhone(contact);
+    if (!email && !phone) return json(400, { error: 'กรุณาใส่อีเมล หรือเบอร์โทรศัพท์ให้ถูกต้อง (เช่น 0812345678)' });
+    if (email && U.byEmail[email]) return json(409, { error: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
+    if (phone && U.byPhone[phone]) return json(409, { error: 'เบอร์โทรนี้ถูกใช้สมัครแล้ว' });
     if (!NAME_RE.test(username)) return json(400, { error: 'ชื่อผู้ใช้ต้องยาว 3–16 ตัว ใช้ได้เฉพาะตัวอักษร ตัวเลข และ _' });
     if (BADNAME(username)) return json(400, { error: 'ชื่อนี้ใช้ไม่ได้' });
     if (password.length < 6 || password.length > 72) return json(400, { error: 'รหัสผ่านต้องยาว 6–72 ตัวอักษร' });
     const key = username.toLowerCase();
     if (U.byName[key]) return json(409, { error: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว' });
     const id = 'u' + crypto.randomBytes(8).toString('hex'), salt = crypto.randomBytes(16).toString('hex');
-    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null };
-    U.byName[key] = id; U.byEmail[email] = id; store.saveUsers();
+    U.users[id] = { id, username, ...(email ? { email } : { phone }), salt, hash: hashPw(password, salt), created: Date.now(), char: null };
+    U.byName[key] = id; if (email) U.byEmail[email] = id; else U.byPhone[phone] = id; store.saveUsers();
     return json(200, { token: newSession(id), user: publicUser(U.users[id]) });
   }
   if (route === '/api/login' && req.method === 'POST') {
     if (limited('login:' + ip, 20, 600e3)) return json(429, { error: 'ลองเข้าสู่ระบบบ่อยเกินไป รอ 10 นาที' });
-    const who = String(body.username || '').trim().toLowerCase(), id = U.byName[who] || U.byEmail[who], u = id && U.users[id];
+    const who = String(body.username || '').trim().toLowerCase(), id = U.byName[who] || U.byEmail[who] || U.byPhone[normPhone(who)], u = id && U.users[id];
     const ok = u && crypto.timingSafeEqual(Buffer.from(hashPw(String(body.password || ''), u.salt), 'hex'), Buffer.from(u.hash, 'hex'));
     if (u && (u.lockUntil || 0) > Date.now()) return json(429, { error: 'บัญชีนี้ถูกล็อกชั่วคราวเพราะใส่รหัสผิดหลายครั้ง ลองใหม่ใน 15 นาที' });
     if (!ok) { if (u) { u.fails = (u.fails || 0) + 1; if (u.fails >= 8) { u.fails = 0; u.lockUntil = Date.now() + 15 * 60e3; console.warn(`🔒 ล็อกบัญชี ${u.username} ชั่วคราว (ใส่รหัสผิด 8 ครั้ง จาก ${ip})`); } store.saveUsers(); } return json(401, { error: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง' }); }
@@ -152,6 +157,20 @@ async function api(req, res, route) {
     return json(200, { token: newSession(u.id), user: publicUser(u) });
   }
   if (route === '/api/me') { const u = userByToken(bearer); return u ? json(200, { user: publicUser(u) }) : json(401, { error: 'ยังไม่ได้เข้าสู่ระบบ' }); }
+  // เปลี่ยนรหัสผ่าน: ต้องใส่รหัสเดิม · ออกจากระบบเครื่องอื่นทั้งหมด
+  if (route === '/api/password' && req.method === 'POST') {
+    const u = userByToken(bearer); if (!u) return json(401, { error: 'ยังไม่ได้เข้าสู่ระบบ' });
+    if (limited('pw:' + u.id, 10, 3600e3)) return json(429, { error: 'ลองบ่อยเกินไป รอสักครู่' });
+    const oldPw = String(body.old || ''), newPw = String(body.password || '');
+    const ok = crypto.timingSafeEqual(Buffer.from(hashPw(oldPw, u.salt), 'hex'), Buffer.from(u.hash, 'hex'));
+    if (!ok) return json(401, { error: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+    if (newPw.length < 6 || newPw.length > 72) return json(400, { error: 'รหัสผ่านใหม่ต้องยาว 6–72 ตัวอักษร' });
+    if (newPw === oldPw) return json(400, { error: 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม' });
+    u.salt = crypto.randomBytes(16).toString('hex'); u.hash = hashPw(newPw, u.salt); u.mustChange = false; store.saveUsers();
+    for (const [k, ss] of Object.entries(store.sessions)) if (ss.uid === u.id) delete store.sessions[k];
+    store.saveSessions();
+    return json(200, { token: newSession(u.id), user: publicUser(u) });
+  }
   if (route === '/api/logout' && req.method === 'POST') { delete store.sessions[tokenHash(bearer)]; store.saveSessions(); return json(200, { ok: true }); }
   // ตรวจว่าชื่อตัวละครว่างไหม
   if (route === '/api/name-check') {
@@ -183,7 +202,7 @@ core.onCommand = (id, text) => {
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
@@ -208,6 +227,15 @@ core.onCommand = (id, text) => {
       t.admin = false; store.saveUsers();
       core.send(t.id, { t: 'chat', from: 'system', name: '🛠️', text: 'สิทธิ์แอดมินของคุณถูกถอนแล้ว' });
       return say(`ถอดสิทธิ์แอดมินของ ${label(t)} แล้ว`);
+    case 'resetpw': {
+      if (!isOwner(u)) return say('รีเซ็ตรหัสผ่านได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+      if (isOwner(t) && t !== u) return say('รีเซ็ตรหัสของเจ้าของไม่ได้');
+      const temp = crypto.randomBytes(6).toString('base64url');
+      t.salt = crypto.randomBytes(16).toString('hex'); t.hash = hashPw(temp, t.salt); t.mustChange = true; store.saveUsers();
+      for (const [k, ss] of Object.entries(store.sessions)) if (ss.uid === t.id) delete store.sessions[k];
+      store.saveSessions(); sockets.get(t.id)?.close(4009, 'password reset');
+      return say(`🔑 รหัสชั่วคราวของ ${label(t)}: ${temp} (บอกเจ้าตัวทางช่องทางส่วนตัว แล้วให้เปลี่ยนรหัสหลังเข้าสู่ระบบ)`);
+    }
     case 'say': return core.broadcast({ t: 'chat', from: 'system', name: '📢 ประกาศ', text: cleanText(arg) });
   }
   return say('ไม่รู้จักคำสั่ง พิมพ์ /help');

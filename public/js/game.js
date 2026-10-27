@@ -5,7 +5,7 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
+import { canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
@@ -58,7 +58,7 @@ export class Game {
   now() { return Date.now() + this.timeOffset; }
   timeOfDay() { return (((this.now() - this.startTime) / DAY_MS) + 0.3) % 1; }
   dayNum() { return Math.floor((this.now() - this.startTime) / DAY_MS + 0.3) + 1; }
-  isNight() { const t = this.timeOfDay(); return t < 0.24 || t > 0.79; }
+  isNight() { const t = this.timeOfDay(); return t < 0.21 || t > 0.82; }
   areaName() {
     const P = this.player.pos;
     for (const t of TOWNS) if ((t.x - P.x) ** 2 + (t.z - P.z) ** 2 < (t.r * 1.3) ** 2) return t.name;
@@ -114,9 +114,9 @@ export class Game {
   get ch() { return this.auth?.ch || { skills: this.skills, stats: this.stats, profile: this.profile }; }
   maxHp() { return maxHpOf(this.ch); }
   maxStamina() { return maxStamOf(this.ch) - (this.social?.preg[this.id] ? 20 : 0); }
-  dmgMul() { return dmgMulOf(this.ch) * (this.stats.stress >= 85 ? 0.85 : 1); }
+  dmgMul() { return dmgMulOf(this.ch) * (this.stats.stress >= 85 ? 0.85 : 1) * (this.moraleT > 0 ? 1.1 : 1); }
   // ผู้ติดเชื้อมองเห็นได้ไกลแค่ไหน (1 = ปกติ)
-  stealthMul() { return [1, 0.6, 0.35][this.stance] * (killPerk(this.ch, 1) ? 0.9 : 1) * (this.wear.body === 'hunter_cloak' ? 0.85 : 1); }
+  stealthMul() { return (this.hideT > 0 ? 0.1 : 1) * [1, 0.6, 0.35][this.stance] * (killPerk(this.ch, 1) ? 0.9 : 1) * (this.wear.body === 'hunter_cloak' ? 0.85 : 1); }
   setStance(v) {
     if (this.vehicle || this.player.climb || this.player.swim) v = 0;
     if (v === this.stance) return;
@@ -179,6 +179,7 @@ export class Game {
       this.ui.togglePanel('pets'); return this.ui.toast(`เลือกสัตว์ที่จะใส่ ${it.name} ในเมนู 🐾`);
     }
     if (it.food || it.instrument) return this.auth.do('use', { k });
+    if (it.device) return this.ui.toast(`${it.icon} ${it.name} ทำงานอัตโนมัติเมื่ออยู่ในกระเป๋า — ดูบนแผนที่มุมขวาบน`);
     if (it.med) {
       const m = it.med;
       const needed = m.immune || (m.stopBleed && s.bleeding) || (m.fracture && s.fracture) || (m.infection && s.infection > 0) || (m.cureSick && s.sick > 0) || (m.hp && s.hp < this.maxHp());
@@ -212,6 +213,9 @@ export class Game {
       this.sfx.play('craft'); this.ui.toast(`ใช้ ${it.name} แล้ว`);
     }
     if (fx.music) this.playMusic();
+    if (fx.chant) this.chant();
+    if (fx.drone) { this.droneT = 60; this.sfx.play('radio'); this.ui.toast('🛸 ปล่อยโดรนแล้ว! เห็นผู้ติดเชื้อ กล่อง และสัตว์รอบตัวบนแผนที่ 60 วินาที', 'level'); }
+    if (it?.morale) { this.moraleT = it.morale; this.ui.toast('💪 มีกำลังใจ! ดาเมจ +10% ฟื้นสตามิน่าไวขึ้น ไม่ค่อยตื่นตระหนก', 'level'); }
   }
 
   // ---------------- ผลลัพธ์จากระบบเศรษฐกิจ (ในเครื่อง หรือจากเซิร์ฟเวอร์) ----------------
@@ -360,7 +364,7 @@ export class Game {
       return { type: 'person', e, text: `คุยกับ ${e.name}` };
     }
     const bx = this.boxUI.prompt(P); if (bx) return bx;
-    const l = this.world.nearLoot(P.x, P.z, 2.6)[0];
+    const l = this.world.nearLoot(P.x, P.z, 3.6).filter((x) => x.kind === 'car' || Math.hypot(x.x - P.x, x.z - P.z) < 2.6)[0]; // รถคันยาว ค้นได้จากรอบคัน
     if (l) return { type: 'loot', l, text: l.kind === 'car' ? '🚗 ค้นรถร้าง' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
     const sh = this.world.nearStructure(P.x, P.z, 'shelter', 3);
     if (sh) return { type: 'shelter', s: sh, text: this.isNight() && !this.net.online ? 'นอนหลับถึงเช้า' : 'พักผ่อน (ตั้งจุดเกิด)' };
@@ -487,7 +491,7 @@ export class Game {
       if (k === 'escape') { if (this.builder.active) this.builder.stop(); this.ui.closeAll(); return; }
       if (k === 'b' && !e.repeat) { if (this.builder.active) { this.builder.stop(); return; } return this.ui.togglePanel('build'); }
       if (k === 'q' && !e.repeat && this.builder.type) return this.builder.rotateNext();
-      if (k === 'x' && !e.repeat) { if (this.builder.demolish) this.builder.stop(); else if (this.hasItem('hammer')) this.builder.startDemolish(); return; }
+      if (k === 'x' && !e.repeat) { if (this.builder.demolish) this.builder.stop(); else if (canBuild(this.inv)) this.builder.startDemolish(); return; }
       if (k === 'l' && !e.repeat && !this.ui.open) return this.home.toggleLock();
       if (k === 'enter') { this.ui.chatting = true; document.exitPointerLock?.(); document.getElementById('chat-input').focus(); e.preventDefault(); return; }
       if (k === 'r' && !e.repeat) return this.ui.togglePanel('rel');
@@ -578,7 +582,7 @@ export class Game {
       return this.net.send({ t: 'csave', stats: this.stats, hotbar: this.hotbar, social: this.social.toJSON(), pets: this.pets.map((p) => ({ id: p.id, hp: p.hp, xp: p.xp, loyal: p.loyal, stay: p.stay, home: p.home, down: p.down, name: p.name })) });
     }
     const d = {
-      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, skills: this.skills,
+      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, trade: this.trade, skills: this.skills,
       pets: this.pets, wear: this.wear, pos: this.player.pos.toArray(), spawn: this.spawnPoint, social: this.social.toJSON(), quest: this.quest.toJSON(),
     };
     if (!this.net.online) Object.assign(d, {
@@ -608,7 +612,7 @@ export class Game {
     // เซฟเก่า: เสื้อเกราะผ้าเคยใส่อัตโนมัติจากกระเป๋า → สวมให้เลย
     if (!this.wear.body && this.inv.cloth_armor) { this.removeItem('cloth_armor'); this.wear.body = 'cloth_armor'; }
     setOutfit(this.player.mesh, this.wear, ITEMS);
-    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; setHeldTool(this.player.mesh, this.equipped, this.lefty);
+    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; this.trade = d.trade || {}; setHeldTool(this.player.mesh, this.equipped, this.lefty);
     if (d.pos) this.player.pos.fromArray(d.pos);
     this.social.load(d.social);
     this.quest.load(d.quest);
@@ -757,6 +761,8 @@ export class Game {
     let zn = 0; for (const e of this.ents.list) if (!e.dead && e.kind === 'zombie' && e.pos.distanceToSquared(P) < 225) zn++;
     let up = Math.min(3, zn) * 0.6 + (this.isNight() ? 0.05 : 0) + (s.hunger < 20 || s.thirst < 20 ? 0.15 : 0) + (s.infection > 30 ? 0.1 : 0) + (s.bleeding ? 0.2 : 0);
     if (hasPerk(this.ch, 'entertainer', 0)) up *= 0.6;
+    if (hasPerk(this.ch, 'monk', 0)) up *= 0.5;
+    if (this.moraleT > 0) up *= 0.5;
     if ([...this.ents.remotes.values()].some((r) => r.en && r.pos.distanceToSquared(P) < 144)) up *= 0.7;
     let down = 0;
     if (this.inCampNow || this.nearFire || this.world.nearStructure(P.x, P.z, 'shelter', 4) || this.world.roofOver?.(P)) down += 0.6;
@@ -778,11 +784,23 @@ export class Game {
     if (this.net.online) this.net.send({ t: 'music', x: +P.x.toFixed(1), z: +P.z.toFixed(1), p: power, heal: heal ? 1 : 0 });
     this.ui.chat('', `🎸 ${this.profile.name} เล่นดนตรี... ความเครียดของทุกคนรอบตัวลดลง`, true);
   }
+  // สวดมนต์ (ลูกประคำ): ลดความตื่นตระหนก + ให้กำลังใจคนรอบตัว
+  chant() {
+    const s = this.stats, P = this.player.pos, monk = jobOfMe(this) === 'monk', heal = hasPerk(this.ch, 'monk', 1);
+    const power = monk ? 40 : 15;
+    this.sfx.play('quest');
+    this.onMusic({ p: power, heal: false, self: true, mo: monk });
+    if (heal) s.hp = Math.min(this.maxHp(), s.hp + 10);
+    if (hasPerk(this.ch, 'monk', 2)) { this.hideT = 15; this.ui.toast('🙏 พลังเมตตา: ผู้ติดเชื้อมองไม่เห็นคุณ 15 วินาที', 'level'); }
+    if (this.net.online) this.net.send({ t: 'music', x: +P.x.toFixed(1), z: +P.z.toFixed(1), p: power, heal: 0, mo: monk ? 1 : 0 });
+    this.ui.chat('', `🙏 ${this.profile.name} สวดมนต์... จิตใจทุกคนรอบตัวสงบลง`, true);
+  }
   onMusic(m) {
     const s = this.stats;
     if (!m.self) { if (Math.hypot(m.x - this.player.pos.x, m.z - this.player.pos.z) > 15) return; this.sfx.play('music', { vol: 0.5 }); }
     s.stress = Math.max(0, (s.stress || 0) - m.p * (m.self ? 1 : 0.75));
     if (m.heal) { s.hp = Math.min(this.maxHp(), s.hp + 15); s.stamina = this.maxStamina(); }
+    if (m.mo) this.moraleT = Math.max(this.moraleT || 0, 180);
     if (!m.self) this.ui.toast(`🎶 ได้ยินเสียงดนตรี... ผ่อนคลายขึ้น${m.heal ? ' (ฟื้นพลัง)' : ''}`);
   }
   onAnnounce(m) {
@@ -802,7 +820,8 @@ export class Game {
     s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1));
     if (s.sick > 0) s.sick -= dt;
     this.updateStress(dt);
-    let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1);
+    for (const k of ['moraleT', 'hideT', 'droneT']) if (this[k] > 0) this[k] -= dt;
+    let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1) * (this.moraleT > 0 ? 1.2 : 1);
     if (s.infection > 60) regen *= 0.5;
     if (this.social.lovedNearby()) regen *= 1.5;
     if (petNearbyWith(this, 'swift', 20)) regen *= 1.25;
@@ -882,7 +901,7 @@ export class Game {
     if (this.net.online && this.netT <= 0) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
-      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) ? 1 : 0, cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
+      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
     }
   }
 }

@@ -44,6 +44,7 @@ export function canDo(action, r, a, b, now = Date.now()) {
   if (lvl < A.minLvl) return { ok: false, why: `ต้องมีความสัมพันธ์ระดับ "${REL_LEVELS[A.minLvl].name}" ก่อน` };
   if (A.minPts && r.pts < A.minPts) return { ok: false, why: `ความผูกพันยังไม่พอ (${Math.floor(r.pts)}/${A.minPts})` };
   if (A.cd && r.cd && r.cd[action] && now - r.cd[action] < A.cd * 1000) return { ok: false, why: 'เพิ่งทำไปเมื่อสักครู่ รอก่อนนะ' };
+  if ((a.celibate || b.celibate) && ['hug', 'propose', 'marry', 'baby'].includes(action)) return { ok: false, why: 'พระสงฆ์ไม่ยุ่งเกี่ยวเรื่องทางโลก 🙏' };
   if (action === 'propose' && r.bond !== 'none') return { ok: false, why: 'เป็นคนรักกันอยู่แล้ว' };
   if (action === 'marry' && r.bond !== 'lover') return { ok: false, why: 'ต้องเป็นคนรักกันก่อน' };
   if (A.opposite) {

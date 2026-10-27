@@ -41,6 +41,11 @@ export class Boxes {
       return { b, m };
     });
     this.rareMesh = rareBoxMesh(); this.rareMesh.visible = false; game.scene.add(this.rareMesh);
+    // ลำแสงสีเหลืองชี้รถที่ต้องค้นในภารกิจ "หาแหล่งพลังงาน"
+    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 40, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffd60a', transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
+    bm.position.y = 20; this.beacon = new THREE.Group(); this.beacon.add(bm);
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.9, 4), new THREE.MeshBasicMaterial({ color: '#ffd60a' })); arrow.rotation.x = Math.PI; arrow.position.y = 3.2; this.beacon.add(arrow); this.beacon.userData.arrow = arrow;
+    this.beacon.visible = false; game.scene.add(this.beacon);
   }
   get opened() { return this.g.boxes || (this.g.boxes = {}); }
   lockOf(b) { const g = this.g; return qboxLock(b, { quest: g.quest, stats: g.stats }, charLevelOf(g.skills)); }
@@ -50,6 +55,9 @@ export class Boxes {
     const R = this.rareMesh;
     if (R.visible) { R.rotation.y += dt * 0.8; R.userData.ring.scale.setScalar(1 + Math.sin(this.t * 3) * 0.15); R.userData.beam.material.opacity = 0.22 + Math.sin(this.t * 2) * 0.08; }
     for (const { m } of this.q) if (m.visible) { m.userData.gem.rotation.y += dt * 2; m.userData.gem.position.y = 1.5 + Math.sin(this.t * 2) * 0.1; }
+    const qt = g.quest.done ? null : g.quest.cur.id === 'battery' ? g.quest.target() : null;
+    this.beacon.visible = !!qt;
+    if (qt) { this.beacon.position.set(qt.x, heightAt(qt.x, qt.z), qt.z); this.beacon.userData.arrow.position.y = 3.2 + Math.sin(this.t * 3) * 0.3; this.beacon.userData.arrow.rotation.y += dt * 2; }
     if ((this.slow = (this.slow || 0) + dt) < 1) return;
     this.slow = 0;
     // กล่องภารกิจ: ซ่อนเมื่อเปิดแล้ว · เปลี่ยนสีป้ายเมื่อปลดล็อก

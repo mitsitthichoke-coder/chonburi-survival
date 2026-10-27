@@ -2,7 +2,7 @@
 import { PIECES, G, WALL_H, cellOf, cellCenter, slotPos, slotKey, baseY, refundFor } from './building-core.js';
 import { makeGhost } from './structures3d.js';
 import { heightAt, waterAt } from './terrain.js';
-import { skillLevel, ITEMS, buildCost } from './data.js';
+import { skillLevel, ITEMS, buildCost, canBuild } from './data.js';
 
 const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'pond']);
 
@@ -12,7 +12,7 @@ export class Builder {
 
   start(type) {
     const g = this.g;
-    if (!g.hasItem('hammer')) return g.ui.toast('ต้องมี 🔨 ค้อนช่างไม้ก่อน (ประดิษฐ์จากไม้ 3 + หิน 2)', 'warn');
+    if (!canBuild(g.inv)) return g.ui.toast('ต้องมีค้อนก่อน — 🪵 ค้อนไม้ (ไม้ 3 + เส้นใย 1) หรือ 🔨 ค้อนช่างไม้', 'warn');
     if (skillLevel(g.skills.building) < PIECES[type].lvl) return g.ui.toast(`ต้องมีทักษะก่อสร้าง Lv${PIECES[type].lvl}`, 'warn');
     this.stop(); this.type = type; g.ui.closeAll();
     g.ui.toast(`🔨 ${PIECES[type].name}: ${g.touch ? '✅ วาง · ↻ หมุน · ✖ ออก' : 'คลิกซ้าย = วาง · Q = หมุน · X = โหมดรื้อ · Esc = ออก'}`);

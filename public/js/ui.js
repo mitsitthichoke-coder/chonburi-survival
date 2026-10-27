@@ -1,6 +1,7 @@
-import { JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats } from './data.js';
+import { SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES } from './building-core.js';
+import { shopPrice, tradeValue } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 
@@ -8,8 +9,8 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // หมวดหมู่ไอเท็ม (ใช้กรองกระเป๋าและสูตรประดิษฐ์)
-const CATS = [['all', '📦 ทั้งหมด'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี'], ['pet', '🐾 สัตว์เลี้ยง'], ['quest', '📜 ภารกิจ']];
-const catOf = (k) => { const it = ITEMS[k]; return it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
+const CATS = [['all', '📦 ทั้งหมด'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี/อุปกรณ์'], ['pet', '🐾 สัตว์เลี้ยง'], ['quest', '📜 ภารกิจ']];
+const catOf = (k) => { const it = ITEMS[k]; return it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
 const pct = (v) => Math.round(v * 100);
 // สเตตัสของไอเท็ม (อาวุธ เสื้อผ้า อาหาร ยา อุปกรณ์สัตว์)
 export function statText(k) {
@@ -19,7 +20,7 @@ export function statText(k) {
     t && t.dmg && `⚔️${t.dmg}`, t && t.range && `📏${t.range}`, t && t.gather && `🪓×${t.gather}`,
     w && w.def && `🛡️-${pct(w.def)}%ดาเมจ`, w && w.block && `🔰กัน${pct(w.block)}%`, w && w.bite && `🦠-${pct(w.bite)}%`, w && w.spd && `${w.spd > 0 ? '💨+' : '🐢'}${pct(w.spd)}%`,
     w && w.stam && `⚡+${pct(w.stam)}%`, w && w.gather && `✊+${w.gather}`, w && w.carry && `🎒+${w.carry}ช่อง`,
-    f && f.hunger && `🍗+${f.hunger}`, f && f.thirst && `💧+${f.thirst}`, f && f.hp && `❤️+${f.hp}`, f && f.infection && `🦠${f.infection}`, f && f.sick && `⚠️ท้องเสีย ${pct(f.sick)}%`, f && f.stress && `😌${f.stress} เครียด`, f && f.stamina && `⚡+${f.stamina}`, it.instrument && '🎶 ลดความเครียดรอบตัว', m && m.immune && `🛡️ภูมิคุ้มกัน ${m.immune / 60} นาที`,
+    f && f.hunger && `🍗+${f.hunger}`, f && f.thirst && `💧+${f.thirst}`, f && f.hp && `❤️+${f.hp}`, f && f.infection && `🦠${f.infection}`, f && f.sick && `⚠️ท้องเสีย ${pct(f.sick)}%`, f && f.stress && `😌${f.stress} เครียด`, f && f.stamina && `⚡+${f.stamina}`, it.instrument && !it.chant && !it.device && '🎶 ลดความเครียดรอบตัว', it.chant && '🙏 สวดมนต์: ลดตื่นตระหนก + กำลังใจ', it.device?.loot && `📍 เห็นกล่องเสบียงบนแผนที่ ${it.device.loot}`, it.device?.zombie && `🧟 เห็นผู้ติดเชื้อบนแผนที่ ${it.device.zombie}`, it.device?.scout && '🛸 ส่องรอบตัว 60 วิ', it.morale && '💪 กำลังใจ 5 นาที', m && m.immune && `🛡️ภูมิคุ้มกัน ${m.immune / 60} นาที`,
     m && m.hp && `❤️+${m.hp}`, m && m.infection && `🦠${m.infection}`, m && m.stopBleed && '🩸ห้ามเลือด', m && m.fracture && '🦴รักษากระดูก', m && m.cureSick && '🤢หายป่วย',
     p && p.atk && `⚔️+${p.atk}`, p && p.def && `🛡️-${pct(p.def)}%`, p && p.hp && `❤️+${p.hp}`, p && p.carry && '🎒ขนของ', p && p.luck && '🍀โชค', p && p.alarm && '🔔เตือนภัย',
   ].filter(Boolean).join(' ');
@@ -94,6 +95,9 @@ export class UI {
     if ((s.stress || 0) >= 60) chips.push(`<span class="chip orange">${s.stress >= 85 ? '😱 เครียดหนัก' : '😰 เครียด'}</span>`);
     if (g.immuneT > 0) chips.push(`<span class="chip green">💉 ภูมิคุ้มกัน ${Math.ceil(g.immuneT)} วิ</span>`);
     if (g.wellFed > 0) chips.push(`<span class="chip">😋 อิ่มเอม</span>`);
+    if (g.moraleT > 0) chips.push(`<span class="chip green">💪 กำลังใจ ${Math.ceil(g.moraleT)} วิ</span>`);
+    if (g.hideT > 0) chips.push(`<span class="chip">🙏 พลังเมตตา ${Math.ceil(g.hideT)} วิ</span>`);
+    if (g.droneT > 0) chips.push(`<span class="chip">🛸 โดรน ${Math.ceil(g.droneT)} วิ</span>`);
     if (s.infection >= 1) chips.push(`<span class="chip green">🦠 ติดเชื้อ ${s.infection > 60 ? 'รุนแรง' : ''}</span>`);
     if (s.sick > 0) chips.push('<span class="chip yellow">🤢 อาหารเป็นพิษ</span>');
     if (g.social.preg[g.id]) chips.push(`<span class="chip pink">🤰 ตั้งครรภ์ ${Math.floor(Math.min(1, (Date.now() - g.social.preg[g.id].start) / g.const.PREG_MS) * 100)}%</span>`);
@@ -136,7 +140,14 @@ export class UI {
       else if (e.kind === 'pet') dot(e.pos.x, e.pos.z, '#ffadad', 2);
       else if (e.kind === 'zombie' && hasBird) dot(e.pos.x, e.pos.z, '#e63946', 2);
     }
-    if (sniff) for (const l of g.world.nearLoot(P.x, P.z, 60)) dot(l.x, l.z, '#c08552', 2);
+    // อุปกรณ์ไอที: มือถือ = เห็นกล่องเสบียง · เรดาร์ = เห็นผู้ติดเชื้อ · โดรน = เห็นทุกอย่าง (IT Lv4 ระยะ ×2)
+    const rng = (hasPerk(g.ch, 'it', 1) ? 2 : 1), drone = g.droneT > 0;
+    const lootR = Math.max(sniff ? 60 : 0, g.hasItem('phone') ? ITEMS.phone.device.loot * rng : 0, drone ? 150 * rng : 0);
+    if (lootR) for (const l of g.world.nearLoot(P.x, P.z, lootR)) dot(l.x, l.z, '#c08552', 2);
+    const zr = Math.max(g.hasItem('zradar') ? ITEMS.zradar.device.zombie * rng : 0, drone ? 150 * rng : 0);
+    if (zr) for (const e of g.ents.list) if (!e.dead && e.kind === 'zombie' && e.pos.distanceTo(P) < zr) dot(e.pos.x, e.pos.z, e.T?.boss ? '#ff006e' : '#e63946', e.T?.boss ? 4 : 2);
+    if (drone) for (const e of g.ents.list) if (!e.dead && (e.kind === 'animal' || e.kind === 'stray') && e.pos.distanceTo(P) < 150 * rng) dot(e.pos.x, e.pos.z, '#80ed99', 2);
+    if (hasPerk(g.ch, 'it', 2) && g.bossAt) { let [a, b] = toM(g.bossAt.x, g.bossAt.z); const dx = a - S / 2, dy = b - S / 2, L = Math.hypot(dx, dy), R = S / 2 - 10; if (L > R) { a = S / 2 + dx / L * R; b = S / 2 + dy / L * R; } c.font = '14px sans-serif'; c.fillText('👑', a - 7, b + 5); }
     for (const s of g.world.structures) dot(s.x, s.z, s.type === 'shelter' ? '#f4a261' : '#ff6b35', 2.5);
     const fr = new Set((g.friends || []).map((f) => f.id));
     for (const r of g.ents.remotes.values()) { dot(r.pos.x, r.pos.z, fr.has(r.id) ? '#06d6a0' : '#4cc9f0', 3.5); if (fr.has(r.id)) { const [a, b] = toM(r.pos.x, r.pos.z); c.strokeStyle = '#06d6a0'; c.lineWidth = 1.5; c.beginPath(); c.arc(a, b, 6, 0, 7); c.stroke(); } }
@@ -192,7 +203,7 @@ export class UI {
   openStructure(s) { this.closeAll(); this.struct = s; this.tab = 'struct'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); this.refreshPanels(); }
 
   buildHTML() {
-    const g = this.g, lvl = skillLevel(g.skills.building), hammer = g.hasItem('hammer');
+    const g = this.g, lvl = skillLevel(g.skills.building), hammer = canBuild(g.inv);
     const cats = {};
     for (const [k, p] of Object.entries(PIECES)) (cats[p.cat] ||= []).push([k, p]);
     const card = ([k, p]) => {
@@ -437,6 +448,22 @@ export class UI {
     return `<h3>👥 เพื่อน (${(g.friends || []).length})</h3>${reqs}${list || '<p class="hint">ยังไม่มีเพื่อน — เดินไปหาผู้เล่นอื่น กด E แล้วเลือก "➕ ขอเป็นเพื่อน"</p>'}
       <p class="hint">เพื่อนกัน = ความสัมพันธ์เริ่มที่ระดับ "เพื่อน" ทันที · อยู่ใกล้กันได้แต้มความสัมพันธ์เร็วขึ้น 50% · เห็นตำแหน่งกันบนแผนที่ · ได้แจ้งเตือนเมื่อเพื่อนออนไลน์</p>`;
   }
+  // ร้านแลกของของ NPC: เลือกของในกระเป๋าใส่ "ตะกร้าแลก" แล้วกดแลกของที่ต้องการ
+  shopHTML(n, r) {
+    const g = this.g, B = (this.basket ||= {}), day = Math.floor(g.now() / DAY_MS);
+    for (const k of Object.keys(B)) if (!(g.inv[k] >= B[k])) delete B[k];
+    const total = Object.entries(B).reduce((s, [k, q]) => s + tradeValue(k) * q, 0), disc = Math.round(Math.min(0.25, Math.max(0, r.pts) / 1000) * 100);
+    const rows = SHOPS[n.job].map(([k, base, per]) => {
+      const T = g.trade?.[n.id + ':' + k], left = per - (T && T.d === day ? T.n : 0), price = shopPrice(base, r.pts), ok = left > 0 && total >= price;
+      return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b> <small>ราคา ${price}${disc ? ` (ลด ${disc}%)` : ''} · เหลือวันนี้ ${Math.max(0, left)}/${per}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</div><button data-tbuy="${k}" ${ok ? '' : 'disabled'}>แลก</button></div>`;
+    }).join('');
+    const mine = Object.entries(g.inv).filter(([k, q]) => q > 0 && ITEMS[k].value && !ITEMS[k].quest && k !== g.equipped).map(([k, q]) => `<span class="item small" data-tpay="${k}" title="${esc(ITEMS[k].name)} มูลค่า ${tradeValue(k).toFixed(1)} · มี ${q}">${ITEMS[k].icon}<b>${q - (B[k] || 0)}</b></span>`).join('');
+    const bask = Object.entries(B).map(([k, q]) => `<span class="item small" data-tunpay="${k}" title="คลิกเพื่อเอาออก">${ITEMS[k].icon}<b>×${q}</b></span>`).join('');
+    return `<h4>🛒 แลกของกับ${esc(n.name)} <small>(ยิ่งสนิทยิ่งได้ส่วนลด สูงสุด 25%)</small></h4>
+      <div class="recipes">${rows}</div>
+      <p><b>ตะกร้าแลก:</b> มูลค่ารวม <b>${Math.floor(total)}</b> ${bask || '<span class="hint">คลิกของในกระเป๋าด้านล่างเพื่อใส่ตะกร้า</span>'} ${bask ? '<button data-tclear="1">ล้าง</button>' : ''}</p>
+      <div class="gifts">${mine || '<span class="hint">ไม่มีของที่ใช้แลกได้</span>'}</div>`;
+  }
   personHTML() {
     const g = this.g, e = this.person, r = g.social.rel(e.id), l = relLevel(r), L = REL_LEVELS[l], next = REL_LEVELS[l + 1];
     const me = g.social.person(g.id), other = g.social.person(e.id);
@@ -449,9 +476,10 @@ export class UI {
     const gifts = Object.entries(g.inv).filter(([, q]) => q > 0).map(([k]) => `<span class="item small" data-gift="${k}" title="ให้ ${ITEMS[k].name}">${ITEMS[k].icon}</span>`).join('');
     const pct = next ? Math.min(100, ((r.pts - L.min) / (next.min - L.min)) * 100) : 100;
     return `<button data-back="1">← กลับ</button><h3>${other.sex === 'f' ? '👩' : '👨'} ${esc(other.name)} <span class="chip" style="background:${L.color}">${L.name}</span></h3>
-      <p><small>${npc ? esc(e.def.bio) + ` · ชอบ: ${ITEMS[e.def.likes].icon}?` : 'ผู้เล่นออนไลน์'}</small></p>
+      <p><small>${npc ? esc(e.def.bio) + ` · ${JOBS[e.def.job]?.icon || ''} อาชีพ${JOBS[e.def.job]?.name || ''} · ชอบ: ${ITEMS[e.def.likes].icon}?` : 'ผู้เล่นออนไลน์'}</small></p>
       <div class="pbar big"><i style="width:${pct}%;background:${L.color}"></i></div><small>${Math.floor(r.pts)} แต้ม ${next ? `→ ${next.name} ที่ ${next.min}` : ''}</small>
       <div class="acts">${acts}${npc ? '' : this.friendBtn(e.id)}</div><h4>🎁 ให้ของขวัญ</h4><div class="gifts">${gifts || '<span class="hint">ไม่มีของ</span>'}</div>
+      ${npc && SHOPS[e.def.job] ? this.shopHTML(e.def, r) : ''}
       <p class="hint">ปุ่มสีจาง = ยังทำไม่ได้ (ชี้เมาส์เพื่อดูเหตุผล) · การกระทำสำคัญต้องได้รับความยินยอมจากอีกฝ่าย</p>`;
   }
 
@@ -472,6 +500,10 @@ export class UI {
     if (d.faccept) { g.net.send({ t: 'friend', a: 'accept', to: d.faccept }); return; }
     if (d.fdecline) { g.net.send({ t: 'friend', a: 'decline', to: d.fdecline }); return; }
     if (d.fremove) { const f = g.friends.find((x) => x.id === d.fremove); return this.confirm(`ลบ ${f?.name || ''} ออกจากเพื่อน?`, (ok) => ok && g.net.send({ t: 'friend', a: 'remove', to: d.fremove })); }
+    if (d.tpay) { const B = (this.basket ||= {}); if ((B[d.tpay] || 0) < (g.inv[d.tpay] || 0)) B[d.tpay] = (B[d.tpay] || 0) + 1; return this.refreshPanels(); }
+    if (d.tunpay) { const B = this.basket || {}; if (--B[d.tunpay] <= 0) delete B[d.tunpay]; return this.refreshPanels(); }
+    if (d.tclear) { this.basket = {}; return this.refreshPanels(); }
+    if (d.tbuy) { const r = g.auth.do('npctrade', { npc: this.person.id, buy: d.tbuy, pay: { ...this.basket } }); if (!g.auth.server && r && !r.err) this.basket = {}; else if (g.auth.server) this.basket = {}; return this.refreshPanels(); }
     if (d.rfilter) { this.rfilter = d.rfilter; return this.refreshPanels(); }
     if (d.unwear) { g.unequip(d.unwear); return this.refreshPanels(); }
     if (d.craft) { g.craft(+d.craft); return this.refreshPanels(); }
@@ -482,8 +514,8 @@ export class UI {
     if (d.petheal) { healPet(g, g.pets[+d.petheal]); return this.refreshPanels(); }
     if (d.petequip) { const [i, k] = d.petequip.split(':'); equipPet(g, g.pets[+i], k); return this.refreshPanels(); }
     if (d.petunequip) { const [i, sl] = d.petunequip.split(':'); unequipPet(g, g.pets[+i], sl); return this.refreshPanels(); }
-    if (d.build) { if (t.classList.contains('dis') && !g.hasItem('hammer')) return this.toast('ต้องมี 🔨 ค้อนช่างไม้ก่อน', 'warn'); return g.builder.start(d.build); }
-    if (d.demolish) { if (!g.hasItem('hammer')) return this.toast('ต้องมี 🔨 ค้อนช่างไม้ก่อน', 'warn'); return g.builder.startDemolish(); }
+    if (d.build) { if (t.classList.contains('dis') && !canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน (🪵 ค้อนไม้ หรือ 🔨 ค้อนช่างไม้)', 'warn'); return g.builder.start(d.build); }
+    if (d.demolish) { if (!canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน (🪵 ค้อนไม้ หรือ 🔨 ค้อนช่างไม้)', 'warn'); return g.builder.startDemolish(); }
     if (d.sact) { const a = this.structActs?.[+d.sact]; if (a && !a.dis) a.run(); return this.refreshPanels(); }
     if (d.dep) { g.home.deposit(this.struct, d.dep, 1); return this.refreshPanels(); }
     if (d.wd) { g.home.withdraw(this.struct, d.wd, 1); return this.refreshPanels(); }

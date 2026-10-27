@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, JOBS, jobOf, hasPerk, buildCost, extraSlots } from './data.js';
+import { SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { PIECES, FEEDS, CROPS, refundFor } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
@@ -41,6 +41,9 @@ export function rollLoot(rand) {
   for (let i = 0; i < n; i++) { let r = rand() * total; for (const [item, w] of LOOT_TABLE) { r -= w; if (r <= 0) { out[item] = (out[item] || 0) + 1; break; } } }
   return out;
 }
+// ราคาในร้าน NPC และมูลค่าของที่เอามาแลก
+export const shopPrice = (base, pts) => Math.ceil(base * (1 - Math.min(0.25, Math.max(0, pts) / 1000)));
+export const tradeValue = (k) => (ITEMS[k]?.value || 0) * 0.8;
 export function rollDrops(kind, rand) {
   const out = {};
   for (const [k, ch] of DROPS[kind] || []) if (rand() < ch) out[k] = (out[k] || 0) + 1;
@@ -74,6 +77,25 @@ const A = {
     return r;
   },
 
+  // แลกของกับ NPC: จ่ายด้วยของในกระเป๋า (คิดมูลค่า 80%) · สนิทกันได้ส่วนลด · จำกัดจำนวนต่อวัน
+  npctrade(ch, p, env) {
+    const n = NPCS.find((x) => x.id === p.npc); if (!n) return { err: 'ไม่พบผู้ค้า' };
+    const row = (SHOPS[n.job] || []).find(([k]) => k === p.buy); if (!row) return { err: `${n.name}ไม่มีของนี้ให้แลก` };
+    const pos = env.npcPos?.(n.id); if (!pos || dist(env, ch, pos.x, pos.z) > 7) return { err: `ต้องอยู่ใกล้${n.name}` };
+    const day = Math.floor(env.now() / DAY_MS), key = n.id + ':' + row[0], T = (ch.trade ||= {})[key], used = T && T.d === day ? T.n : 0;
+    if (used >= row[2]) return { err: `วันนี้${n.name}ไม่มี${ITEMS[row[0]].name}เหลือแล้ว พรุ่งนี้มาใหม่นะ` };
+    const price = shopPrice(row[1], ch.social?.rels?.[n.id]?.pts || 0);
+    let paid = 0; const take = {};
+    for (const [k, q] of Object.entries(p.pay || {})) {
+      const qq = Math.floor(+q); if (!(qq > 0)) continue;
+      if (!ITEMS[k] || ITEMS[k].quest || !has(ch, k, qq)) return { err: 'ของที่จะใช้แลกไม่พอ' };
+      take[k] = qq; paid += tradeValue(k) * qq;
+    }
+    if (paid + 1e-6 < price) return { err: `ของที่เอามาแลกมีมูลค่า ${Math.floor(paid)} ยังไม่ถึง ${price}` };
+    ch.trade[key] = { d: day, n: used + 1 };
+    return { take, give: { [row[0]]: 1 }, xp: { survival: 2 }, msg: `🤝 แลก ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} กับ${n.name}สำเร็จ`, traded: true };
+  },
+
   // กล่องภารกิจ: ต้องผ่านเงื่อนไขก่อน เปิดได้คนละครั้ง
   qbox(ch, p, env) {
     const b = QUEST_BOXES.find((x) => x.id === p.id); if (!b) return { err: 'ไม่พบกล่องนี้' };
@@ -103,6 +125,11 @@ const A = {
     if (!cool(ch, 'hit', 0.3, env.now())) return { silent: true, err: 'เร็วเกินไป' };
     if (env.resUntil(p.id) > env.now()) return { silent: true, err: 'หมดแล้ว' };
     const T = RES_TYPES[R.type];
+    // ก้อนหินใหญ่: ต้องใช้ค้อนหิน (หรือเครื่องมือที่ทุบหินได้)
+    if (R.type === 'rock' && !(ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool?.mine)) {
+      const t = (ch.t ||= {}), quiet = env.now() - (t.rockWarn || 0) < 4000; t.rockWarn = env.now();
+      return { err: '🪨 ก้อนหินใหญ่ต้องถือค้อนหินพื้นฐาน (ไม้ 2 + หิน 3 + เส้นใย 2) — ก้อนกรวดเล็ก ๆ เก็บด้วยมือได้', silent: quiet };
+    }
     const tool = !p.hand && ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool;
     const power = (tool ? tool.gather * (hasPerk(ch, 'engineer', 1) ? 1.3 : 1) : (R.type === 'rock' ? 0.5 : 1) + wearStats(ch.wear).gather);
     const hp = (env.resHp(p.id) ?? T.hp) - power;
@@ -134,6 +161,8 @@ const A = {
     const it = ITEMS[p.k]; if (!it || !has(ch, p.k)) return { err: 'ไม่มีของชิ้นนี้' };
     if (it.food) return { take: { [p.k]: 1 }, give: it.returns ? { [it.returns]: 1 } : null, fx: { food: it.food, item: p.k }, quietGive: true };
     if (it.med) return { take: { [p.k]: 1 }, fx: { med: it.med, item: p.k }, xp: { medicine: 6 } };
+    if (it.chant) { if (!cool(ch, 'chant', 30, env.now())) return { err: '🙏 สวดมนต์ได้ทุก 30 วินาที' }; return { fx: { chant: true, item: p.k }, xp: { spirit: 12 } }; }
+    if (it.device?.scout) { if (!cool(ch, 'drone', 90, env.now())) return { err: '🛸 โดรนกำลังชาร์จแบต (ใช้ได้ทุก 90 วินาที)' }; return { fx: { drone: true, item: p.k }, xp: { tech: 10 } }; }
     if (it.instrument) { if (!cool(ch, 'music', 20, env.now())) return { err: '🎸 พักนิ้วก่อน (เล่นได้ทุก 20 วินาที)' }; return { fx: { music: true, item: p.k }, xp: { recreation: 10 } }; }
     return { err: 'ใช้ไม่ได้' };
   },
@@ -164,7 +193,7 @@ const A = {
     const clean = { x: +s.x.toFixed(2), z: +s.z.toFixed(2), y: typeof s.y === 'number' ? +s.y.toFixed(2) : undefined, rot: (s.rot | 0) & 3, ry: +(+s.ry || 0).toFixed(2), drop: s.drop };
     if (PIECES[s.type]) {
       const P = PIECES[s.type];
-      if (!has(ch, 'hammer')) return { err: 'ต้องมีค้อนช่างไม้' };
+      if (!canBuild(ch.inv)) return { err: 'ต้องมีค้อน (ค้อนไม้ หรือ ค้อนช่างไม้)' };
       if (lvl(ch, 'building') < P.lvl) return { err: `ต้องมีทักษะก่อสร้าง Lv${P.lvl}` };
       const cost = buildCost(ch, P.cost);
       for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: 'วัสดุไม่พอ' };

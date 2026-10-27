@@ -122,18 +122,44 @@ export class World {
     const wm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#1d2430'), wins.length);
     wins.forEach((b, i) => { M.compose(new THREE.Vector3(b.x, b.y, b.z), new THREE.Quaternion(), new THREE.Vector3(b.w + 0.06, 0.9, b.d + 0.06)); wm.setMatrixAt(i, M); });
     this.scene.add(wm);
-    const cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.8, 1.2, 4), new THREE.MeshLambertMaterial(), cars.length);
-    cars.forEach((c, i) => {
-      M.compose(new THREE.Vector3(c.x, heightAt(c.x, c.z) + 0.75, c.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, c.ry, 0.04)), new THREE.Vector3(1, 1, 1));
-      cm.setMatrixAt(i, M); cm.setColorAt(i, c.color);
-    });
-    cm.castShadow = true; this.scene.add(cm);
+    this.buildCars(cars);
     // กล่องเสบียง
     const crates = this.loot.filter((l) => l.kind === 'crate');
     this.lootMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), mat('#8c6a3f'), crates.length);
     crates.forEach((l, i) => { l.idx = i; M.makeTranslation(l.x, heightAt(l.x, l.z) + 0.35, l.z); l.m = M.clone(); this.lootMesh.setMatrixAt(i, M); });
     this.lootMesh.castShadow = true; this.scene.add(this.lootMesh);
     this.buildQuestSites();
+  }
+
+  // รถร้างแบบละเอียด: ตัวถัง ห้องโดยสาร กระจก ล้อ ไฟหน้า/ท้าย กันชน (แยกชิ้นแบบ instanced)
+  buildCars(cars) {
+    const M = new THREE.Matrix4(), P = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+    const base = cars.map((c) => { e.set(0, c.ry, (c.hue - 0.5) * 0.08); return new THREE.Matrix4().compose(new THREE.Vector3(c.x, heightAt(c.x, c.z), c.z), q.clone().setFromEuler(e), new THREE.Vector3(1, 1, 1)); });
+    const wheel = new THREE.CylinderGeometry(0.36, 0.36, 0.26, 12); wheel.rotateZ(Math.PI / 2);
+    const parts = [
+      { geo: new THREE.BoxGeometry(1.86, 0.62, 4.3), y: 0.62, z: 0, color: 'car' },                     // ตัวถัง
+      { geo: new THREE.BoxGeometry(1.7, 0.6, 2.1), y: 1.22, z: -0.25, color: 'cab' },                  // ห้องโดยสาร
+      { geo: new THREE.BoxGeometry(1.74, 0.42, 1.9), y: 1.24, z: -0.25, color: '#1b263b', glass: true }, // กระจกรอบคัน
+      { geo: new THREE.BoxGeometry(1.9, 0.18, 0.18), y: 0.42, z: 2.18, color: '#adb5bd' },              // กันชนหน้า
+      { geo: new THREE.BoxGeometry(1.9, 0.18, 0.18), y: 0.42, z: -2.18, color: '#adb5bd' },             // กันชนหลัง
+      { geo: new THREE.BoxGeometry(0.34, 0.16, 0.06), x: -0.62, y: 0.72, z: 2.16, color: '#fff3b0', basic: true }, // ไฟหน้า
+      { geo: new THREE.BoxGeometry(0.34, 0.16, 0.06), x: 0.62, y: 0.72, z: 2.16, color: '#fff3b0', basic: true },
+      { geo: new THREE.BoxGeometry(0.3, 0.14, 0.06), x: -0.64, y: 0.74, z: -2.16, color: '#d00000', basic: true }, // ไฟท้าย
+      { geo: new THREE.BoxGeometry(0.3, 0.14, 0.06), x: 0.64, y: 0.74, z: -2.16, color: '#d00000', basic: true },
+      { geo: new THREE.BoxGeometry(1.2, 0.08, 0.05), y: 0.55, z: 2.17, color: '#343a40' },              // กระจังหน้า
+      ...[[-0.9, 1.35], [0.9, 1.35], [-0.9, -1.35], [0.9, -1.35]].map(([x, z]) => ({ geo: wheel, x, y: 0.36, z, color: '#161616' })),
+    ];
+    this.carMeshes = [];
+    for (const pt of parts) {
+      const m = pt.basic ? new THREE.MeshBasicMaterial({ color: pt.color }) : pt.glass ? new THREE.MeshPhongMaterial({ color: pt.color, shininess: 90, specular: '#8ecae6' }) : new THREE.MeshLambertMaterial({ color: pt.color.startsWith('#') ? pt.color : '#ffffff' });
+      const im = new THREE.InstancedMesh(pt.geo, m, cars.length);
+      P.makeTranslation(pt.x || 0, pt.y, pt.z || 0);
+      cars.forEach((c, i) => {
+        im.setMatrixAt(i, M.multiplyMatrices(base[i], P));
+        if (pt.color === 'car') im.setColorAt(i, c.color); else if (pt.color === 'cab') im.setColorAt(i, c.color.clone().multiplyScalar(0.8));
+      });
+      im.castShadow = !pt.basic; im.receiveShadow = true; this.scene.add(im); this.carMeshes.push(im);
+    }
   }
 
   // สถานที่ของภารกิจหลัก

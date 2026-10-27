@@ -73,7 +73,7 @@ export class WorldCore {
   relMsg(a, b) { const r = this.getRel(a, b); this.send(a, { t: 'rel', other: b, rel: r }); this.send(b, { t: 'rel', other: a, rel: r }); }
   person(id) { const p = this.players.get(id) || this.db.profiles[id]; return p && { id, sex: p.sex, name: p.name, pregnant: !!this.db.preg[id] }; }
   timeOfDay() { return (((Date.now() - this.db.startTime) / DAY_MS) + 0.3) % 1; }
-  isNight() { const t = this.timeOfDay(); return t < 0.24 || t > 0.79; }
+  isNight() { const t = this.timeOfDay(); return t < 0.21 || t > 0.82; }
   dayNum() { return Math.floor((Date.now() - this.db.startTime) / DAY_MS + 0.3) + 1; }
 
   // ---------- ผู้เล่นเข้า/ออก ----------
@@ -150,7 +150,7 @@ export class WorldCore {
         break;
       }
       case 'npcfollow': { const f = this.fauna.get(100000 + (m.idx | 0)); if (f) { f.follow = m.on ? id : null; if (!m.on) f.home = { x: f.x, z: f.z }; } break; }
-      case 'music': this.broadcast({ t: 'music', id, x: +m.x || 0, z: +m.z || 0, p: Math.min(40, Math.max(0, +m.p || 0)), heal: m.heal ? 1 : 0 }, id); break;
+      case 'music': this.broadcast({ t: 'music', id, x: +m.x || 0, z: +m.z || 0, p: Math.min(40, Math.max(0, +m.p || 0)), heal: m.heal ? 1 : 0, mo: m.mo ? 1 : 0 }, id); break;
       case 'friend': return this.friendMsg(id, m);
       case 'horde': this.horde(m.x, m.z, Math.min(8, m.n | 0), id); break;
       case 'act': this.act(me, m); break;
@@ -421,7 +421,7 @@ export class WorldCore {
       let near = 0;
       for (const zb of this.zombies.values()) if (Math.hypot(zb.x - px, zb.z - pz) < 140) near++;
       const town = TOWNS.find((t) => (t.x - px) ** 2 + (t.z - pz) ** 2 < (t.r * 1.6) ** 2);
-      const want = Math.min(28, Math.floor((town ? 7 : 2) * (night ? 2 : 1) + day * 0.8));
+      const want = Math.min(30, Math.floor((town ? 7 : 2) * (night ? 2.4 : 0.55) + day * (night ? 0.8 : 0.3))); // กลางวันน้อย กลางคืนเยอะ
       if (near >= want) continue;
       for (let i = 0; i < 6; i++) {
         const a = Math.random() * Math.PI * 2, r = 45 + Math.random() * 45;

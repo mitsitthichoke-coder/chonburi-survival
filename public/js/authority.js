@@ -18,7 +18,7 @@ export class Authority {
       get inv() { return g.inv; }, get wear() { return g.wear; }, get skills() { return g.skills; }, get pets() { return g.pets; },
       get equipped() { return g.equipped; }, set equipped(v) { g.equipped = v; },
       get lefty() { return g.lefty; }, set lefty(v) { g.lefty = v; },
-      get profile() { return g.profile; }, get jobKit() { return g.jobKit; }, set jobKit(v) { g.jobKit = v; },
+      get profile() { return g.profile; }, get social() { return { rels: g.social.rels }; }, get trade() { return g.trade || (g.trade = {}); }, set trade(v) { g.trade = v; }, get jobKit() { return g.jobKit; }, set jobKit(v) { g.jobKit = v; },
       get boxes() { return g.boxes || (g.boxes = {}); }, set boxes(v) { g.boxes = v; },
       get quest() { return g.quest; }, get stats() { return g.stats; }, t: {},
     };
@@ -29,6 +29,7 @@ export class Authority {
     const ent = (id) => g.ents.list.find((e) => !e.dead && (e.netId === id || e.uid === id));
     return {
       now: () => g.now(), rand: Math.random,
+      npcPos: (nid) => { const e = g.ents.list.find((x) => !x.dead && x.id === nid); return e ? { x: e.pos.x, z: e.pos.z } : null; },
       ownCount: (type) => W.structures.filter((s) => s.type === type && (!s.owner || s.owner === g.id)).length,
       pos: () => g.player.pos,
       loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, until: L.until ? L.until + g.timeOffset : 0 }; },

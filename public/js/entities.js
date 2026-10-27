@@ -324,7 +324,7 @@ export class Entities {
     }
     const town = TOWNS.find((t) => (t.x - P.x) ** 2 + (t.z - P.z) ** 2 < (t.r * 1.6) ** 2);
     const day = this.g.dayNum();
-    const zWant = Math.min(28, Math.floor((town ? 7 : 2) * (night ? 2 : 1) + day * 0.8));
+    const zWant = Math.min(30, Math.floor((town ? 7 : 2) * (night ? 2.4 : 0.55) + day * (night ? 0.8 : 0.3))); // กลางวันน้อย กลางคืนเยอะ
     const spawnAt = (minD, maxD) => {
       for (let i = 0; i < 6; i++) {
         const a = Math.random() * Math.PI * 2, r = minD + Math.random() * (maxD - minD);

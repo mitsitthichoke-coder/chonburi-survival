@@ -135,6 +135,7 @@ export function setOutfit(g, wear, ITEMS) {
 
 export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
   const u = g.userData;
+  if (u.flame) { const f = 0.85 + Math.random() * 0.3; u.flame.scale.set(f, 0.8 + Math.random() * 0.5, f); if (u.torchLight) u.torchLight.intensity = 1.8 + Math.random() * 0.8; }
   if (mode === 'climb' || mode === 'down') {
     // ท่าปีน: มือเอื้อมขึ้นสลับซ้ายขวา ขาถีบกำแพงสลับกัน ตัวเอนเข้าหากำแพง
     u.phase += dt * (mode === 'climb' ? 7 : 9);
@@ -180,14 +181,38 @@ const TOOL_MESH = {
   stone_axe: () => { const g = new THREE.Group(); g.add(box(0.06, 0.7, 0.06, '#7f5539', 0, -0.2, 0.1)); g.add(box(0.08, 0.18, 0.22, '#8a8a8a', 0, -0.5, 0.2)); g.rotation.x = Math.PI / 2; return g; },
   spear: () => { const g = new THREE.Group(); g.add(box(0.05, 1.8, 0.05, '#9c6644', 0, 0, 0)); g.add(box(0.08, 0.25, 0.08, '#cccccc', 0, 0.95, 0)); g.rotation.x = Math.PI / 2; return g; },
   machete: () => { const g = new THREE.Group(); g.add(box(0.06, 0.18, 0.06, '#222', 0, 0, 0)); g.add(box(0.03, 0.6, 0.1, '#c0c0c0', 0, 0.38, 0)); g.rotation.x = Math.PI / 2; return g; },
+  steel_axe: () => { const g = new THREE.Group(); g.add(box(0.06, 0.8, 0.06, '#5c4033', 0, -0.2, 0.1)); g.add(box(0.06, 0.22, 0.3, '#adb5bd', 0, -0.55, 0.22)); g.rotation.x = Math.PI / 2; return g; },
+  steel_spear: () => { const g = new THREE.Group(); g.add(box(0.05, 2, 0.05, '#495057', 0, 0, 0)); g.add(box(0.07, 0.35, 0.1, '#e9ecef', 0, 1.1, 0)); g.rotation.x = Math.PI / 2; return g; },
+  // ค้อน: ด้าม + หัวค้อน
+  hammer: () => hammerMesh('#9c6644', '#6c757d', 0.16), wood_hammer: () => hammerMesh('#b08968', '#7f5539', 0.18), stone_hammer: () => hammerMesh('#7f5539', '#8d8d8d', 0.22),
+  king_hammer: () => hammerMesh('#370617', '#ffd60a', 0.34),
+  // เบ็ด: คันยาว + สาย
+  rod: () => rodMesh('#c9a227'), rod_pro: () => rodMesh('#1d3557'),
+  net: () => { const g = new THREE.Group(); g.add(box(0.04, 0.6, 0.04, '#9c6644', 0, 0, 0)); const n = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#e9d8a6', wireframe: true })); n.position.y = 0.4; n.rotation.x = Math.PI; g.add(n); g.rotation.x = Math.PI / 2; return g; },
+  // คบเพลิง: ไม้ + ผ้าพัน + เปลวไฟ (แสงจริงตั้งใน setHeldTool)
+  torch: () => {
+    const g = new THREE.Group(); g.add(box(0.06, 0.6, 0.06, '#7f5539', 0, 0.1, 0)); g.add(box(0.1, 0.12, 0.1, '#6c584c', 0, 0.42, 0));
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 6), new THREE.MeshBasicMaterial({ color: '#ffb703' })); fl.position.y = 0.6; g.add(fl);
+    const core = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), new THREE.MeshBasicMaterial({ color: '#fff3b0' })); core.position.y = 0.56; g.add(core);
+    g.userData.flame = fl; g.rotation.x = 0.4; return g;
+  },
+  guitar: () => { const g = new THREE.Group(); g.add(box(0.28, 0.34, 0.08, '#bc6c25', 0, -0.1, 0)); g.add(box(0.06, 0.5, 0.04, '#6f4518', 0, 0.3, 0)); return g; },
 };
+function hammerMesh(handle, head, size) { const g = new THREE.Group(); g.add(box(0.05, 0.55, 0.05, handle, 0, -0.1, 0.08)); g.add(box(size * 0.8, size, size * 1.6, head, 0, -0.42, 0.14)); g.rotation.x = Math.PI / 2; return g; }
+function rodMesh(c) { const g = new THREE.Group(); g.add(box(0.035, 1.6, 0.035, c, 0, 0.6, 0)); g.add(box(0.01, 0.6, 0.01, '#eeeeee', 0, 1.1, 0.25)); g.rotation.x = Math.PI / 2.6; return g; }
 // lefty = สลับมือ: อาวุธอยู่มือซ้าย โล่อยู่มือขวา
 export function setHeldTool(g, tool, lefty) {
   const u = g.userData; lefty = lefty === undefined ? !!u.lefty : !!lefty;
   if (u.tool === tool && !!u.lefty === lefty && u.toolSet) return;
   u.toolSet = true; u.hand.clear(); u.lHand?.clear(); u.tool = tool;
   if (!!u.lefty !== lefty) { u.lefty = lefty; placeShield(u); }
-  if (TOOL_MESH[tool]) (lefty && u.lHand ? u.lHand : u.hand).add(TOOL_MESH[tool]());
+  const base = String(tool || '').split('~')[0], hand = lefty && u.lHand ? u.lHand : u.hand;
+  if (TOOL_MESH[base]) {
+    const m = TOOL_MESH[base](); hand.add(m);
+    // คบเพลิงส่องสว่างรอบตัว
+    if (base === 'torch' && GFX.mode !== 'low') { const L = new THREE.PointLight('#ffa94d', 2.2, 16, 1.5); L.position.y = 0.7; m.add(L); u.torchLight = L; } else u.torchLight = null;
+    u.flame = m.userData.flame || null;
+  } else { u.torchLight = null; u.flame = null; }
 }
 function placeShield(u) {
   if (!u.shield) return;

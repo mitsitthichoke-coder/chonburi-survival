@@ -198,6 +198,9 @@ const A = {
   },
   sqdrop(ch) { if (!ch.sq) return { err: 'ไม่มีภารกิจ' }; ch.sq = null; return { msg: 'ยกเลิกภารกิจสุ่มแล้ว', sq: null }; },
 
+  // ก่อไฟในเตาผิงของศาลา (ใช้ไม้ 2 · ลุกนาน 3 นาที)
+  hearth(ch) { if (!has(ch, 'wood', 2)) return { err: '🔥 ต้องมีไม้ 2 ชิ้นเพื่อก่อไฟในเตาผิง' }; return { take: { wood: 2 }, xp: { survival: 3 }, msg: '🔥 ก่อไฟในเตาผิงแล้ว — อบอุ่นและตากตัวให้แห้ง (3 นาที)', hearth: true }; },
+
   // ขายของให้ NPC รับเงินจิ (ราคาครึ่งหนึ่งของมูลค่า · NPC แต่ละคนรับซื้อได้วันละไม่เกิน SELL_DAY_CAP)
   npcsell(ch, p, env) {
     const n = NPCS.find((x) => x.id === p.npc); if (!n) return { err: 'ไม่พบผู้ค้า' };

@@ -42,6 +42,7 @@ const sockIp = new Map(); // uid -> ip (ใช้จำกัดการเด�
 const sendWs = (ws, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
 let worldDirty = false;
 const core = installEconomy(new WorldCore({
+  allowTheme: (id) => isAdmin(U.users[id]),
   state: store.getWorld(),
   send: (id, m) => sendWs(sockets.get(id), m),
   broadcast: (m, except) => { const s = JSON.stringify(m); for (const [id, ws] of sockets) if (id !== except && ws.readyState === 1) ws.send(s); },
@@ -202,11 +203,17 @@ core.onCommand = (id, text) => {
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · ' : '') + 'คำสั่ง: /players · /admins · /theme ฮาโลวีน|ปกติ · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
   if ((cmd === 'admin' || cmd === 'unadmin') && !isOwner(u)) return say('ตั้ง/ถอดแอดมินได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+  if (cmd === 'theme') {
+    // /theme ฮาโลวีน | ปกติ — เปลี่ยนธีมทั้งเซิร์ฟเวอร์ (เฉพาะแอดมิน/เจ้าของ)
+    const v = /hallo|ฮาโล|🎃/i.test(arg) ? 'halloween' : /apoc|ปกติ|ล่มสลาย|normal/i.test(arg) ? 'apocalypse' : null;
+    if (!v) return say('ใช้: /theme ฮาโลวีน หรือ /theme ปกติ');
+    core.setThemeAll(v); core.broadcast({ t: 'chat', from: 'system', name: '📢', text: v === 'halloween' ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี!' : '🌆 กลับสู่โลกล่มสลาย' }); return;
+  }
   const t = cmd === 'say' ? null : find(arg);
   if (cmd !== 'say' && !t) return say('ไม่พบผู้เล่นชื่อนี้');
   if (['kick', 'ban', 'mute'].includes(cmd) && isOwner(t) && !isOwner(u)) return say('ทำกับเจ้าของเซิร์ฟเวอร์ไม่ได้');

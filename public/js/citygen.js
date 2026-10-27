@@ -17,16 +17,25 @@ function buildLayout() {
   }
   roads.push({ pts: suk, width: 6, main: true });
   const T = Object.fromEntries(TOWNS.map((t) => [t.key, [t.x, t.z]]));
-  const line = (pts) => {
+  const line = (pts, main = false) => {
     const out = [];
     for (let i = 1; i < pts.length; i++) {
       const [x0, z0] = pts[i - 1], [x1, z1] = pts[i]; const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 4);
       for (let k = 0; k <= n; k++) out.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]);
     }
-    roads.push({ pts: out, width: 4.5 });
+    roads.push(main ? { pts: out, width: 6, main: true } : { pts: out, width: 4.5 });
   };
-  line([T.chonburi, T.phanat]);
-  line([T.chonburi, T.banbueng]);
+  // ถนนสายหลักเชื่อมทุกอำเภอ (อิงแนวถนนจริงโดยประมาณ)
+  line([T.chonburi, T.phanat], true);                                   // ทล.315 ชลบุรี–พนัสนิคม
+  line([T.chonburi, T.banbueng], true);                                 // ทล.344 ชลบุรี–บ้านบึง
+  line([T.chonburi, [T.chonburi[0] + 60, T.chonburi[1] - 140], T.phanthong], true); // ชลบุรี–พานทอง
+  line([T.phanthong, T.phanat], true);                                  // พานทอง–พนัสนิคม
+  line([T.phanat, [T.phanat[0] + 160, T.phanat[1] + 60], T.kochan], true); // พนัสนิคม–เกาะจันทร์
+  line([T.kochan, [T.kochan[0] + 160, T.kochan[1] + 160], T.bothong], true); // เกาะจันทร์–บ่อทอง
+  line([T.banbueng, [T.banbueng[0] + 220, T.banbueng[1] - 10], T.bothong], true); // ทล.331 บ้านบึง–บ่อทอง
+  line([T.banbueng, [T.banbueng[0] + 180, T.banbueng[1] + 140], T.nongyai], true); // ทล.344 บ้านบึง–หนองใหญ่
+  line([T.nongyai, T.bothong], true);                                   // หนองใหญ่–บ่อทอง
+  line([T.sriracha, [T.sriracha[0] + 250, T.sriracha[1] + 30], T.nongyai], true); // ศรีราชา–หนองค้อ–หนองใหญ่
   line([T.sriracha, [40, -230], T.banbueng]);
   line([T.pattaya, [T.pattaya[0] + 120, T.pattaya[1] - 20]]);
   line([T.banbueng, T.khaokheow]);
@@ -78,6 +87,18 @@ function buildLayout() {
     loot.push({ x: +(x + ox).toFixed(2), z: +(z + (rng() - 0.5) * 2).toFixed(2), kind: 'bike', broken: rng() < 0.5, ry: +(rng() * 6.28).toFixed(2) });
   }
 
+  // ศาลาที่พัก (เข้าไปหลบฝน/หิมะ อุ่นกว่าข้างนอก) — หลังคาสูง เดินลอดได้
+  const pavilions = [];
+  for (const t of TOWNS) {
+    for (let k = 0, tries = 0; k < Math.max(2, Math.round(t.n / 8)) && tries < 80; tries++) {
+      const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * t.r * 0.9, x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r, w = 6, d = 5;
+      if (heightAt(x, z) < 1 || waterAt(x, z)) continue;
+      if (buildings.some((b) => Math.abs(b.x - x) < (b.w + w) / 2 + 2 && Math.abs(b.z - z) < (b.d + d) / 2 + 2)) continue;
+      if (roadPts.some(([rx, rz]) => Math.abs(rx - x) < w / 2 + 2 && Math.abs(rz - z) < d / 2 + 2)) continue;
+      if (pavilions.some((p) => Math.hypot(p.x - x, p.z - z) < 12)) continue;
+      pavilions.push({ x: +x.toFixed(2), z: +z.toFixed(2), w, d, y: +(heightAt(x, z)).toFixed(2), hearth: k % 2 === 0 }); k++;
+    }
+  }
   // ค่ายอพยพสัตหีบ: รั้วสี่ด้าน + ประตูทางทิศเหนือ
   const c = QUEST_SPOTS.camp, half = c.size / 2, th = 0.6, top = heightAt(c.x, c.z) + 4;
   const gateW = 6;
@@ -89,7 +110,7 @@ function buildLayout() {
     { x: c.x + (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ขวาประตู
   ].map((f) => ({ ...f, top: top + 6, fence: true }));
   const gate = { x: c.x, z: c.z - half, w: gateW, d: th, top: top + 6, gate: true };
-  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate };
+  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate, pavilions };
 }
 
 // ดันวัตถุออกจากกล่องชน (อาคาร/รั้ว)

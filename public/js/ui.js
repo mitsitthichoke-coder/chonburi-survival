@@ -6,7 +6,9 @@ import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqPr
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { VOL_CH } from './audio.js';
-import { isHalloween, setTheme } from './theme.js';
+import { openGuide } from './guide-ui.js';
+import { fogName } from './weather-core.js';
+import { isHalloween } from './theme.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -78,9 +80,11 @@ export class UI {
       g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
     });
     // ปุ่ม 🎃 / 🌆 สลับธีมระหว่างเล่น
-    const tb = $('#theme-btn'), syncT = () => { tb.textContent = isHalloween() ? '🌆' : '🎃'; tb.title = isHalloween() ? 'กลับเป็นธีมโลกล่มสลาย' : 'เปลี่ยนเป็นธีมฮาโลวีน'; };
-    tb.onclick = (ev) => { ev.stopPropagation(); setTheme(isHalloween() ? 'apocalypse' : 'halloween'); syncT(); this.toast(isHalloween() ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี... ระวังผู้ติดเชื้อหัวฟักทอง!' : '🌆 กลับสู่โลกล่มสลาย'); };
-    syncT();
+    // แสดงเฉพาะคนที่เปลี่ยนธีมได้ (เล่นคนเดียว / แอดมิน-เจ้าของ / โฮสต์ห้อง)
+    const tb = $('#theme-btn'), syncT = () => { tb.hidden = !this.g.canTheme(); tb.textContent = isHalloween() ? '🌆' : '🎃'; tb.title = (isHalloween() ? 'กลับเป็นธีมโลกล่มสลาย' : 'เปลี่ยนเป็นธีมฮาโลวีน') + (this.g.net.online ? ' (ทั้งเซิร์ฟเวอร์)' : ''); };
+    this.syncThemeBtn = syncT;
+    tb.onclick = (ev) => { ev.stopPropagation(); const v = isHalloween() ? 'apocalypse' : 'halloween'; if (this.g.changeTheme(v) && !this.g.net.online) this.toast(v === 'halloween' ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี... ระวังผู้ติดเชื้อหัวฟักทอง!' : '🌆 กลับสู่โลกล่มสลาย'); syncT(); };
+    syncT(); setInterval(syncT, 3000);
     $('#hand-btn').onclick = (ev) => { ev.stopPropagation(); this.g.swapHands(); };
     // แตะกล่องภารกิจ = เปิด/ปิดลูกศรนำทาง 3 มิติเหนือหัวตัวละคร
     $('#quest').addEventListener('click', (ev) => { ev.stopPropagation(); this.g.navOn = !this.g.navOn; this.toast(this.g.navOn ? '🧭 เปิดลูกศรนำทางไปยังเป้าหมายภารกิจ' : '🧭 ปิดลูกศรนำทาง'); });
@@ -168,6 +172,11 @@ export class UI {
     if (g.social.lovedNearby()) chips.push('<span class="chip pink">💞 มีกำลังใจ</span>');
     if (g.nearFire) chips.push('<span class="chip orange">🔥 อบอุ่น</span>');
     if (g.weather.rain) chips.push('<span class="chip blue">🌧️ ฝนตก</span>');
+    if (g.weather.snow) chips.push('<span class="chip blue">❄️ หิมะตก</span>');
+    if (g.weather.fog >= 0.35) chips.push(`<span class="chip">🌫️ ${fogName(g.weather.fog)}</span>`);
+    const tp = s.temp ?? 37; chips.push(`<span class="chip ${tp < 36.2 ? 'blue' : tp > 38.6 ? 'orange' : ''}">${tp < 35 ? '🧊' : tp < 36.2 ? '🥶' : tp > 38.6 ? '🥵' : '🌡️'} ${tp.toFixed(1)}°C</span>`);
+    if ((s.wet || 0) >= 20) chips.push(`<span class="chip blue">💧 เปียก ${Math.round(s.wet)}%</span>`);
+    if (g.shelter || g.inCampNow) chips.push(`<span class="chip green">🏠 ${g.shelter?.kind === 'pav' ? 'ในศาลา' : 'ในที่พัก'}${g.hearthNear ? ' · 🔥 เตาผิง' : ''}</span>`);
     $('#status').innerHTML = chips.join('');
     const qh = g.quest.trackerHTML(), qel = $('#quest');
     this.drawSideQuest(); this.drawPartyHud();
@@ -352,7 +361,7 @@ export class UI {
 
   refreshPanels() {
     if (this.open !== 'panel') return;
-    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]']];
+    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]'], ['guide', '📖 คู่มือ']];
     let html = `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${this.tab === k ? 'on' : ''}">${n}</button>`).join('')}<button data-close="1" class="x">✕</button></div><div class="body">`;
     if (this.person) html += this.personHTML();
     else if (this.tab === 'inv') html += this.invHTML();
@@ -364,7 +373,7 @@ export class UI {
     else if (this.tab === 'bshop') html += this.baseShopHTML();
     else if (this.tab === 'struct' && this.struct) html += this.structHTML();
     else if (this.tab === 'trade') html += this.tradeHTML();
-    else if (this.tab === 'map') html += `<canvas id="bigmap" width="430" height="700"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
+    else if (this.tab === 'map') html += `<canvas id="bigmap" width="${Math.round(700 * (WORLD.maxX - WORLD.minX) / (WORLD.maxZ - WORLD.minZ))}" height="700" style="max-width:100%;height:auto"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
     $('#panel').innerHTML = html + '</div>';
     if (this.tab === 'map') this.drawBigMap();
   }
@@ -680,6 +689,7 @@ export class UI {
     const t = ev.target.closest('button,[data-item],[data-swap],[data-gift],[data-dep],[data-wd],[data-tadd],[data-toff],[data-tpay],[data-tunpay],[data-sell],[data-slist],[data-bup],[data-pwd],[data-pdep]'); if (!t) return;
     const g = this.g, d = t.dataset;
     if (d.close) return this.closeAll();
+    if (d.tab === 'guide') { openGuide(); return; }
     if (d.tab) { this.person = null; this.tab = d.tab; return this.refreshPanels(); }
     if (d.back) { this.person = null; return this.refreshPanels(); }
     if (d.dropmode) { this.dropMode = !this.dropMode; this.salvMode = false; return this.refreshPanels(); }

@@ -13,8 +13,8 @@ export const emptyState = () => ({ startTime: Date.now(), res: {}, loot: {}, str
 export class WorldCore {
   // send(id, msg) ส่งถึงผู้เล่นคนเดียว · broadcast(msg, exceptId) ส่งถึงทุกคน
   // relayState=false เมื่อการส่งตำแหน่งผู้เล่นทำผ่านช่องทางอื่น (presence ของ room)
-  constructor({ state, send, broadcast, relayState = true, onDirty = () => {} }) {
-    this.db = { ...emptyState(), ...(state || {}) };
+  constructor({ state, send, broadcast, relayState = true, onDirty = () => {}, allowTheme = null }) {
+    this.db = { ...emptyState(), ...(state || {}) }; this.allowTheme = allowTheme;
     this.send = send; this.broadcast = broadcast; this.relayState = relayState; this.onDirty = onDirty;
     this.players = new Map(); this.requests = new Map(); this.reqSeq = 1;
     this.zombies = new Map(); this.zseq = 1;
@@ -83,6 +83,11 @@ export class WorldCore {
     const list = this.friendIds(id).map((f) => { const p = this.players.get(f); return { id: f, name: p?.name || this.db.profiles[f]?.name || '?', online: !!p, x: p?.p ? Math.round(p.p[0]) : null, z: p?.p ? Math.round(p.p[2]) : null }; });
     const reqs = Object.keys(this.db.freq?.[id] || {}).map((f) => ({ id: f, name: this.db.profiles[f]?.name || '?' }));
     this.send(id, { t: 'friends', list, reqs });
+  }
+  // ธีมทั้งเซิร์ฟเวอร์ (เปลี่ยนได้เฉพาะแอดมิน/เจ้าของ/โฮสต์)
+  setThemeAll(v) {
+    if (!['apocalypse', 'halloween'].includes(v)) return false;
+    this.db.theme = v; this.broadcast({ t: 'theme', v }); this.dirty(); return true;
   }
   // ---------- แชทแยกช่อง: all ทุกคน · party ปาร์ตี้ · family ครอบครัว · pm กระซิบส่วนตัว ----------
   chatMsg(id, me, m) {
@@ -180,7 +185,7 @@ export class WorldCore {
     for (const [k, r] of Object.entries(this.db.rels)) { const [a, b] = k.split('|'); if (a === id) rels[b] = r; else if (b === id) rels[a] = r; }
     this.send(id, {
       t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, structures: this.db.structures,
-      rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles,
+      rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse',
       players: this.relayState ? [...this.players.values()].filter((p) => p.id !== id).map((p) => this.pub(p)) : [],
     });
     this.sendFriends(id);
@@ -213,6 +218,7 @@ export class WorldCore {
         if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
       case 'chat': return this.chatMsg(id, me, m);
+      case 'theme': if (this.allowTheme?.(id)) this.setThemeAll(m.v); else this.send(id, { t: 'notice', text: 'เปลี่ยนธีมได้เฉพาะแอดมิน/เจ้าของเซิร์ฟเวอร์' }); break;
       case 'party': return this.partyMsg(id, m);
       case 'announce':
         if (m.kind === 'quest') this.broadcast({ t: 'chat', from: 'system', name: '📻', text: `📻 ${me.name} ติดต่อศูนย์อพยพสัตหีบสำเร็จ! ประตูค่ายเปิดรับผู้รอดชีวิตแล้ว` });

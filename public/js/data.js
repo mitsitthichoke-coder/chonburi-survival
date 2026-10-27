@@ -37,12 +37,12 @@ const RAW_ITEMS = {
   machete: { name: 'มีดพร้า', icon: '🔪', value: 14, tool: { gather: 2.5, dmg: 30, range: 2.8 } },
   // ---- เสื้อผ้า (สวมใส่ได้ 7 ช่อง) ----
   // def = ลดความเสียหาย · bite = ลดโอกาสติดเชื้อเมื่อถูกกัด · spd = เดินเร็วขึ้น · stam = สตามิน่าฟื้นเร็วขึ้น · gather = เก็บของมือเปล่าแรงขึ้น · carry = ช่องกระเป๋าเพิ่ม
-  hat_cloth: { name: 'หมวกผ้า', icon: '🧢', value: 4, wear: { slot: 'head', def: 0.03, color: '#c9a227' } },
+  hat_cloth: { name: 'หมวกผ้า', icon: '🧢', value: 4, wear: { slot: 'head', warm: 0.06, def: 0.03, color: '#c9a227' } },
   helmet_bike: { name: 'หมวกกันน็อก', icon: '⛑️', value: 10, wear: { slot: 'head', def: 0.08, bite: 0.05, color: '#d62828' } },
   helmet_mil: { name: 'หมวกทหาร', icon: '🪖', value: 18, wear: { slot: 'head', def: 0.12, bite: 0.1, color: '#556b2f' } },
   shirt_rag: { name: 'เสื้อผ้าปะ', icon: '👕', value: 5, wear: { slot: 'body', def: 0.04, color: '#8d99ae' } },
   cloth_armor: { name: 'เสื้อเกราะผ้าหนา', icon: '🦺', value: 12, wear: { slot: 'body', def: 0.12, bite: 0.15, color: '#6c757d' } },
-  jacket_leather: { name: 'แจ็กเก็ตหนัง', icon: '🧥', value: 16, wear: { slot: 'body', def: 0.16, bite: 0.2, color: '#6f4518' } },
+  jacket_leather: { name: 'แจ็กเก็ตหนัง', icon: '🧥', value: 16, wear: { slot: 'body', warm: 0.35, def: 0.16, bite: 0.2, color: '#6f4518' } },
   vest_kevlar: { name: 'เสื้อเกราะกันกระสุน', icon: '🦺', value: 26, wear: { slot: 'body', def: 0.25, bite: 0.3, color: '#2b2d42' } },
   pants_rag: { name: 'กางเกงผ้าปะ', icon: '👖', value: 4, wear: { slot: 'legs', def: 0.03, color: '#7d8597' } },
   skirt_rag: { name: 'กระโปรงผ้าปะ', icon: '👗', value: 4, wear: { slot: 'legs', def: 0.02, spd: 0.03, color: '#b5838d', skirt: true } },
@@ -55,7 +55,7 @@ const RAW_ITEMS = {
   socks_wool: { name: 'ถุงเท้าหนา', icon: '🧦', value: 5, wear: { slot: 'socks', stam: 0.2, color: '#e76f51' } },
   sandals: { name: 'รองเท้าแตะ', icon: '🩴', value: 3, wear: { slot: 'shoes', spd: 0.04, color: '#3a86ff' } },
   sneakers: { name: 'รองเท้าผ้าใบ', icon: '👟', value: 9, wear: { slot: 'shoes', spd: 0.08, stam: 0.05, color: '#f8f9fa' } },
-  boots: { name: 'รองเท้าบูท', icon: '🥾', value: 14, wear: { slot: 'shoes', spd: 0.06, def: 0.05, bite: 0.08, color: '#432818' } },
+  boots: { name: 'รองเท้าบูท', icon: '🥾', value: 14, wear: { slot: 'shoes', warm: 0.08, spd: 0.06, def: 0.05, bite: 0.08, color: '#432818' } },
   bag_cloth: { name: 'กระเป๋าผ้า Lv1', icon: '👝', value: 6, wear: { slot: 'back', carry: 8, lvl: 1, color: '#bc9d6c' } },
   bag_hiking: { name: 'กระเป๋าเป้เดินป่า Lv2', icon: '🎒', value: 14, wear: { slot: 'back', carry: 24, lvl: 2, color: '#2a9d8f' } },
   bag_military: { name: 'กระเป๋าทหาร Lv3', icon: '🎒', value: 24, wear: { slot: 'back', carry: 36, lvl: 3, color: '#4b5320' } },
@@ -64,7 +64,7 @@ const RAW_ITEMS = {
   steel_spear: { name: 'หอกเหล็กกล้า', icon: '🔱', value: 24, tool: { gather: 1.2, dmg: 34, range: 3.8, fish: true } },
   rod_pro: { name: 'เบ็ดคาร์บอน', icon: '🎣', value: 18, tool: { gather: 1, dmg: 5, range: 2, rod: true, lure: 1.8 } },
   pickup: { name: 'รถกระบะดัดแปลง', icon: '🛻', value: 80, place: 'vehicle', vt: 'pickup' },
-  hunter_cloak: { name: 'ชุดพรางนักล่า', icon: '🥷', value: 20, wear: { slot: 'body', def: 0.14, bite: 0.18, spd: 0.05, color: '#4a5e3a' } },
+  hunter_cloak: { name: 'ชุดพรางนักล่า', icon: '🥷', value: 20, wear: { slot: 'body', warm: 0.3, def: 0.14, bite: 0.18, spd: 0.05, color: '#4a5e3a' } },
   jerky: { name: 'เนื้อตากแห้ง', icon: '🥓', value: 8, food: { hunger: 32, hp: 4 } },
   big_meal: { name: 'อาหารชุดใหญ่', icon: '🍱', value: 20, food: { hunger: 70, thirst: 20, hp: 25, infection: -5 } },
   fish_soup: { name: 'ต้มยำปลา', icon: '🥘', value: 12, food: { hunger: 45, thirst: 25, hp: 12, infection: -10 } },
@@ -226,10 +226,10 @@ const RAW_ITEMS = {
   garland: { name: 'พวงมาลัยมะลิ', icon: '📿', value: 20, flower: true, desc: 'มอบให้ผู้ใหญ่หรือพระสงฆ์' },
   // สัตว์มีชีวิตที่จับจากกรง (หิ้วไปปล่อยเข้าคอก)
   duck_feather: { name: 'ขนเป็ด', icon: '🪶', value: 2, desc: 'ได้จากเล้าเป็ด ใช้ตัดเย็บชุดขนเป็ดอบอุ่นเบาสบาย' },
-  down_jacket: { name: 'แจ็กเก็ตขนเป็ด', icon: '🧥', value: 22, wear: { slot: 'body', def: 0.08, stam: 0.1, spd: 0.03, color: '#f1faee' }, desc: 'เบา อุ่น วิ่งได้นานขึ้น' },
-  down_hat: { name: 'หมวกขนเป็ด', icon: '🪶', value: 9, wear: { slot: 'head', def: 0.03, stam: 0.04, color: '#e9ecef' } },
-  down_gloves: { name: 'ถุงมือบุขนเป็ด', icon: '🧤', value: 10, wear: { slot: 'hands', gather: 0.4, stam: 0.03, color: '#dee2e6' } },
-  down_socks: { name: 'ถุงเท้าขนเป็ด', icon: '🧦', value: 7, wear: { slot: 'socks', stam: 0.06, spd: 0.02, color: '#f8f9fa' } },
+  down_jacket: { name: 'แจ็กเก็ตขนเป็ด', icon: '🧥', value: 22, wear: { slot: 'body', warm: 0.55, def: 0.08, stam: 0.1, spd: 0.03, color: '#f1faee' }, desc: 'เบา อุ่น วิ่งได้นานขึ้น' },
+  down_hat: { name: 'หมวกขนเป็ด', icon: '🪶', value: 9, wear: { slot: 'head', warm: 0.15, def: 0.03, stam: 0.04, color: '#e9ecef' } },
+  down_gloves: { name: 'ถุงมือบุขนเป็ด', icon: '🧤', value: 10, wear: { slot: 'hands', warm: 0.12, gather: 0.4, stam: 0.03, color: '#dee2e6' } },
+  down_socks: { name: 'ถุงเท้าขนเป็ด', icon: '🧦', value: 7, wear: { slot: 'socks', warm: 0.12, stam: 0.06, spd: 0.02, color: '#f8f9fa' } },
   feather_pillow: { name: 'หมอนขนเป็ด', icon: '🛏️', value: 12, desc: 'ของขวัญนุ่มนิ่ม เพื่อนชอบมาก' },
   arrow_feather: { name: 'ลูกธนูหางขนเป็ด', icon: '➶', value: 3, ammo: { g: 'arrow', dmg: 9, tier: 3 } },
   live_chicken: { name: 'ไก่ป่ามีชีวิต (กรงหิ้ว)', icon: '🐓', value: 8, live: 'coop', desc: 'นำไปปล่อยที่เล้าไก่ (เปิดคอกแล้วกดปล่อย)' },
@@ -509,9 +509,15 @@ export const TOWNS = [
   T('pattaya', 'พัทยา', 12.927, 100.893, 65, 44, 2.4),
   T('jomtien', 'จอมเทียน', 12.870, 100.888, 40, 22, 1.8),
   T('sattahip', 'สัตหีบ', 12.662, 100.915, 45, 20, 0.8),
-  T('phanat', 'พนัสนิคม', 13.447, 101.181, 40, 18, 0.7),
+  T('phanat', 'พนัสนิคม', 13.448, 101.184, 50, 26, 0.8), // อ.พนัสนิคม (เมืองเก่า ขยายใหญ่ขึ้น)
   T('banbueng', 'บ้านบึง', 13.313, 101.109, 40, 16, 0.7),
   T('khaokheow', 'สวนสัตว์เปิดเขาเขียว', 13.24, 101.03, 25, 6, 0.4),
+  // อำเภออื่น ๆ ของชลบุรี (พิกัดจริงโดยประมาณ)
+  T('phanthong', 'พานทอง', 13.468, 101.096, 35, 14, 0.7),
+  T('kochan', 'เกาะจันทร์', 13.395, 101.330, 30, 10, 0.6),
+  T('nongyai', 'หนองใหญ่', 13.158, 101.371, 30, 10, 0.6),
+  T('bothong', 'บ่อทอง', 13.236, 101.488, 32, 12, 0.6),
+  T('sichang', 'เกาะสีชัง', 13.152, 100.818, 14, 6, 0.5),
 ];
 export const SPAWN_TOWN = 'bangsaen';
 
@@ -624,9 +630,9 @@ export function buildCost(ch, cost) {
 // จำนวนชิ้นต่อ 1 ช่องกระเป๋า
 export const stackOf = (k) => { const it = ITEMS[k]; return it.wear || it.tool || it.place || it.petGear || it.instrument || it.device ? 1 : it.food || it.med ? 10 : 30; };
 export function wearStats(wear) {
-  const t = { def: 0, bite: 0, spd: 0, stam: 0, gather: 0, carry: 0, block: 0 };
+  const t = { def: 0, bite: 0, spd: 0, stam: 0, gather: 0, carry: 0, block: 0, warm: 0 }; // warm = กันหนาว (0–1)
   for (const k of Object.values(wear || {})) { const w = k && ITEMS[k]?.wear; if (w) for (const f in t) t[f] += w[f] || 0; }
-  t.def = Math.min(0.6, t.def); t.bite = Math.min(0.7, t.bite); t.block = Math.min(0.5, t.block);
+  t.warm = Math.min(1, t.warm); t.def = Math.min(0.6, t.def); t.bite = Math.min(0.7, t.bite); t.block = Math.min(0.5, t.block);
   return t;
 }
 

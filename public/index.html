@@ -44,8 +44,10 @@
   .stat { display: grid; grid-template-columns: 22px 1fr 38px; align-items: center; gap: 6px; font-size: 13px; margin: 3px 0; }
   .bar { height: 9px; background: rgba(255,255,255,.12); border-radius: 5px; overflow: hidden; } .bar i { display: block; height: 100%; transition: width .2s; }
   #clock { margin-top: 6px; font-size: 13px; } #clock small { color: var(--muted); }
-  #leftcol { position: absolute; left: 14px; top: 182px; width: 260px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-  #status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  #leftcol { position: absolute; left: 14px; top: 236px; width: 260px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  /* ป้ายสถานะ/สภาพอากาศ: อยู่ด้านบน ถัดจากกล่องค่าสถานะ (ไม่บังพิกัดและภารกิจ) */
+  #status { position: absolute; left: 280px; top: 14px; max-width: calc(100vw - 500px); display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px; pointer-events: none; }
+  body.touch #status { left: 222px; max-width: calc(100vw - 380px); font-size: 11px; }
   #quest { background: rgba(20, 16, 6, .6); border-left: 3px solid #ffd60a; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
   #quest b { display: block; color: #ffd60a; font-size: 14px; } #quest p { margin: 2px 0 4px; color: #e9ecef; } #quest .qn { color: #b8a96a; }
   .qnav { margin-top: 4px; font-weight: 600; } .qarrow { display: inline-block; color: #ffd60a; } .qdef { color: #ff8fa3; font-weight: 800; margin-top: 4px; }
@@ -104,6 +106,13 @@
   h3 button { font-size: 13px; padding: 3px 10px; margin-left: 8px; } h3 small { font-weight: 400; font-size: 13px; color: var(--muted); }
   body.dragging #hotbar { z-index: 60; } #hotbar .slot.over { outline: 2px solid #ffd166; transform: scale(1.08); }
   #sleep-fade { position: fixed; inset: 0; background: #050814; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 5; }
+  #guide-modal { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 12px; } #guide-modal[hidden] { display: none; }
+  #guide-modal .gbox { width: min(920px, 100%); max-height: 92vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  #guide-modal .ghead { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .gnav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line); } .gnav button { font-size: 12px; padding: 4px 8px; } .gnav button.on { background: var(--accent); color: #fff; }
+  .gbody { overflow-y: auto; padding: 10px 16px 18px; line-height: 1.55; font-size: 14px; } .gbody h4 { margin: 14px 0 6px; color: #ffd166; } .gbody ul, .gbody ol { margin: 4px 0; padding-left: 22px; }
+  table.gtab { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 13px; } table.gtab th, table.gtab td { border: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; } table.gtab th { background: rgba(255,255,255,.06); }
+  .gbody code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 4px; }
   #ctx-menu { position: fixed; z-index: 80; min-width: 200px; background: rgba(14,17,22,.97); border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; } #ctx-menu[hidden] { display: none; } #ctx-menu b { padding: 2px 4px; } #ctx-menu button { text-align: left; padding: 6px 8px; }
   #sidequest { pointer-events: auto; background: rgba(6, 14, 20, .6); border-left: 3px solid #4cc9f0; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; } #sidequest .qn { display: block; color: #8ecae6; } #sidequest .sqb { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; align-items: center; } #sidequest button { padding: 3px 8px; font-size: 12px; }
   #quest { cursor: pointer; pointer-events: auto; } #quest .qtoggle { margin-top: 4px; font-size: 11px; color: #ffd166; }
@@ -163,7 +172,7 @@
   body.touch #prompt { bottom: 124px; }
   body.touch #hotbar { bottom: 12px; }
   body.touch #minimap { width: 130px; height: 130px; } body.touch #mute-btn { top: 150px; } body.touch #toasts { top: 196px; width: 240px; }
-  body.touch #hud { width: 200px; padding: 6px 10px; } body.touch #leftcol { top: 150px; }
+  body.touch #hud { width: 200px; padding: 6px 10px; } body.touch #leftcol { top: 196px; }
   body.touch #leftcol { width: 210px; } body.touch #quest { font-size: 11px; } body.touch #quest p { display: none; }
   #focus-hint { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); background: rgba(231,111,81,.92); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 18px; font-weight: 800; pointer-events: none; z-index: 20; }
   #focus-hint[hidden] { display: none; }
@@ -182,6 +191,7 @@
 <div id="menu">
   <div class="card">
     <h1>ชลบุรี: <span id="title-sub">วันล่มสลาย</span></h1>
+    <p><button id="guide-btn" class="secondary">📖 วิธีเล่น / คู่มือเกม</button></p>
     <div class="sub">เกมเอาชีวิตรอด 3D โลกเปิด — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี ตั้งแต่บางแสน ศรีราชา พัทยา ถึงสัตหีบ</div>
     <div id="auth" hidden>
       <div class="seg atabs"><button data-a="login" class="on">🔑 เข้าสู่ระบบ</button><button data-a="register">📝 สมัครเล่นเกม</button></div>
@@ -223,7 +233,6 @@
       <div class="row"><label>คิ้ว</label><div class="seg" id="f-brows"></div></div>
       <div class="row"><label>ปาก</label><div class="seg" id="f-mouth"></div></div>
       <div class="row"><label>ของตกแต่งใบหน้า</label><div class="seg" id="f-extra"></div></div>
-      <div class="row"><label>ธีมของเกม (เปลี่ยนในเกมได้ที่ปุ่ม 🎃 มุมขวา)</label><div class="seg" id="f-theme"><button data-v="apocalypse">🌆 โลกล่มสลาย</button><button data-v="halloween">🎃 ฮาโลวีน</button></div></div>
       <div class="row"><label>กราฟิก</label><div class="seg" id="f-gfx"><button data-v="low">⚡ ประหยัด (มือถือ/เครื่องช้า)</button><button data-v="normal">🙂 ปกติ</button><button data-v="smooth">✨ ละมุน (ขอบมน แสงนุ่ม)</button></div></div>
       <div class="row" id="server-row"><label>เซิร์ฟเวอร์สำหรับเล่นกับเพื่อน</label><input id="f-server" type="text" placeholder="ws://192.168.1.10:8080"><div class="hint">เปิดเซิร์ฟเวอร์ด้วย <code>npm start</code> แล้วให้เพื่อนเข้า http://ไอพีของคุณ:8080</div></div>
       <div class="row hint" id="room-row" hidden>🌐 โหมดออนไลน์ในลิงก์นี้: ทุกคนที่เปิดลิงก์เดียวกันและกด "เล่นกับเพื่อน" จะอยู่ในโลกเดียวกัน (เจ้าของต้องแชร์ลิงก์ให้เพื่อนจากเมนู Share ก่อน)</div>
@@ -235,6 +244,7 @@
   </div>
 </div>
 
+<div id="guide-modal" hidden><div class="gbox"><div class="ghead"><b>📖 คู่มือเกม ชลบุรี: วันล่มสลาย</b><button id="guide-close">✕</button></div><div class="gnav" id="guide-nav"></div><div class="gbody" id="guide-body"></div></div></div>
 <div id="game-ui">
   <div id="hud">
     <div class="stat" data-stat="hp"><span>❤️</span><div class="bar"><i id="b-hp" style="background:#e63946"></i></div><span id="v-hp"></span></div>
@@ -248,7 +258,8 @@
     <div id="coins" title="เงินจิ (Ji-Coin)">🪙 <b id="v-coin">0</b> <small>เงินจิ</small></div>
     <div id="clock"></div>
   </div>
-  <div id="leftcol"><div id="status"></div><div id="quest" hidden></div><div id="sidequest"></div></div>
+  <div id="status"></div>
+  <div id="leftcol"><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
   <button id="theme-btn" title="สลับธีม: ฮาโลวีน / โลกล่มสลาย">🎃</button>
   <div id="sound-panel" hidden></div>

@@ -143,6 +143,33 @@ export class World {
       this.scene.add(m); l.mesh = m;
     }
     this.buildQuestSites();
+    this.buildPavilions();
+  }
+  // ศาลาที่พัก: เสา 4 ต้น หลังคาจั่ว ม้านั่ง · ศาลาแรกของเมืองมีเตาผิงให้ความอบอุ่น
+  buildPavilions() {
+    this.pavilions = this.layout.pavilions || [];
+    for (const p of this.pavilions) {
+      const g = new THREE.Group(), H = 3.2; g.position.set(p.x, p.y, p.z);
+      const add = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+      add(new THREE.BoxGeometry(p.w, 0.2, p.d), '#a68a64', 0, 0.1, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.BoxGeometry(0.25, H, 0.25), '#6f4518', sx * (p.w / 2 - 0.3), H / 2, sz * (p.d / 2 - 0.3));
+      const r1 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), '#9d0208', 0, H + 0.45, -p.d / 4); r1.rotation.x = 0.42;
+      const r2 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), '#9d0208', 0, H + 0.45, p.d / 4); r2.rotation.x = -0.42;
+      add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, -p.d / 2 + 0.7); add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, p.d / 2 - 0.7);
+      add(new THREE.BoxGeometry(1.6, 0.35, 0.05), '#ffd166', 0, H - 0.2, p.d / 2 - 0.1);
+      // เตาผิง + ปล่องไฟทะลุหลังคา (ก่อไฟได้เลย ไม่ต้องคราฟท์กองไฟ)
+      if (p.hearth) { add(new THREE.BoxGeometry(0.5, H + 1.6, 0.5), '#7f5539', p.w / 2 - 0.9, (H + 1.6) / 2, 0); add(new THREE.BoxGeometry(1.1, 0.9, 1.0), '#6c757d', p.w / 2 - 0.9, 0.45, 0); add(new THREE.BoxGeometry(0.6, 0.45, 0.05), '#1b1b1b', p.w / 2 - 0.9, 0.4, 0.51); add(new THREE.BoxGeometry(0.9, 0.5, 0.9), '#6c757d', 0, -10, 0); const f = add(new THREE.ConeGeometry(0.22, 0.45, 6), '#ff7b00', p.w / 2 - 0.9, 0.35, 0.45); f.material = new THREE.MeshBasicMaterial({ color: '#ff9e00' }); p.flame = f; }
+      this.scene.add(g); p.mesh = g;
+    }
+  }
+  // ยืนอยู่ใต้หลังคา (ศาลา หลังคาบ้านที่สร้าง เพิงพัก) = หลบฝน/หิมะได้
+  shelterAt(x, z, y) {
+    for (const p of this.pavilions || []) if (Math.abs(x - p.x) < p.w / 2 && Math.abs(z - p.z) < p.d / 2 && y < p.y + 3) return { kind: 'pav', warm: p.hearth, p };
+    for (const s of this.structures) {
+      if (s.type === 'roof' && Math.abs(x - s.x) < 1.6 && Math.abs(z - s.z) < 1.6 && (s.y ?? heightAt(s.x, s.z)) > y + 0.5) return { kind: 'house' };
+      if (s.type === 'shelter' && Math.hypot(x - s.x, z - s.z) < 2) return { kind: 'shelter' };
+    }
+    return null;
   }
 
   // รถร้างแบบละเอียด: ตัวถัง ห้องโดยสาร กระจก ล้อ ไฟหน้า/ท้าย กันชน (แยกชิ้นแบบ instanced)
@@ -438,7 +465,7 @@ export class World {
   }
 
   buildMinimap() {
-    const W = 324, H = 530, sx = (WORLD.maxX - WORLD.minX) / W, sz = (WORLD.maxZ - WORLD.minZ) / H;
+    const H = 530, W = Math.round(H * (WORLD.maxX - WORLD.minX) / (WORLD.maxZ - WORLD.minZ)), sx = (WORLD.maxX - WORLD.minX) / W, sz = (WORLD.maxZ - WORLD.minZ) / H;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const x = c.getContext('2d'); const img = x.createImageData(W, H); const col = new THREE.Color();
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {

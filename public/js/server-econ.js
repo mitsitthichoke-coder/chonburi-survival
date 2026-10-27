@@ -213,7 +213,7 @@ export function installEconomy(core) {
     const num = (v, a, b, d) => (Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : d);
     Object.assign(st, { hp: num(S.hp, 0, maxHp, st.hp), hunger: num(S.hunger, 0, 100, st.hunger), thirst: num(S.thirst, 0, 100, st.thirst), stamina: num(S.stamina, 0, 300, st.stamina), infection: num(S.infection, 0, 100, st.infection), bleeding: !!S.bleeding, fracture: !!S.fracture, sick: num(S.sick, 0, 120, 0), survived: Math.max(st.survived || 0, num(S.survived, 0, 1e9, 0)) });
     // ความสุข: เพิ่มได้ไม่เกิน 1 แต้มต่อการบันทึกหนึ่งครั้ง (กันโกง)
-    const h0 = st.happy ?? 50; st.happy = Math.min(num(S.happy, 0, 100, h0), h0 + 1); st.happyT = num(S.happyT, 0, 3600, st.happyT || 0); st.sprain = num(S.sprain, 0, 120, 0);
+    const h0 = st.happy ?? 50; st.happy = Math.min(num(S.happy, 0, 100, h0), h0 + 1); st.happyT = num(S.happyT, 0, 3600, st.happyT || 0); st.sprain = num(S.sprain, 0, 120, 0); st.temp = num(S.temp, 32, 40, 37); st.wet = num(S.wet, 0, 100, 0);
     if (Array.isArray(m.hotbar)) ch.hotbar = m.hotbar.slice(0, 6).map((k) => (ITEMS[k] ? k : null));
     for (const pp of m.pets || []) {
       const p = ch.pets.find((x) => x.id === pp.id); if (!p) continue;

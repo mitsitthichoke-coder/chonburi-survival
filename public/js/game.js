@@ -16,7 +16,8 @@ import { Sfx } from './audio.js';
 import { TouchControls, isTouchDevice } from './touch.js';
 import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, equipPet } from './pets.js';
 import { Builder } from './building.js';
-import { isHalloween } from './theme.js';
+import { isHalloween, setTheme } from './theme.js';
+import { weatherAt, airTemp, bodyTarget, fogName } from './weather-core.js';
 import { PIECES, baseY } from './building-core.js';
 import { Fishing } from './fishing.js';
 import { Homestead } from './homestead.js';
@@ -34,7 +35,7 @@ export class Game {
     this.startTime = Date.now() - DAY_MS * 0.05; this.timeOffset = 0;
     this.keys = {}; this.camYaw = Math.PI; this.camPitch = 0.35; this.camDist = 6;
     this.atkT = 0; this.atkCd = 0; this.safeTime = 8; this.radioT = 60; this.saveT = 15; this.netT = 0; this.xpT = 0;
-    this.weather = { rain: false, t: 120 };
+    this.weather = { rain: false, snow: false, fog: 0, t: 120 };
     this.initRenderer();
     this.world = new World(this.scene);
     this.initPlayer();
@@ -190,11 +191,31 @@ export class Game {
   handMul() { const dom = this.profile.hand === 'l' ? 'l' : 'r', using = this.lefty ? 'l' : 'r'; return dom === using ? 1.15 : 0.9; }
   holdItem(k) { return this.auth.do('hold', { k: k || null }); }
   setLefty(v) { return this.auth.do('hands', { lefty: !!v }); }
+  // 🌡️ อุณหภูมิร่างกาย + ความเปียก: ฝน/หิมะทำให้เปียกและหนาว · หลบในศาลา/บ้าน · ใกล้กองไฟ/เตาผิง · เสื้อกันหนาว ช่วยให้อุ่น
+  tickBody(dt) {
+    const s = this.stats, P = this.player.pos, W = this.weather;
+    if (s.temp === undefined) s.temp = 37; if (s.wet === undefined) s.wet = 0;
+    const sh = this.world.shelterAt(P.x, P.z, P.y), now = this.now();
+    const hearth = (this.world.pavilions || []).find((p) => p.hearth && (p.lit || 0) > now && Math.hypot(p.x - P.x, p.z - P.z) < 7);
+    const fire = this.nearFire || !!hearth, inside = !!sh || this.inCampNow;
+    this.shelter = sh; this.hearthNear = hearth;
+    // เปียก
+    let dw = -1;
+    if (this.player.swim) dw = 25; else if (!inside && !this.vehicle?.s?.vt?.includes?.('car') && W.rain) dw = 4; else if (!inside && W.snow) dw = 1.5;
+    if (fire) dw -= 5; else if (inside) dw -= 1.5;
+    s.wet = clamp(s.wet + dw * dt, 0, 100);
+    // อุณหภูมิ
+    const air = airTemp(W, this.isNight(), P.y), warm = wearStats(this.wear).warm + (inside && sh?.warm ? 0.3 : 0);
+    const target = bodyTarget({ air, wet: s.wet, warm, fire, shelter: inside });
+    s.temp = clamp(s.temp + (target - s.temp) * Math.min(1, dt * 0.01), 32, 40); // ค่อย ๆ เปลี่ยน ไม่หนาวเร็วเกินไป
+    const was = this.tempState || 'ok', st = s.temp < 35 ? 'freeze' : s.temp < 36.2 ? 'cold' : s.temp > 38.6 ? 'hot' : 'ok';
+    if (st !== was) { this.tempState = st; if (st === 'cold') this.ui.toast('🥶 ตัวเริ่มหนาว — หาที่หลบ ก่อไฟ หรือใส่เสื้อกันหนาว', 'warn'); else if (st === 'freeze') this.ui.toast('🧊 หนาวจัด! พลังชีวิตลดลง รีบหาความอบอุ่นด่วน', 'warn'); else if (st === 'hot') this.ui.toast('🥵 ร้อนเกินไป กระหายน้ำเร็วขึ้น หาที่ร่มหรือดื่มน้ำ', 'warn'); }
+  }
   // 😊 ความสุขเพิ่มเองตามเวลาเล่น เมื่อร่างกายปกติเท่านั้น
   tickHappy(dt) {
     const s = this.stats;
     if (s.happy === undefined) s.happy = isFreelancer(this.ch) ? 60 : 50;
-    const ok = !s.bleeding && !s.fracture && !(s.sprain > 0) && s.infection < 1 && !(s.sick > 0) && s.hunger > 30 && s.thirst > 30 && (s.stress || 0) < 60 && !this.dead;
+    const ok = !s.bleeding && !s.fracture && !(s.sprain > 0) && (this.tempState || 'ok') === 'ok' && s.infection < 1 && !(s.sick > 0) && s.hunger > 30 && s.thirst > 30 && (s.stress || 0) < 60 && !this.dead;
     this.happyOk = ok;
     if (!ok || s.happy >= 100) return;
     s.happyT = (s.happyT || 0) + dt;
@@ -433,9 +454,19 @@ export class Game {
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
+    const hp = (this.world.pavilions || []).find((p) => p.hearth && Math.hypot(p.x + p.w / 2 - 0.9 - P.x, p.z - P.z) < 2.4);
+    if (hp) return (hp.lit || 0) > this.now() ? { type: 'none', text: `🔥 เตาผิงกำลังลุก (อีก ${Math.ceil((hp.lit - this.now()) / 1000)} วิ) — อุ่นและตากตัวให้แห้ง` } : { type: 'hearth', p: hp, text: `🔥 ก่อไฟในเตาผิง (ไม้ ${this.inv.wood || 0}/2)` };
     const dm = this.myPiece(); if (dm) return { type: 'demo', text: `${PIECES[dm.type].icon} ${PIECES[dm.type].name} · ${this.touch ? 'แตะ ✋' : 'กด E หรือ <kbd>X</kbd>'} = 🗑️ รื้อชิ้นนี้ (ได้วัสดุคืนครบ)` };
     if (this.weather.rain) return { type: 'rain', text: this.hasItem('bottle') ? 'รองน้ำฝนใส่ขวด' : 'ดื่มน้ำฝน' };
     return null;
+  }
+  // ใครเปลี่ยนธีมได้: เล่นคนเดียว = ได้ · ออนไลน์ = แอดมิน/เจ้าของ · เล่นผ่านลิงก์ = โฮสต์ของห้อง
+  canTheme() { return !this.net?.online || (this.auth?.server ? !!this.isAdmin : !!this.net.isHost); }
+  changeTheme(v) {
+    if (!this.canTheme()) return this.ui.toast('เปลี่ยนธีมได้เฉพาะแอดมิน/เจ้าของเซิร์ฟเวอร์', 'warn');
+    if (!this.net.online) { setTheme(v); return true; }
+    if (this.auth.server) this.net.send({ t: 'chat', text: '/theme ' + (v === 'halloween' ? 'ฮาโลวีน' : 'ปกติ') }); else this.net.send({ t: 'theme', v });
+    return true;
   }
   // นอนบนเตียง: ตัวละครนอนราบ ม่านมืดลง มี 💤 ลอย · ขยับตัวเพื่อลุก
   startSleep(bed, done) {
@@ -486,6 +517,7 @@ export class Game {
     if (this.dead) return;
     const t = this.findTarget(); if (!t) return;
     if (t.type === 'demo') return this.quickDemolish();
+    if (t.type === 'hearth') { const r = this.auth.do('hearth'); if (!this.auth.server ? r && !r.err : this.hasItem('wood', 2)) { t.p.lit = this.now() + 180000; this.sfx.play('place'); } return; }
     const s = this.stats;
     switch (t.type) {
       case 'quest': return t.q.act();
@@ -650,6 +682,7 @@ export class Game {
       switch (m.t) {
         case 'welcome':
           this.timeOffset = m.now - Date.now(); this.startTime = m.startTime;
+          if (m.theme) setTheme(m.theme, true);
           for (const [id, until] of Object.entries(m.res)) if (until > m.now) this.world.setResState(+id, until - this.timeOffset);
           for (const [id, until] of Object.entries(m.loot)) if (until > m.now) this.world.setLootState(id, until - this.timeOffset);
           {
@@ -669,6 +702,7 @@ export class Game {
         case 'leave': this.ents.removeRemote(m.id); break;
         case 'state': this.ents.upsertRemote(m); break;
         case 'chat': if (m.ch === 'pm' && m.from !== this.id) this.lastPm = m.name; this.ui.chat(m.name, m.text, m.from === 'system', m.ch, m.toName, m.from === this.id); break;
+        case 'theme': setTheme(m.v, true); this.ui.syncThemeBtn?.(); this.ui.toast(m.v === 'halloween' ? '🎃 แอดมินเปิดธีมฮาโลวีน!' : '🌆 แอดมินเปลี่ยนกลับเป็นธีมโลกล่มสลาย'); break;
         case 'party': this.party = m.id ? m : null; this.ui.refreshPanels(); break;
         case 'partyinv': this.sfx.play('love'); this.ui.confirm(`👥 ${m.name} ชวนคุณเข้าปาร์ตี้ ตกลงไหม?`, (ok) => { if (ok) this.net.send({ t: 'party', a: 'accept', pid: m.pid }); }); break;
         case 'res': this.world.setResState(m.id, m.until - this.timeOffset); break;
@@ -959,13 +993,14 @@ export class Game {
   updateStats(dt) {
     const s = this.stats, preg = this.social.preg[this.id], surv = skillLevel(this.skills.survival);
     const hungerRate = 0.055 * (preg ? 1.4 : 1) * (this.player.speedNow > 6 ? 1.5 : 1) * (1 - (surv - 1) * 0.03);
-    s.hunger = Math.max(0, s.hunger - hungerRate * dt * (s.sick > 0 ? 1.5 : 1));
-    s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1));
+    s.hunger = Math.max(0, s.hunger - hungerRate * dt * (s.sick > 0 ? 1.5 : 1) * (this.tempState === 'cold' || this.tempState === 'freeze' ? 1.3 : 1)); // หนาว = หิวเร็ว
+    s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1) * (this.tempState === 'hot' ? 1.6 : 1));
     if (s.sick > 0) s.sick -= dt;
     this.updateStress(dt);
     for (const k of ['moraleT', 'hideT', 'droneT']) if (this[k] > 0) this[k] -= dt;
     let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1) * (this.moraleT > 0 ? 1.2 : 1);
     regen *= 1 + 0.5 * this.happyP(); // ความสุข = กระฉับกระเฉง
+    if (this.tempState === 'cold' || this.tempState === 'freeze') regen *= 0.7; // หนาวสั่น
     if (s.infection > 60) regen *= 0.5;
     if (this.social.lovedNearby()) regen *= 1.5;
     if (petNearbyWith(this, 'swift', 20)) regen *= 1.25;
@@ -974,6 +1009,7 @@ export class Game {
     s.stamina = Math.max(0, s.stamina);
     let dhp = 0;
     if (s.hunger <= 0) dhp -= 0.5; if (s.thirst <= 0) dhp -= 0.8;
+    if (this.tempState === 'freeze') dhp -= 0.4; // ตัวเย็นเกิน
     if (s.sprain > 0) { s.sprain -= dt; if (s.sprain <= 0) { s.sprain = 0; this.ui.toast('🦶 ขาแพลงหายแล้ว'); } }
     if (s.bleeding) { dhp -= 0.6; if (Math.random() < 0.004 * dt * 60 * 0.1) { s.bleeding = false; this.ui.toast('เลือดหยุดไหลเองแล้ว'); } }
     if (this.immuneT > 0) this.immuneT -= dt;
@@ -1005,7 +1041,10 @@ export class Game {
     if (hw) this.hemi.intensity = 0.32 + 0.55 * day;
     this.world.tickHalloween?.(dt, P, this.isNight());
     this.scene.background = sky; this.scene.fog.color.copy(sky);
-    this.scene.fog.far = this.weather.rain ? 180 : 140 + day * 300;
+    const W = this.weather; this.scene.fog.far = W.fog >= 0.7 ? 32 : W.fog >= 0.35 ? 75 : W.snow ? 120 : W.rain ? 180 : 140 + day * 300;
+    if (W.fog > 0) this.scene.fog.color.lerp(new THREE.Color('#c9ced3').multiplyScalar(0.35 + day * 0.6), Math.min(0.85, W.fog));
+    if (W.snow) { this.scene.fog.color.lerp(new THREE.Color('#e9eef3').multiplyScalar(0.3 + day * 0.7), 0.5); this.hemi.groundColor.set('#cfd8df'); }
+    this.scene.background = this.scene.fog.color.clone();
     this.visT = (this.visT || 0) - dt; if (this.visT <= 0) { this.visT = 0.5; this.world.updateVisibility(P.x, P.z, this.scene.fog.far); }
     // กองไฟ
     let nearest = null, nd = 1e9;
@@ -1017,14 +1056,22 @@ export class Game {
     this.sfx.ambience({ night: this.isNight(), rain: this.weather.rain, coast: clamp(1 - Math.abs(distToCoast(P.x, P.z)) / 90, 0, 1), fire: this.nearFire });
     // สภาพอากาศ
     // คำนวณจากเวลา: ทุกคนที่เล่นด้วยกันเห็นฝนตกพร้อมกัน (ช่วงละ 2.5 นาที โอกาสฝน 30%)
-    const rain = hash2(Math.floor(this.now() / 150000), 77) < 0.3;
-    if (rain !== this.weather.rain) { this.weather.rain = rain; if (rain) this.ui.toast('🌧️ ฝนเริ่มตก — รองน้ำฝนได้ (กด E) และฝนจะรดน้ำแปลงผักให้'); }
-    this.rain.visible = this.weather.rain;
-    if (this.weather.rain) {
-      const pos = this.rain.geometry.attributes.position;
-      for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) - 30 * dt; if (y < -10) y += 40; pos.setY(i, y); }
+    // ฝน / หิมะ / หมอก (คำนวณจากเวลา ทุกคนเห็นตรงกัน)
+    const wx = weatherAt(this.now()), Wp = this.weather;
+    if (wx.rain !== Wp.rain && wx.rain) this.ui.toast('🌧️ ฝนเริ่มตก — หลบในศาลา/บ้านเพื่อไม่ให้เปียก · รองน้ำฝนได้ (กด E)');
+    if (wx.snow && !Wp.snow) this.ui.toast('❄️ หิมะตก! อากาศหนาวจัด — ใส่เสื้อกันหนาว ก่อไฟ หรือหลบในศาลาที่มีเตาผิง', 'warn');
+    if (wx.fog >= 0.7 && Wp.fog < 0.7) this.ui.toast('🌫️ หมอกลงหนา มองเห็นได้ไม่ไกล ระวังผู้ติดเชื้อ!', 'warn');
+    Object.assign(Wp, wx);
+    const fall = Wp.rain || Wp.snow; this.rain.visible = fall;
+    if (fall) {
+      const pos = this.rain.geometry.attributes.position, sp = Wp.snow ? 3.2 : 30, M = this.rain.material;
+      M.color.set(Wp.snow ? '#ffffff' : '#aac'); M.size = Wp.snow ? 0.22 : 0.12; M.opacity = Wp.snow ? 0.9 : 0.6;
+      for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) - sp * dt; if (y < -10) y += 40; pos.setY(i, y); if (Wp.snow) pos.setX(i, pos.getX(i) + Math.sin(y + i) * dt * 0.6); }
       pos.needsUpdate = true; this.rain.position.set(P.x, P.y + 10, P.z);
     }
+    this.tickBody(dt);
+    // เตาผิงในศาลาที่จุดไว้
+    for (const p of this.world.pavilions || []) if (p.flame) { const lit = (p.lit || 0) > this.now(); p.flame.visible = lit; if (lit) p.flame.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
   }
 
   updateCamera() {

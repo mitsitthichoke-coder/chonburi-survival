@@ -6,7 +6,7 @@ import path from 'node:path';
 export class Store {
   constructor(dir) {
     this.dir = dir;
-    fs.mkdirSync(path.join(dir, 'chars'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'chars'), { recursive: true, mode: 0o700 });
     this.users = this.read('users.json', { byName: {}, users: {} });
     this.sessions = this.read('sessions.json', {});
     this.pending = new Map();
@@ -15,7 +15,7 @@ export class Store {
   read(name, def) { try { return JSON.parse(fs.readFileSync(this.file(name), 'utf8')); } catch { return def; } }
   write(name, obj) {
     const f = this.file(name), tmp = f + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(obj));
+    fs.writeFileSync(tmp, JSON.stringify(obj), { mode: 0o600 }); // อ่านได้เฉพาะเจ้าของไฟล์
     fs.renameSync(tmp, f);
   }
   // เขียนแบบหน่วงเวลา รวมหลายครั้งเป็นครั้งเดียว

@@ -14,6 +14,7 @@ services:
         value: /var/data
       - key: MAX_PLAYERS
         value: "40"
+      # รหัสยืนยันเจ้าของ: ไม่ต้องตั้ง เซิร์ฟเวอร์จะสุ่มและแสดงใน Logs ให้เอง
     # disk:
     #   name: game-data
     #   mountPath: /var/data

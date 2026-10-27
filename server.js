@@ -19,6 +19,7 @@ const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC = path.join(__dirname, 'public');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const MAX_PLAYERS = Number(process.env.MAX_PLAYERS) || 40;
+const ALLOWED_ORIGINS = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean));
 const ADMINS = new Set((process.env.ADMIN_USERS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
 const TOKEN_DAYS = 30;
 
@@ -26,6 +27,7 @@ const store = new Store(DATA_DIR);
 
 // ---------- โลก ----------
 const sockets = new Map(); // uid -> ws
+const sockIp = new Map(); // uid -> ip (ใช้จำกัดการเดารหัสเจ้าของ)
 const sendWs = (ws, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
 let worldDirty = false;
 const core = installEconomy(new WorldCore({
@@ -48,6 +50,27 @@ const tokenHash = (t) => crypto.createHash('sha256').update(t).digest('hex');
 // เจ้าของเซิร์ฟเวอร์ = คนแรกที่สมัคร หรือชื่อใน ADMIN_USERS · มีสิทธิ์ตั้ง/ถอดแอดมิน
 const isOwner = (u) => !!u && (u.owner || ADMINS.has(u.username.toLowerCase()));
 const isAdmin = (u) => !!u && (u.admin || isOwner(u));
+// ---------- ยืนยันความเป็นเจ้าของด้วยรหัสลับ ----------
+// ไม่มีใครเป็นเจ้าของได้แค่เพราะสมัครก่อน ต้องพิมพ์ /owner รหัส ในเกม
+// รหัสมาจาก OWNER_KEY (ถ้าตั้งไว้) หรือเซิร์ฟเวอร์สุ่มให้และแสดงใน Logs ตอนเปิดเซิร์ฟเวอร์ ใช้ได้ครั้งเดียว
+const hasOwner = () => ADMINS.size > 0 || Object.values(U.users).some((x) => x.owner);
+const KEY_FILE = path.join(DATA_DIR, 'owner-key.txt');
+let ownerKey = null;
+if (!hasOwner()) {
+  ownerKey = process.env.OWNER_KEY || (() => { try { return fs.readFileSync(KEY_FILE, 'utf8').trim(); } catch { return null; } })();
+  if (!ownerKey) { ownerKey = crypto.randomBytes(9).toString('base64url').toUpperCase().replace(/[^A-Z0-9]/g, 'X').slice(0, 12); fs.writeFileSync(KEY_FILE, ownerKey, { mode: 0o600 }); }
+  if (!process.env.OWNER_KEY) console.log(`\n========================================\n🔑 รหัสยืนยันเจ้าของเซิร์ฟเวอร์: ${ownerKey}\n   สมัคร/เข้าเกม แล้วพิมพ์ในแชท:  /owner ${ownerKey}\n   (ใช้ได้ครั้งเดียว ห้ามบอกใคร)\n========================================\n`);
+}
+function claimOwner(u, key, ip) {
+  if (hasOwner()) return 'เซิร์ฟเวอร์นี้มีเจ้าของแล้ว';
+  if (limited('own:' + u.id, 5, 3600e3) || limited('own:' + ip, 10, 3600e3)) return 'ลองผิดหลายครั้งเกินไป รอ 1 ชั่วโมง';
+  const a = Buffer.from(String(key || '').trim().toUpperCase()), b = Buffer.from(String(ownerKey || ''));
+  if (!ownerKey || a.length !== b.length || !crypto.timingSafeEqual(a, b)) { console.warn(`⚠️ ยืนยันเจ้าของไม่สำเร็จ: ${u.username} (${ip})`); return 'รหัสไม่ถูกต้อง'; }
+  u.owner = true; u.admin = true; ownerKey = null; store.saveUsers();
+  try { fs.unlinkSync(KEY_FILE); } catch { /* ไม่มีไฟล์ */ }
+  console.log(`⭐ ${u.username} ยืนยันเป็นเจ้าของเซิร์ฟเวอร์แล้ว`);
+  return null;
+}
 const cleanJob = (j) => (JOBS[j] ? j : 'engineer');
 const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email ? u.email.replace(/^(.).*(@.*)$/, '$1***$2') : null, char: u.char || null, admin: isAdmin(u) });
 U.byEmail ||= {}; U.byChar ||= {};
@@ -88,6 +111,7 @@ const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket.remote
 async function api(req, res, route) {
   const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
   const ip = ipOf(req);
+  if (limited('api:' + ip, 120, 60e3)) return json(429, { error: 'เรียกบ่อยเกินไป' });
   let body = {};
   if (req.method === 'POST') {
     let raw = '';
@@ -106,9 +130,7 @@ async function api(req, res, route) {
     const key = username.toLowerCase();
     if (U.byName[key]) return json(409, { error: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว' });
     const id = 'u' + crypto.randomBytes(8).toString('hex'), salt = crypto.randomBytes(16).toString('hex');
-    // ไม่ได้ตั้ง ADMIN_USERS: คนแรกที่สมัครเป็นแอดมินอัตโนมัติ
-    const first = !ADMINS.size && !Object.values(U.users).some((x) => x.admin);
-    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null, admin: first || undefined, owner: first || undefined };
+    U.users[id] = { id, username, email, salt, hash: hashPw(password, salt), created: Date.now(), char: null };
     U.byName[key] = id; U.byEmail[email] = id; store.saveUsers();
     return json(200, { token: newSession(id), user: publicUser(U.users[id]) });
   }
@@ -116,7 +138,9 @@ async function api(req, res, route) {
     if (limited('login:' + ip, 20, 600e3)) return json(429, { error: 'ลองเข้าสู่ระบบบ่อยเกินไป รอ 10 นาที' });
     const who = String(body.username || '').trim().toLowerCase(), id = U.byName[who] || U.byEmail[who], u = id && U.users[id];
     const ok = u && crypto.timingSafeEqual(Buffer.from(hashPw(String(body.password || ''), u.salt), 'hex'), Buffer.from(u.hash, 'hex'));
-    if (!ok) return json(401, { error: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง' });
+    if (u && (u.lockUntil || 0) > Date.now()) return json(429, { error: 'บัญชีนี้ถูกล็อกชั่วคราวเพราะใส่รหัสผิดหลายครั้ง ลองใหม่ใน 15 นาที' });
+    if (!ok) { if (u) { u.fails = (u.fails || 0) + 1; if (u.fails >= 8) { u.fails = 0; u.lockUntil = Date.now() + 15 * 60e3; console.warn(`🔒 ล็อกบัญชี ${u.username} ชั่วคราว (ใส่รหัสผิด 8 ครั้ง จาก ${ip})`); } store.saveUsers(); } return json(401, { error: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง' }); }
+    u.fails = 0;
     if (u.banned) return json(403, { error: 'บัญชีนี้ถูกระงับ' });
     return json(200, { token: newSession(u.id), user: publicUser(u) });
   }
@@ -150,8 +174,9 @@ core.onCommand = (id, text) => {
   const u = U.users[id], [cmd, ...rest] = text.slice(1).split(/\s+/), arg = rest.join(' ');
   const say = (t) => core.send(id, { t: 'chat', from: 'system', name: '🛠️', text: t });
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
+  if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players');
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
@@ -183,12 +208,21 @@ core.onCommand = (id, text) => {
 
 // ---------- ไฟล์เกม ----------
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
+// หัวข้อความกันการโจมตี: ห้ามฝังหน้าเว็บในเว็บอื่น ห้ามเดาชนิดไฟล์ จำกัดแหล่งสคริปต์
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+function secure(req, res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()'); res.setHeader('Content-Security-Policy', CSP);
+  if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+}
 const server = http.createServer((req, res) => {
-  const url = decodeURIComponent((req.url || '/').split('?')[0]);
+  secure(req, res);
+  let url; try { url = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); return res.end(); }
+  if (url.includes('\0') || url.split('/').some((p) => p.startsWith('.') && p !== '')) { res.writeHead(404); return res.end('not found'); }
   if (url.startsWith('/api/')) return api(req, res, url).catch((e) => { console.error(e); res.writeHead(500); res.end(); });
   if (url === '/healthz') { res.writeHead(200); return res.end('ok'); }
   const file = path.normalize(path.join(PUBLIC, url === '/' ? 'index.html' : url));
-  if (!file.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
+  if (file !== path.join(PUBLIC, 'index.html') && !file.startsWith(PUBLIC + path.sep)) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': path.extname(file) === '.html' ? 'no-cache' : 'public, max-age=300' });
@@ -201,6 +235,8 @@ const wss = new WebSocketServer({ server, maxPayload: 32 * 1024 });
 wss.on('connection', (ws, req) => {
   let id = null, tokens = 60, lastRefill = Date.now(), dropped = 0;
   const ip = ipOf(req);
+  // รับเฉพาะการเชื่อมต่อจากหน้าเกมของเซิร์ฟเวอร์นี้เอง (กันเว็บอื่นแอบเชื่อมต่อ)
+  const origin = req.headers.origin; if (origin && !ALLOWED_ORIGINS.has(origin) && new URL(origin).host !== req.headers.host) return ws.close(4008, 'origin');
   if (limited('ws:' + ip, 30, 60e3)) return ws.close(4002, 'too many connections');
   ws.on('message', (raw) => {
     // จำกัดความถี่: ~30 ข้อความ/วินาที
@@ -219,7 +255,7 @@ wss.on('connection', (ws, req) => {
       id = u.id;
       const old = sockets.get(id);
       if (old && old !== ws) { core.leave(id); const oc = core.detachChar(id); if (oc) store.saveChar(id, oc); old.close(4006, 'logged in elsewhere'); }
-      sockets.set(id, ws);
+      sockets.set(id, ws); sockIp.set(id, ip);
       const C = u.char, ch = store.getChar(id) || newChar({ ...C });
       ch.profile = { name: C.name, sex: C.sex, look: C.look, job: C.job }; jobKit(ch); ch.muted = !!u.muted;
       core.attachChar(id, ch);

@@ -1,0 +1,9 @@
+{
+  "name": "chonburi-survival",
+  "version": "0.1.0",
+  "description": "เกมเอาชีวิตรอดโลกล่มสลาย 3D open world ในจังหวัดชลบุรี (เล่นร่วมกับเพื่อนได้)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ชลบุรี: วันล่มสลาย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0e1116; --panel: rgba(16, 20, 26, .92); --line: #2b333d; --text: #e9ecef; --muted: #9aa3ad; --accent: #e76f51; --accent2: #2a9d8f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #222a33; color: var(--text); border-radius: 8px; padding: 6px 12px; }
+  button:hover:not(:disabled) { background: #2f3a46; }
+  button:disabled, button.dis { opacity: .45; cursor: not-allowed; }
+  #canvas-wrap canvas { display: block; }
+  /* ---------- หน้าสร้างตัวละคร ---------- */
+  #menu { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: 16px; z-index: 50;
+    background: radial-gradient(ellipse at 30% 20%, #3b2a1e 0%, #11151b 60%), #11151b; overflow: auto; }
+  .card { margin: auto 0; width: min(560px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .card h1 { margin: 0; font-size: 34px; letter-spacing: .5px; } .card h1 span { color: var(--accent); }
+  .card .sub { color: var(--muted); margin: 4px 0 18px; }
+  .row { margin: 12px 0; } .row label { display: block; font-weight: 600; margin-bottom: 6px; }
+  input[type=text] { width: 100%; font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: var(--text); }
+  #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #acct { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
+  .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } #f-style button { padding: 5px 9px; font-size: 13px; }
+  .seg.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .seg button.job { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; } .seg button.job small { font-size: 11px; opacity: .8; }
+  @media (max-width: 520px) { .seg.jobs { grid-template-columns: repeat(2, 1fr); } }
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; } .seg button.on { background: var(--accent); border-color: var(--accent); }
+  .sw { width: 32px; height: 32px; border-radius: 50%; padding: 0; border: 3px solid transparent; } .sw.on { border-color: #fff; }
+  .go { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; } .go button { flex: 1; padding: 12px; font-weight: 800; font-size: 16px; }
+  .go .primary { background: var(--accent); border-color: var(--accent); } .go .secondary { background: var(--accent2); border-color: var(--accent2); }
+  #menu .hint, .hint { color: var(--muted); font-size: 13px; }
+  #loading { display: none; text-align: center; padding: 20px; }
+  /* ---------- HUD ---------- */
+  #game-ui { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #game-ui > * { pointer-events: auto; }
+  #hud { position: absolute; left: 14px; top: 14px; width: 250px; background: rgba(0,0,0,.45); padding: 10px 12px; border-radius: 12px; pointer-events: none; }
+  .stat { display: grid; grid-template-columns: 22px 1fr 38px; align-items: center; gap: 6px; font-size: 13px; margin: 3px 0; }
+  .bar { height: 9px; background: rgba(255,255,255,.12); border-radius: 5px; overflow: hidden; } .bar i { display: block; height: 100%; transition: width .2s; }
+  #clock { margin-top: 6px; font-size: 13px; } #clock small { color: var(--muted); }
+  #leftcol { position: absolute; left: 14px; top: 182px; width: 260px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  #status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  #quest { background: rgba(20, 16, 6, .6); border-left: 3px solid #ffd60a; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
+  #quest b { display: block; color: #ffd60a; font-size: 14px; } #quest p { margin: 2px 0 4px; color: #e9ecef; } #quest .qn { color: #b8a96a; }
+  .qnav { margin-top: 4px; font-weight: 600; } .qarrow { display: inline-block; color: #ffd60a; } .qdef { color: #ff8fa3; font-weight: 800; margin-top: 4px; }
+  #mute-btn { position: absolute; right: 14px; top: 200px; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.5); font-size: 18px; }
+  .chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #444; color: #fff; }
+  .chip.red { background: #9d0208; } .chip.green { background: #386641; } .chip.yellow { background: #a68a00; } .chip.pink { background: #b5179e; } .chip.orange { background: #c2410c; } .chip.blue { background: #1d4e89; }
+  #minimap { position: absolute; right: 14px; top: 14px; width: 180px; height: 180px; pointer-events: none; }
+  #hotbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 6px; }
+  .slot { width: 54px; height: 54px; background: rgba(0,0,0,.55); border: 2px solid #444; border-radius: 10px; position: relative; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; }
+  .slot.eq { border-color: #ffd166; } .slot.empty { opacity: .35; }
+  .slot .n { position: absolute; left: 4px; top: 1px; font-size: 11px; color: #aaa; } .slot .q { position: absolute; right: 4px; bottom: 1px; font-size: 12px; font-weight: 700; }
+  #prompt { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,.6); padding: 6px 14px; border-radius: 8px; display: none; pointer-events: none; white-space: nowrap; }
+  kbd { background: #fff; color: #000; border-radius: 4px; padding: 0 6px; font-weight: 800; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,.7); pointer-events: none; }
+  #toasts { position: absolute; right: 14px; top: 250px; width: 330px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+  .toast { background: rgba(0,0,0,.7); padding: 7px 12px; border-radius: 8px; font-size: 14px; border-left: 4px solid #888; transition: opacity .6s; }
+  .toast.warn { border-color: #e63946; } .toast.love { border-color: #f72585; } .toast.level { border-color: #ffd166; } .toast.item { border-color: #2a9d8f; font-size: 13px; }
+  .toast.fade { opacity: 0; }
+  #chat { position: absolute; left: 14px; bottom: 14px; width: 360px; }
+  #chat-log { max-height: 170px; overflow-y: auto; font-size: 13px; background: rgba(0,0,0,.35); border-radius: 8px; padding: 6px 8px; margin-bottom: 4px; }
+  #chat-log i { color: #b8c0c8; }
+  #chat-input { font-size: 13px; padding: 6px 10px; background: rgba(0,0,0,.55); }
+  #vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; box-shadow: inset 0 0 160px 40px rgba(200,0,0,.8); }
+  /* ---------- แผงเมนู ---------- */
+  #panel { display: none; position: absolute; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(920px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  #panel .tabs { display: flex; gap: 4px; padding: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; background: #12171d; }
+  #panel .tabs button.on { background: var(--accent); border-color: var(--accent); } #panel .tabs .x { margin-left: auto; }
+  #panel .body { padding: 14px 16px; } #panel h3 { margin: 6px 0 10px; }
+  .cols { display: grid; grid-template-columns: 1fr 1.2fr; gap: 18px; }
+  .inv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; background: #1a2027; }
+  .item:hover { background: #26303a; } .item .ic { font-size: 20px; } .item b { margin-left: auto; } .item em { font-size: 11px; color: #ffd166; font-style: normal; }
+  .item.small { display: inline-flex; font-size: 22px; padding: 4px 8px; margin: 2px; }
+  .recipes { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto; }
+  .recipe { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #1a2027; }
+  .recipe.dis { opacity: .7; } .recipe small { color: var(--muted); } .need { font-size: 13px; margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .have { color: #95d5b2; } .miss { color: #ff8fa3 !important; }
+  .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 12px 0; }
+  .skill { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; } .skill .pbar { grid-column: 1 / -1; } .skill small { color: var(--muted); }
+  .pbar { height: 7px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; margin: 4px 0; } .pbar i { display: block; height: 100%; background: #ffd166; } .pbar.big { height: 12px; }
+  .person { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; } .person > div:first-child { flex: 1; } .person small { color: var(--muted); }
+  .person .chip { color: #111; font-weight: 700; }
+  .acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .wslot { display: inline-block; min-width: 130px; color: var(--muted); }
+  .inv.dropping .item { border-color: #e63946; }
+  h3 button { font-size: 13px; padding: 3px 10px; margin-left: 8px; } h3 small { font-weight: 400; font-size: 13px; color: var(--muted); }
+  .pieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; margin-bottom: 8px; }
+  .piece { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; }
+  .piece .ic { font-size: 22px; } .piece small { color: var(--muted); font-size: 12px; } .piece.dis { opacity: .55; }
+  #t-build { display: none; position: absolute; right: 180px; bottom: 24px; gap: 8px; }
+  body.building #t-build { display: flex; }
+  #t-build button { width: 54px; height: 54px; border-radius: 12px; padding: 0; font-size: 24px; background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.35); }
+  .petcard { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #161c22; }
+  .pethead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .pethead small { color: var(--muted); }
+  .petstats { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 2px; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .traits { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .trait { display: flex; flex-direction: column; padding: 4px 8px; border-radius: 8px; background: #23303a; font-size: 13px; max-width: 260px; }
+  .trait small { color: var(--muted); font-size: 11px; } .trait.innate { background: #3a3323; justify-content: center; }
+  .hands { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; } .swapbtn { font-size: 22px; padding: 6px 10px; } .hand { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #1a2027; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .hand h4 { margin: 0; } .hbig { font-size: 40px; line-height: 1.1; } .hand small { color: var(--muted); } .hopts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .hand button { padding: 3px 8px; font-size: 12px; }
+  @media (max-width: 560px) { .hands { grid-template-columns: 1fr auto 1fr; gap: 6px; } .hbig { font-size: 30px; } }
+  .dragme { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .dbag { display: flex; flex-wrap: wrap; gap: 6px; min-height: 58px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; }
+  .dchip { display: flex; flex-direction: column; align-items: center; width: 74px; padding: 6px 4px; font-size: 26px; border: 1px solid var(--line); border-radius: 8px; background: #1a2027; text-align: center; }
+  .dchip small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  .dghost { position: fixed; z-index: 9999; pointer-events: none; font-size: 40px; transform: translate(-50%, -60%); filter: drop-shadow(0 4px 6px #000a); }
+  #panel.dragging [data-drop] { outline: 2px dashed #2a9d8f55; outline-offset: 2px; border-radius: 10px; }
+  #panel.dragging [data-drop].over { outline: 3px solid #2a9d8f; background: #2a9d8f22; }
+  .rfilter { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; } .rfilter button { padding: 4px 10px; font-size: 13px; } .rfilter button.on { background: var(--accent, #2a9d8f); color: #fff; }
+  .recipe.ready { border-color: #2a9d8f; }
+  .chip.jobchip { background: #6a4c93; font-size: 11px; } .jobbox { border: 1px solid #6a4c93; border-radius: 10px; padding: 8px 10px; margin: 8px 0; background: #1f1a2e; } .jobbox small { color: var(--muted); } .perk { font-size: 13px; opacity: .6; margin-top: 3px; } .perk.on { opacity: 1; color: #b8f2c9; }
+  small.st { display: block; font-size: 11px; color: #8ecae6; line-height: 1.3; } .rfilter.cats button { font-size: 12px; padding: 3px 8px; } .rfilter.cats button.on { background: #457b9d; }
+  .pgear { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; font-size: 13px; } .pgear small { color: var(--muted); }
+  .pgear button { padding: 3px 8px; font-size: 12px; }
+  #bigmap { display: block; margin: 0 auto; max-width: 100%; border-radius: 8px; image-rendering: pixelated; }
+  /* ---------- dialogs ---------- */
+  #confirm, #death { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; background: rgba(0,0,0,.55); z-index: 30; padding: 16px; }
+  #confirm .card, #death .card { text-align: center; }
+  #death .card h1 { color: #e63946; }
+  /* ---------- มือถือ ---------- */
+  #touch { position: absolute; inset: 0; pointer-events: none; }
+  #touch > * { pointer-events: auto; }
+  #t-stick-zone { position: absolute; left: 0; bottom: 0; width: 38%; height: 60%; }
+  #t-stick-base { position: fixed; left: 110px; top: calc(100% - 120px); width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.3); opacity: .55; pointer-events: none; }
+  #t-stick-base.on { opacity: 1; }
+  #t-stick-knob { position: absolute; left: 30px; top: 30px; width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,.55); }
+  #t-actions { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: 60px 60px 84px; grid-template-rows: 60px 60px; gap: 10px; align-items: center; }
+  #t-actions button { width: 60px; height: 60px; border-radius: 50%; padding: 0; font-size: 24px; background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.35); touch-action: none; user-select: none; -webkit-user-select: none; }
+  #t-attack { grid-column: 3; grid-row: 1 / 3; width: 84px !important; height: 84px !important; font-size: 34px !important; }
+  #t-actions button.on { background: rgba(255,255,255,.3); } #t-sprint.lock { border-color: #ffd166; background: rgba(255,209,102,.3); }
+  #t-menu { position: absolute; left: 50%; transform: translateX(-50%); bottom: 72px; display: flex; gap: 6px; }
+  #t-menu button { width: 40px; height: 40px; padding: 0; border-radius: 10px; font-size: 18px; background: rgba(0,0,0,.45); }
+  body.touch #crosshair { display: none; }
+  body.touch #chat { left: 50%; transform: translateX(-50%); top: 8px; bottom: auto; width: min(36%, 340px); }
+  body.touch #chat-log { max-height: 62px; font-size: 11px; pointer-events: none; }
+  body.touch #chat-input { display: none; } body.touch #chat-input.show { display: block; }
+  body.touch #prompt { bottom: 124px; }
+  body.touch #hotbar { bottom: 12px; }
+  body.touch #minimap { width: 130px; height: 130px; } body.touch #mute-btn { top: 150px; } body.touch #toasts { top: 196px; width: 240px; }
+  body.touch #hud { width: 200px; padding: 6px 10px; } body.touch #leftcol { top: 150px; }
+  body.touch #leftcol { width: 210px; } body.touch #quest { font-size: 11px; } body.touch #quest p { display: none; }
+  #focus-hint { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); background: rgba(231,111,81,.92); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 18px; font-weight: 800; pointer-events: none; z-index: 20; }
+  #focus-hint[hidden] { display: none; }
+  #rotate-hint { display: none; }
+  @media (orientation: portrait) { body.touch #rotate-hint { display: flex; position: fixed; inset: 0; z-index: 40; background: rgba(14,17,22,.92); align-items: center; justify-content: center; text-align: center; padding: 24px; font-size: 18px; } }
+  @media (max-width: 720px) {
+    .cols { grid-template-columns: 1fr; } #hud { width: 190px; } #minimap { width: 120px; height: 120px; } #toasts { width: 220px; top: 140px; }
+    #chat { width: calc(100% - 28px); bottom: 80px; } #chat-log { max-height: 90px; } .slot { width: 44px; height: 44px; font-size: 20px; }
+  }
+</style>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+
+<div id="menu">
+  <div class="card">
+    <h1>ชลบุรี: <span>วันล่มสลาย</span></h1>
+    <div class="sub">เกมเอาชีวิตรอด 3D โลกเปิด — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี ตั้งแต่บางแสน ศรีราชา พัทยา ถึงสัตหีบ</div>
+    <div id="auth" hidden>
+      <div class="seg atabs"><button data-a="login" class="on">🔑 เข้าสู่ระบบ</button><button data-a="register">📝 สมัครเล่นเกม</button></div>
+      <div id="a-login">
+        <div class="row"><label>ชื่อผู้ใช้ หรือ อีเมล</label><input id="a-user" type="text" autocomplete="username" maxlength="254"></div>
+        <div class="row"><label>รหัสผ่าน</label><input id="a-pass" type="password" autocomplete="current-password" maxlength="72"></div>
+        <div class="go"><button class="primary" id="a-go-login">เข้าสู่ระบบ</button></div>
+      </div>
+      <div id="a-reg" hidden>
+        <div class="row"><label>อีเมล</label><input id="r-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com"></div>
+        <div class="row"><label>ชื่อผู้ใช้ (ใช้เข้าสู่ระบบ ตั้งเองได้)</label><input id="r-user" type="text" autocomplete="username" maxlength="16" placeholder="3–16 ตัว ตัวอักษร/ตัวเลข/_"></div>
+        <div class="row"><label>รหัสผ่าน (ตั้งเองได้ อย่างน้อย 6 ตัว)</label><input id="r-pass" type="password" autocomplete="new-password" maxlength="72"></div>
+        <div class="row"><label>ยืนยันรหัสผ่าน</label><input id="r-pass2" type="password" autocomplete="new-password" maxlength="72"></div>
+        <div class="go"><button class="primary" id="a-go-reg">สมัครแล้วไปสร้างตัวละคร</button></div>
+        <p class="hint">ขั้นตอน: ① สมัครด้วยอีเมล + ชื่อผู้ใช้ + รหัสผ่าน → ② สร้างตัวละครครั้งแรก (ชื่อตัวละครห้ามซ้ำกับคนอื่น) → ③ เข้าเกม</p>
+      </div>
+      <p class="aerr" id="a-err"></p>
+    </div>
+    <div id="acct" hidden><span>👤 <b id="acct-name"></b></span> <button id="a-logout">ออกจากระบบ</button></div>
+    <div id="form">
+      <div class="row"><label id="f-name-label">ชื่อตัวละคร</label><input id="f-name" type="text" maxlength="16" placeholder="เช่น ต้นข้าว"><div class="hint" id="f-name-ok"></div></div>
+      <div class="row"><label>บทบาท (เพศของตัวละคร)</label><div class="seg" id="f-sex"><button data-v="m">👨 ชาย</button><button data-v="f">👩 หญิง</button></div></div>
+      <div class="row"><label>อาชีพ (ความสามารถพิเศษ)</label><div class="seg jobs" id="f-job"></div><div class="hint" id="f-job-info"></div></div>
+      <div class="row"><label>สีผิว</label><div class="seg" id="f-skin"></div></div>
+      <div class="row"><label>สีเสื้อ</label><div class="seg" id="f-shirt"></div></div>
+      <div class="row"><label>สีผม</label><div class="seg" id="f-hair"></div></div>
+      <div class="row"><label>ทรงผม</label><div class="stylerow"><canvas id="f-preview" width="96" height="96"></canvas><div class="seg" id="f-style"></div></div></div>
+      <div class="row"><label>กราฟิก</label><div class="seg" id="f-gfx"><button data-v="low">⚡ ประหยัด (มือถือ/เครื่องช้า)</button><button data-v="normal">🙂 ปกติ</button><button data-v="smooth">✨ ละมุน (ขอบมน แสงนุ่ม)</button></div></div>
+      <div class="row" id="server-row"><label>เซิร์ฟเวอร์สำหรับเล่นกับเพื่อน</label><input id="f-server" type="text" placeholder="ws://192.168.1.10:8080"><div class="hint">เปิดเซิร์ฟเวอร์ด้วย <code>npm start</code> แล้วให้เพื่อนเข้า http://ไอพีของคุณ:8080</div></div>
+      <div class="row hint" id="room-row" hidden>🌐 โหมดออนไลน์ในลิงก์นี้: ทุกคนที่เปิดลิงก์เดียวกันและกด "เล่นกับเพื่อน" จะอยู่ในโลกเดียวกัน (เจ้าของต้องแชร์ลิงก์ให้เพื่อนจากเมนู Share ก่อน)</div>
+      <div class="go"><button class="primary" id="b-solo">เล่นคนเดียว</button><button class="secondary" id="b-online">เล่นกับเพื่อน</button></div>
+      <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
+    </div>
+    <div id="loading">⏳ กำลังสร้างจังหวัดชลบุรี... <div class="hint" id="loading-msg"></div></div>
+  </div>
+</div>
+
+<div id="game-ui">
+  <div id="hud">
+    <div class="stat"><span>❤️</span><div class="bar"><i id="b-hp" style="background:#e63946"></i></div><span id="v-hp"></span></div>
+    <div class="stat"><span>🍗</span><div class="bar"><i id="b-food" style="background:#f4a261"></i></div><span id="v-food"></span></div>
+    <div class="stat"><span>💧</span><div class="bar"><i id="b-water" style="background:#4cc9f0"></i></div><span id="v-water"></span></div>
+    <div class="stat"><span>⚡</span><div class="bar"><i id="b-stam" style="background:#ffd166"></i></div><span></span></div>
+    <div class="stat"><span>🦠</span><div class="bar"><i id="b-inf" style="background:#70e000"></i></div><span id="v-inf"></span></div>
+    <div class="stat" title="ความเครียด"><span>😰</span><div class="bar"><i id="b-stress" style="background:#b5179e"></i></div><span id="v-stress"></span></div>
+    <div id="clock"></div>
+  </div>
+  <div id="leftcol"><div id="status"></div><div id="quest" hidden></div></div>
+  <button id="mute-btn" aria-label="ปิดเสียง">🔊</button>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="toasts"></div>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="hotbar"></div>
+  <div id="chat"><div id="chat-log"></div><input id="chat-input" type="text" placeholder="กด Enter เพื่อแชท..." maxlength="200"></div>
+  <div id="vignette"></div>
+  <div id="panel"></div>
+  <div id="confirm"><div class="card"><p id="confirm-text"></p><div class="go"><button class="primary" id="confirm-yes">ตกลง</button><button id="confirm-no">ไม่ตอนนี้</button></div></div></div>
+  <div id="focus-hint" hidden>🖱️ คลิกที่หน้าจอเกม 1 ครั้งเพื่อให้ปุ่ม W A S D ใช้เดินได้</div>
+  <div id="rotate-hint">📱↻<br>หมุนโทรศัพท์เป็นแนวนอนเพื่อเล่น</div>
+  <div id="death"><div class="card"><h1>คุณเสียชีวิต</h1><p id="death-cause"></p><p class="hint">ของในกระเป๋าหายไปครึ่งหนึ่ง แต่ทักษะและความสัมพันธ์ยังอยู่</p><div class="go"><button class="primary" id="respawn-btn">เกิดใหม่</button></div></div></div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

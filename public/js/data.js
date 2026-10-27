@@ -1,0 +1,396 @@
+import { lonToX, latToZ } from './terrain.js';
+
+export const DAY_MS = 12 * 60 * 1000;        // 1 วันในเกม = 12 นาทีจริง
+export const PREG_MS = 20 * 60 * 1000;       // ตั้งครรภ์ 20 นาทีจริง
+export const BABY_MS = 30 * 60 * 1000;       // ทารก -> เด็ก
+export const CHILD_MS = 90 * 60 * 1000;      // เด็ก -> วัยรุ่น (ช่วยหาของได้)
+
+export const ITEMS = {
+  wood: { name: 'ไม้', icon: '🪵', value: 1 },
+  stone: { name: 'หิน', icon: '🪨', value: 1 },
+  fiber: { name: 'เส้นใยพืช', icon: '🌿', value: 1 },
+  herb: { name: 'สมุนไพร', icon: '🌱', value: 3 },
+  pebble: { name: 'ก้อนหินดิบ', icon: '🥌', value: 1 },
+  twig: { name: 'กิ่งไม้แห้ง', icon: '🥢', value: 1 },
+  raw_fiber: { name: 'ต้นหญ้าดิบ', icon: '🌾', value: 1 },
+  cloth: { name: 'ผ้า', icon: '🧵', value: 3 },
+  scrap: { name: 'เศษเหล็ก', icon: '🔩', value: 3 },
+  bottle: { name: 'ขวดเปล่า', icon: '🍶', value: 2 },
+  berry: { name: 'ผลไม้ป่า', icon: '🫐', value: 2, food: { hunger: 8, thirst: 3 } },
+  coconut: { name: 'มะพร้าว', icon: '🥥', value: 4, food: { hunger: 6, thirst: 22 } },
+  raw_meat: { name: 'เนื้อดิบ', icon: '🥩', value: 3, food: { hunger: 10, sick: 0.35 } },
+  cooked_meat: { name: 'เนื้อย่าง', icon: '🍖', value: 6, food: { hunger: 35, hp: 6 } },
+  raw_fish: { name: 'ปลาสด', icon: '🐟', value: 3, food: { hunger: 8, sick: 0.3 } },
+  grilled_fish: { name: 'ปลาเผา', icon: '🍢', value: 6, food: { hunger: 30, hp: 5 } },
+  canned: { name: 'อาหารกระป๋อง', icon: '🥫', value: 6, food: { hunger: 30 } },
+  herbal_soup: { name: 'ต้มยำสมุนไพร', icon: '🍲', value: 12, food: { hunger: 40, thirst: 20, hp: 12, infection: -15 } },
+  dirty_water: { name: 'น้ำดิบ', icon: '🫙', value: 1, food: { thirst: 25, sick: 0.4 }, returns: 'bottle' },
+  clean_water: { name: 'น้ำต้มสุก', icon: '💧', value: 4, food: { thirst: 40 }, returns: 'bottle' },
+  bandage: { name: 'ผ้าพันแผล', icon: '🩹', value: 6, med: { stopBleed: true, hp: 12 } },
+  splint: { name: 'เฝือกไม้', icon: '🦴', value: 6, med: { fracture: true, hp: 5 } },
+  herbal_med: { name: 'ยาสมุนไพร', icon: '🧪', value: 8, med: { infection: -30, cureSick: true, hp: 5 } },
+  antibiotic: { name: 'ยาปฏิชีวนะ', icon: '💊', value: 15, med: { infection: -75, cureSick: true } },
+  stone_axe: { name: 'ขวานหิน', icon: '🪓', value: 8, tool: { gather: 2, dmg: 14, range: 2.6 } },
+  spear: { name: 'หอกไม้', icon: '🔱', value: 8, tool: { gather: 1, dmg: 20, range: 3.4, fish: true } },
+  machete: { name: 'มีดพร้า', icon: '🔪', value: 14, tool: { gather: 2.5, dmg: 30, range: 2.8 } },
+  // ---- เสื้อผ้า (สวมใส่ได้ 7 ช่อง) ----
+  // def = ลดความเสียหาย · bite = ลดโอกาสติดเชื้อเมื่อถูกกัด · spd = เดินเร็วขึ้น · stam = สตามิน่าฟื้นเร็วขึ้น · gather = เก็บของมือเปล่าแรงขึ้น · carry = ช่องกระเป๋าเพิ่ม
+  hat_cloth: { name: 'หมวกผ้า', icon: '🧢', value: 4, wear: { slot: 'head', def: 0.03, color: '#c9a227' } },
+  helmet_bike: { name: 'หมวกกันน็อก', icon: '⛑️', value: 10, wear: { slot: 'head', def: 0.08, bite: 0.05, color: '#d62828' } },
+  helmet_mil: { name: 'หมวกทหาร', icon: '🪖', value: 18, wear: { slot: 'head', def: 0.12, bite: 0.1, color: '#556b2f' } },
+  shirt_rag: { name: 'เสื้อผ้าปะ', icon: '👕', value: 5, wear: { slot: 'body', def: 0.04, color: '#8d99ae' } },
+  cloth_armor: { name: 'เสื้อเกราะผ้าหนา', icon: '🦺', value: 12, wear: { slot: 'body', def: 0.12, bite: 0.15, color: '#6c757d' } },
+  jacket_leather: { name: 'แจ็กเก็ตหนัง', icon: '🧥', value: 16, wear: { slot: 'body', def: 0.16, bite: 0.2, color: '#6f4518' } },
+  vest_kevlar: { name: 'เสื้อเกราะกันกระสุน', icon: '🦺', value: 26, wear: { slot: 'body', def: 0.25, bite: 0.3, color: '#2b2d42' } },
+  pants_rag: { name: 'กางเกงผ้าปะ', icon: '👖', value: 4, wear: { slot: 'legs', def: 0.03, color: '#7d8597' } },
+  skirt_rag: { name: 'กระโปรงผ้าปะ', icon: '👗', value: 4, wear: { slot: 'legs', def: 0.02, spd: 0.03, color: '#b5838d', skirt: true } },
+  jeans: { name: 'กางเกงยีนส์หนา', icon: '👖', value: 9, wear: { slot: 'legs', def: 0.07, bite: 0.08, color: '#1d3557' } },
+  skirt_long: { name: 'กระโปรงยาวผ้าหนา', icon: '👗', value: 9, wear: { slot: 'legs', def: 0.05, bite: 0.06, spd: 0.03, color: '#6d597a', skirt: true } },
+  pants_cargo: { name: 'กางเกงทหาร', icon: '👖', value: 15, wear: { slot: 'legs', def: 0.1, bite: 0.12, color: '#606c38' } },
+  gloves_rag: { name: 'ถุงมือผ้า', icon: '🧤', value: 3, wear: { slot: 'hands', gather: 0.3, bite: 0.03, color: '#e9d8a6' } },
+  gloves_leather: { name: 'ถุงมือหนัง', icon: '🧤', value: 9, wear: { slot: 'hands', gather: 0.6, def: 0.03, bite: 0.08, color: '#7f4f24' } },
+  socks: { name: 'ถุงเท้า', icon: '🧦', value: 2, wear: { slot: 'socks', stam: 0.1, color: '#f1faee' } },
+  socks_wool: { name: 'ถุงเท้าหนา', icon: '🧦', value: 5, wear: { slot: 'socks', stam: 0.2, color: '#e76f51' } },
+  sandals: { name: 'รองเท้าแตะ', icon: '🩴', value: 3, wear: { slot: 'shoes', spd: 0.04, color: '#3a86ff' } },
+  sneakers: { name: 'รองเท้าผ้าใบ', icon: '👟', value: 9, wear: { slot: 'shoes', spd: 0.08, stam: 0.05, color: '#f8f9fa' } },
+  boots: { name: 'รองเท้าบูท', icon: '🥾', value: 14, wear: { slot: 'shoes', spd: 0.06, def: 0.05, bite: 0.08, color: '#432818' } },
+  bag_cloth: { name: 'กระเป๋าผ้า Lv1', icon: '👝', value: 6, wear: { slot: 'back', carry: 8, lvl: 1, color: '#bc9d6c' } },
+  bag_hiking: { name: 'กระเป๋าเป้เดินป่า Lv2', icon: '🎒', value: 14, wear: { slot: 'back', carry: 24, lvl: 2, color: '#2a9d8f' } },
+  bag_military: { name: 'กระเป๋าทหาร Lv3', icon: '🎒', value: 24, wear: { slot: 'back', carry: 36, lvl: 3, color: '#4b5320' } },
+  // ---- ของขั้นสูงเฉพาะอาชีพ ----
+  steel_axe: { name: 'ขวานเหล็ก', icon: '🪓', value: 22, tool: { gather: 3.5, dmg: 24, range: 2.7 } },
+  steel_spear: { name: 'หอกเหล็กกล้า', icon: '🔱', value: 24, tool: { gather: 1.2, dmg: 34, range: 3.8, fish: true } },
+  rod_pro: { name: 'เบ็ดคาร์บอน', icon: '🎣', value: 18, tool: { gather: 1, dmg: 5, range: 2, rod: true, lure: 1.8 } },
+  pickup: { name: 'รถกระบะดัดแปลง', icon: '🛻', value: 80, place: 'vehicle', vt: 'pickup' },
+  hunter_cloak: { name: 'ชุดพรางนักล่า', icon: '🥷', value: 20, wear: { slot: 'body', def: 0.14, bite: 0.18, spd: 0.05, color: '#4a5e3a' } },
+  jerky: { name: 'เนื้อตากแห้ง', icon: '🥓', value: 8, food: { hunger: 32, hp: 4 } },
+  big_meal: { name: 'อาหารชุดใหญ่', icon: '🍱', value: 20, food: { hunger: 70, thirst: 20, hp: 25, infection: -5 } },
+  fish_soup: { name: 'ต้มยำปลา', icon: '🥘', value: 12, food: { hunger: 45, thirst: 25, hp: 12, infection: -10 } },
+  // ---- ของจากบอส "ราชาผู้ติดเชื้อ" ----
+  king_fang: { name: 'เขี้ยวราชาผู้ติดเชื้อ', icon: '🦷', value: 40 },
+  king_hammer: { name: 'ค้อนทุบราชา', icon: '🔨', value: 60, tool: { gather: 3, dmg: 48, range: 3 } },
+  king_armor: { name: 'เกราะราชาผู้ติดเชื้อ', icon: '🥋', value: 60, wear: { slot: 'body', def: 0.3, bite: 0.35, color: '#370617' } },
+  king_crown: { name: 'มงกุฎราชา', icon: '👑', value: 50, wear: { slot: 'head', def: 0.15, bite: 0.15, stam: 0.15, color: '#ffd60a' } },
+  // ---- ของอาชีพใหม่ ----
+  first_aid: { name: 'ชุดปฐมพยาบาล', icon: '🧰', value: 18, med: { hp: 40, stopBleed: true, fracture: true, cureSick: true } },
+  antiviral: { name: 'ยาต้านไวรัส', icon: '💉', value: 30, med: { infection: -100, cureSick: true, immune: 180 } },
+  calm_tea: { name: 'ชาสมุนไพรคลายเครียด', icon: '🍵', value: 6, food: { thirst: 20, stress: -25 } },
+  guitar: { name: 'กีตาร์โปร่ง', icon: '🎸', value: 20, instrument: true },
+  energy_drink: { name: 'เกลือแร่สูตรนักกีฬา', icon: '🧃', value: 8, food: { thirst: 30, stamina: 100 }, returns: 'bottle' },
+  protein_meal: { name: 'อกไก่ต้มโปรตีน', icon: '🍗', value: 10, food: { hunger: 40, hp: 15, stamina: 30 } },
+  kaprao: { name: 'ข้าวผัดกะเพรา', icon: '🍛', value: 16, food: { hunger: 60, hp: 15, stress: -10 } },
+  tomyum_kung: { name: 'ต้มยำกุ้ง', icon: '🍜', value: 20, food: { hunger: 40, thirst: 30, hp: 15, infection: -20 } },
+  coconut_dessert: { name: 'บัวลอยมะพร้าวอ่อน', icon: '🥣', value: 14, food: { hunger: 30, thirst: 15, stress: -30 } },
+  // ---- โล่ (ถือมือซ้าย) · block = โอกาสกันการโจมตีได้ (เหลือความเสียหาย 25% และไม่ติดเชื้อ) ----
+  shield_wood: { name: 'โล่ไม้เล็ก', icon: '🛡️', value: 6, wear: { slot: 'off', def: 0.04, block: 0.15, size: 0.8, color: '#9c6644' } },
+  shield_lid: { name: 'โล่ฝาถังเหล็ก', icon: '🛡️', value: 10, wear: { slot: 'off', def: 0.06, block: 0.22, size: 0.9, round: true, color: '#8d99ae' } },
+  shield_hide: { name: 'โล่หนังสัตว์', icon: '🛡️', value: 14, wear: { slot: 'off', def: 0.08, block: 0.28, bite: 0.05, size: 1, color: '#7f4f24' } },
+  shield_riot: { name: 'โล่ปราบจลาจล', icon: '🛡️', value: 28, wear: { slot: 'off', def: 0.12, block: 0.4, bite: 0.1, spd: -0.05, size: 1.5, color: '#2b2d42' } },
+  // วัตถุดิบจากผู้ติดเชื้อและสัตว์
+  rag: { name: 'เศษผ้าขาด (จากผู้ติดเชื้อ)', icon: '🩶', value: 1 },
+  zipper: { name: 'ซิปและกระดุม', icon: '🪡', value: 3 },
+  kevlar: { name: 'แผ่นเคฟลาร์ (หายาก)', icon: '🛡️', value: 10 },
+  hide: { name: 'หนังสัตว์', icon: '🟫', value: 4 },
+  ring: { name: 'แหวนเศษเหล็ก', icon: '💍', value: 20 },
+  radio: { name: 'วิทยุสื่อสาร', icon: '📻', value: 0, quest: true },
+  car_battery: { name: 'แบตเตอรี่รถยนต์', icon: '🔋', value: 0, quest: true },
+  // ---- อุปกรณ์สัตว์เลี้ยง 5 ช่อง: หมวก ปลอกคอ ชุด อาวุธ รองเท้า ----
+  pet_cap: { name: 'หมวกแก๊ปสัตว์', icon: '🧢', value: 4, petGear: { slot: 'head', def: 0.04, hp: 5, color: '#e63946' } },
+  pet_helmet: { name: 'หมวกเหล็กสัตว์', icon: '⛑️', value: 9, petGear: { slot: 'head', def: 0.1, hp: 8, color: '#8d99ae' } },
+  pet_bandana: { name: 'ผ้าพันคอนำโชค', icon: '🧣', value: 6, petGear: { slot: 'neck', luck: true, color: '#e63946' } },
+  pet_collar: { name: 'ปลอกคอหนาม', icon: '⛓️', value: 8, petGear: { slot: 'neck', atk: 5, color: '#333' } },
+  pet_bell: { name: 'ปลอกคอกระดิ่ง', icon: '🔔', value: 7, petGear: { slot: 'neck', alarm: true, hp: 5, color: '#ffd166' } },
+  pet_vest: { name: 'เสื้อเกราะสัตว์', icon: '🦺', value: 10, petGear: { slot: 'body', def: 0.25, hp: 20, color: '#556b2f' } },
+  pet_kevlar: { name: 'เกราะเคฟลาร์สัตว์', icon: '🛡️', value: 22, petGear: { slot: 'body', def: 0.4, hp: 35, color: '#2b2d42' } },
+  pet_bag: { name: 'กระเป๋าสัมภาระสัตว์', icon: '🎒', value: 8, petGear: { slot: 'body', carry: true, color: '#8d6e4a' } },
+  pet_claws: { name: 'เล็บ/จะงอยเหล็ก', icon: '🗡️', value: 12, petGear: { slot: 'weapon', atk: 9, color: '#ced4da' } },
+  pet_fangs: { name: 'เขี้ยวเหล็ก', icon: '🦷', value: 18, petGear: { slot: 'weapon', atk: 14, color: '#adb5bd' } },
+  pet_socks: { name: 'ปลอกเท้าผ้า', icon: '🧦', value: 3, petGear: { slot: 'feet', def: 0.03, hp: 5, color: '#f1faee' } },
+  pet_boots: { name: 'รองเท้าหนังสัตว์', icon: '🥾', value: 9, petGear: { slot: 'feet', def: 0.06, hp: 12, color: '#6f4518' } },
+  // ---- ฟาร์ม ตกปลา ยานพาหนะ ก่อสร้าง ----
+  hammer: { name: 'ค้อนช่างไม้', icon: '🔨', value: 6 },
+  rod: { name: 'เบ็ดตกปลา', icon: '🎣', value: 6, tool: { gather: 1, dmg: 4, range: 2, rod: true } },
+  seeds_corn: { name: 'เมล็ดข้าวโพด', icon: '🌰', value: 2 },
+  seeds_veg: { name: 'เมล็ดผักบุ้ง', icon: '🫘', value: 2 },
+  corn: { name: 'ข้าวโพด', icon: '🌽', value: 3, food: { hunger: 12, thirst: 2 } },
+  grilled_corn: { name: 'ข้าวโพดปิ้ง', icon: '🌽', value: 6, food: { hunger: 28, hp: 3 } },
+  veg: { name: 'ผักบุ้ง', icon: '🥬', value: 3, food: { hunger: 8, thirst: 5 } },
+  stir_veg: { name: 'ผัดผักบุ้งไฟแดง', icon: '🥗', value: 10, food: { hunger: 32, thirst: 5, hp: 8 } },
+  egg: { name: 'ไข่ไก่', icon: '🥚', value: 3, food: { hunger: 8, sick: 0.25 } },
+  fried_egg: { name: 'ไข่เจียว', icon: '🍳', value: 8, food: { hunger: 26, hp: 5 } },
+  crab: { name: 'ปูม้า', icon: '🦀', value: 6, food: { hunger: 8, sick: 0.35 } },
+  steamed_crab: { name: 'ปูนึ่ง', icon: '🦀', value: 12, food: { hunger: 30, hp: 10 } },
+  squid: { name: 'ปลาหมึก', icon: '🦑', value: 6, food: { hunger: 8, sick: 0.3 } },
+  grilled_squid: { name: 'ปลาหมึกย่าง', icon: '🍢', value: 10, food: { hunger: 26, hp: 6 } },
+  prawn: { name: 'กุ้งก้ามกราม', icon: '🦐', value: 8, food: { hunger: 8, sick: 0.3 } },
+  grilled_prawn: { name: 'กุ้งเผา', icon: '🦐', value: 14, food: { hunger: 30, hp: 10 } },
+  big_fish: { name: 'ปลากะพงตัวใหญ่', icon: '🐠', value: 10, food: { hunger: 15, sick: 0.3 } },
+  grilled_big_fish: { name: 'ปลากะพงเผาเกลือ', icon: '🐟', value: 16, food: { hunger: 50, hp: 10 } },
+  golden_fish: { name: 'ปลาทอง (หายาก)', icon: '🐡', value: 25 },
+  fuel: { name: 'น้ำมันเชื้อเพลิง', icon: '⛽', value: 5 },
+  bicycle: { name: 'จักรยาน', icon: '🚲', value: 20, place: 'vehicle', vt: 'bicycle' },
+  motorbike: { name: 'มอเตอร์ไซค์', icon: '🏍️', value: 40, place: 'vehicle', vt: 'motorbike' },
+  raft: { name: 'แพไม้ไผ่', icon: '🛶', value: 20, place: 'vehicle', vt: 'raft' },
+  campfire: { name: 'กองไฟ', icon: '🔥', value: 6, place: 'campfire' },
+  watchtower: { name: 'หอสังเกตการณ์', icon: '🗼', value: 25, place: 'watchtower' },
+  shelter: { name: 'เพิงพัก', icon: '⛺', value: 20, place: 'shelter' },
+};
+
+// station: 'fire' = ต้องอยู่ใกล้กองไฟ
+export const RECIPES = [
+  // วัตถุดิบที่เก็บด้วยมือเปล่าต้องแปรรูปก่อนจึงใช้คราฟท์ได้
+  { out: 'wood', need: { twig: 2 }, skill: 'crafting', lvl: 1, label: 'ไม้ (มัดจากกิ่งไม้แห้ง)' },
+  { out: 'stone', qty: 2, need: { pebble: 3 }, skill: 'crafting', lvl: 1, label: 'หิน ×2 (ทุบแต่งจากก้อนหินดิบ)' },
+  { out: 'fiber', qty: 2, need: { raw_fiber: 3 }, skill: 'crafting', lvl: 1, label: 'เส้นใยพืช ×2 (ฟั่นจากต้นหญ้าดิบ)' },
+  { out: 'stone_axe', need: { wood: 3, stone: 2, fiber: 2 }, skill: 'crafting', lvl: 1 },
+  { out: 'spear', need: { wood: 4, fiber: 2 }, skill: 'crafting', lvl: 1 },
+  { out: 'bottle', need: { wood: 2 }, skill: 'crafting', lvl: 1, label: 'กระบอกไม้ไผ่ (ขวด)' },
+  { out: 'campfire', need: { wood: 5, stone: 3 }, skill: 'crafting', lvl: 1 },
+  { out: 'bandage', need: { cloth: 2 }, skill: 'medicine', lvl: 1 },
+  { out: 'bandage', need: { fiber: 6 }, skill: 'medicine', lvl: 2, label: 'ผ้าพันแผล (ใยพืช)' },
+  { out: 'clean_water', need: { dirty_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
+  { out: 'cooked_meat', need: { raw_meat: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'grilled_fish', need: { raw_fish: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'shelter', need: { wood: 15, fiber: 10 }, skill: 'crafting', lvl: 2 },
+  { out: 'watchtower', need: { wood: 20, fiber: 8 }, skill: 'crafting', lvl: 2, label: 'หอสังเกตการณ์ (ปีนหนีผู้ติดเชื้อ)' },
+  { out: 'splint', need: { wood: 2, cloth: 1 }, skill: 'medicine', lvl: 2 },
+  { out: 'herbal_med', need: { herb: 3, clean_water: 1 }, skill: 'medicine', lvl: 2, station: 'fire' },
+  { out: 'machete', need: { scrap: 4, wood: 2 }, skill: 'crafting', lvl: 3 },
+  // ตัดเย็บเสื้อผ้า (ทักษะตัดเย็บ)
+  // สูตรขั้นสูงเฉพาะอาชีพ (job)
+  { out: 'steel_axe', need: { scrap: 5, wood: 2, fiber: 2 }, skill: 'crafting', lvl: 2, job: 'engineer' },
+  { out: 'steel_spear', need: { scrap: 4, wood: 3, fiber: 2 }, skill: 'crafting', lvl: 3, job: 'engineer' },
+  { out: 'pickup', need: { scrap: 18, fuel: 2, cloth: 4, zipper: 3 }, skill: 'crafting', lvl: 3, job: 'mechanic', label: 'รถกระบะดัดแปลง (เร็ว · ต้องเติมน้ำมัน)' },
+  { out: 'motorbike', need: { scrap: 8, fuel: 1, cloth: 2 }, skill: 'crafting', lvl: 2, job: 'mechanic', label: 'มอเตอร์ไซค์ (สูตรช่างยนต์ ไม่ต้องใช้แบตเตอรี่)' },
+  { out: 'big_meal', need: { corn: 2, veg: 2, cooked_meat: 1 }, skill: 'cooking', lvl: 2, job: 'farmer', station: 'fire' },
+  { out: 'rod_pro', need: { scrap: 3, fiber: 4, wood: 2 }, skill: 'fishing', lvl: 2, job: 'fisher' },
+  { out: 'fish_soup', need: { raw_fish: 2, herb: 1, clean_water: 1 }, skill: 'cooking', lvl: 1, job: 'fisher', station: 'fire' },
+  { out: 'watchtower', need: { wood: 10, fiber: 4 }, skill: 'building', lvl: 2, job: 'builder', label: 'หอสังเกตการณ์ (สูตรช่างก่อสร้าง ราคาถูก)' },
+  { out: 'hunter_cloak', need: { hide: 4, fiber: 4, zipper: 1 }, skill: 'tailoring', lvl: 2, job: 'hunter' },
+  { out: 'jerky', need: { raw_meat: 2, herb: 1 }, skill: 'cooking', lvl: 1, job: 'hunter', station: 'fire', qty: 2 },
+  { out: 'first_aid', need: { bandage: 2, splint: 1, herbal_med: 1 }, skill: 'medicine', lvl: 2, job: 'doctor' },
+  { out: 'antiviral', need: { antibiotic: 1, herbal_med: 2, king_fang: 1 }, skill: 'medicine', lvl: 4, job: 'doctor', label: 'ยาต้านไวรัส (ต้องใช้เขี้ยวบอส)' },
+  { out: 'herbal_med', need: { herb: 2 }, skill: 'medicine', lvl: 1, job: 'doctor', label: 'ยาสมุนไพร (สูตรหมอ ใช้สมุนไพรน้อยลง)' },
+  { out: 'guitar', need: { wood: 6, fiber: 4, scrap: 1 }, skill: 'recreation', lvl: 1, job: 'entertainer' },
+  { out: 'calm_tea', need: { herb: 2, clean_water: 1 }, skill: 'cooking', lvl: 1, job: 'entertainer', station: 'fire', keepBottle: true },
+  { out: 'energy_drink', need: { clean_water: 1, coconut: 1 }, skill: 'survival', lvl: 1, job: 'athlete', keepBottle: true },
+  { out: 'protein_meal', need: { raw_meat: 2, clean_water: 1 }, skill: 'cooking', lvl: 1, job: 'athlete', station: 'fire' },
+  { out: 'kaprao', need: { cooked_meat: 1, herb: 1, veg: 1 }, skill: 'cooking', lvl: 1, job: 'chef', station: 'fire' },
+  { out: 'tomyum_kung', need: { prawn: 2, herb: 1, clean_water: 1 }, skill: 'cooking', lvl: 2, job: 'chef', station: 'fire' },
+  { out: 'coconut_dessert', need: { coconut: 2, corn: 1 }, skill: 'cooking', lvl: 2, job: 'chef', station: 'fire' },
+  { out: 'big_meal', need: { corn: 1, veg: 1, cooked_meat: 1 }, skill: 'cooking', lvl: 3, job: 'chef', station: 'fire', label: 'อาหารชุดใหญ่ (สูตรเชฟ)' },
+  { out: 'shield_wood', need: { wood: 4, fiber: 2 }, skill: 'crafting', lvl: 1 },
+  { out: 'shield_lid', need: { scrap: 4, rag: 2 }, skill: 'crafting', lvl: 2 },
+  { out: 'shield_hide', need: { wood: 3, hide: 3, zipper: 1 }, skill: 'crafting', lvl: 3 },
+  { out: 'shield_riot', need: { kevlar: 3, scrap: 4, zipper: 2 }, skill: 'crafting', lvl: 4 },
+  { out: 'hat_cloth', need: { rag: 3 }, skill: 'tailoring', lvl: 1 },
+  { out: 'shirt_rag', need: { rag: 5, fiber: 2 }, skill: 'tailoring', lvl: 1 },
+  { out: 'pants_rag', need: { rag: 4 }, skill: 'tailoring', lvl: 1 },
+  { out: 'skirt_rag', need: { rag: 4 }, skill: 'tailoring', lvl: 1 },
+  { out: 'gloves_rag', need: { rag: 2 }, skill: 'tailoring', lvl: 1 },
+  { out: 'socks', need: { rag: 2 }, skill: 'tailoring', lvl: 1 },
+  { out: 'sandals', need: { rag: 1, fiber: 3 }, skill: 'tailoring', lvl: 1 },
+  { out: 'bag_cloth', need: { rag: 4, fiber: 4 }, skill: 'tailoring', lvl: 1 },
+  { out: 'helmet_bike', need: { scrap: 3, rag: 2, zipper: 1 }, skill: 'tailoring', lvl: 2 },
+  { out: 'cloth_armor', need: { cloth: 6, fiber: 4 }, skill: 'tailoring', lvl: 2 },
+  { out: 'jeans', need: { cloth: 3, rag: 3, zipper: 1 }, skill: 'tailoring', lvl: 2 },
+  { out: 'skirt_long', need: { cloth: 3, rag: 3 }, skill: 'tailoring', lvl: 2 },
+  { out: 'gloves_leather', need: { hide: 2, rag: 1 }, skill: 'tailoring', lvl: 2 },
+  { out: 'socks_wool', need: { cloth: 2, fiber: 2 }, skill: 'tailoring', lvl: 2 },
+  { out: 'sneakers', need: { rag: 3, zipper: 1, scrap: 1 }, skill: 'tailoring', lvl: 2 },
+  { out: 'bag_hiking', need: { cloth: 4, rag: 4, zipper: 2 }, skill: 'tailoring', lvl: 2 },
+  { out: 'jacket_leather', need: { hide: 4, rag: 2, zipper: 2 }, skill: 'tailoring', lvl: 3 },
+  { out: 'pants_cargo', need: { kevlar: 1, cloth: 4, zipper: 2 }, skill: 'tailoring', lvl: 3 },
+  { out: 'boots', need: { hide: 3, scrap: 2, zipper: 1 }, skill: 'tailoring', lvl: 3 },
+  { out: 'helmet_mil', need: { kevlar: 2, scrap: 2 }, skill: 'tailoring', lvl: 4 },
+  { out: 'vest_kevlar', need: { kevlar: 4, cloth: 3 }, skill: 'tailoring', lvl: 4 },
+  { out: 'bag_military', need: { kevlar: 2, hide: 3, zipper: 3 }, skill: 'tailoring', lvl: 4 },
+  { out: 'ring', need: { scrap: 3 }, skill: 'crafting', lvl: 3 },
+  { out: 'herbal_soup', need: { herb: 2, raw_fish: 1, clean_water: 1 }, skill: 'cooking', lvl: 3, station: 'fire' },
+  // อุปกรณ์สัตว์เลี้ยง
+  { out: 'pet_cap', need: { rag: 2 }, skill: 'tailoring', lvl: 1, label: 'หมวกแก๊ปสัตว์ (🐾 หมวก)' },
+  { out: 'pet_socks', need: { rag: 2 }, skill: 'tailoring', lvl: 1, label: 'ปลอกเท้าผ้า (🐾 รองเท้า)' },
+  { out: 'pet_bandana', need: { cloth: 2, herb: 1 }, skill: 'tailoring', lvl: 1, label: 'ผ้าพันคอนำโชค (🐾 ปลอกคอ)' },
+  { out: 'pet_bell', need: { zipper: 1, scrap: 1, rag: 1 }, skill: 'crafting', lvl: 2, label: 'ปลอกคอกระดิ่ง (🐾 ปลอกคอ)' },
+  { out: 'pet_collar', need: { scrap: 2, cloth: 1 }, skill: 'crafting', lvl: 2, label: 'ปลอกคอหนาม (🐾 ปลอกคอ)' },
+  { out: 'pet_helmet', need: { scrap: 2, rag: 1 }, skill: 'crafting', lvl: 2, label: 'หมวกเหล็กสัตว์ (🐾 หมวก)' },
+  { out: 'pet_vest', need: { cloth: 4, scrap: 2 }, skill: 'tailoring', lvl: 2, label: 'เสื้อเกราะสัตว์ (🐾 ชุด)' },
+  { out: 'pet_bag', need: { cloth: 3, fiber: 4 }, skill: 'tailoring', lvl: 2, label: 'กระเป๋าสัมภาระสัตว์ (🐾 ชุด)' },
+  { out: 'pet_boots', need: { hide: 1, rag: 2 }, skill: 'tailoring', lvl: 2, label: 'รองเท้าหนังสัตว์ (🐾 รองเท้า)' },
+  { out: 'pet_claws', need: { scrap: 4 }, skill: 'crafting', lvl: 3, label: 'เล็บ/จะงอยเหล็ก (🐾 อาวุธ)' },
+  { out: 'pet_fangs', need: { scrap: 6, zipper: 1 }, skill: 'crafting', lvl: 4, label: 'เขี้ยวเหล็ก (🐾 อาวุธ)' },
+  { out: 'pet_kevlar', need: { kevlar: 2, cloth: 2 }, skill: 'tailoring', lvl: 4, label: 'เกราะเคฟลาร์สัตว์ (🐾 ชุด)' },
+  { out: 'hammer', need: { wood: 3, stone: 2 }, skill: 'crafting', lvl: 1, label: 'ค้อนช่างไม้ (ใช้สร้างบ้าน — กด B)' },
+  { out: 'rod', need: { wood: 2, fiber: 3 }, skill: 'crafting', lvl: 1, label: 'เบ็ดตกปลา' },
+  { out: 'grilled_corn', need: { corn: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'fried_egg', need: { egg: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'stir_veg', need: { veg: 2, herb: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'steamed_crab', need: { crab: 1, clean_water: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'grilled_squid', need: { squid: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'grilled_prawn', need: { prawn: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'grilled_big_fish', need: { big_fish: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  { out: 'raft', need: { wood: 12, fiber: 8 }, skill: 'crafting', lvl: 2, label: 'แพไม้ไผ่ (ล่องทะเลไปเกาะได้)' },
+  { out: 'bicycle', need: { scrap: 6, wood: 2, cloth: 1 }, skill: 'crafting', lvl: 2, label: 'จักรยาน' },
+  { out: 'motorbike', need: { scrap: 12, car_battery: 1, cloth: 2 }, skill: 'crafting', lvl: 4, label: 'มอเตอร์ไซค์ (ต้องเติมน้ำมัน)' },
+  { out: 'antibiotic', need: { herb: 5, clean_water: 1, scrap: 1 }, skill: 'medicine', lvl: 4, station: 'fire', label: 'ยาปฏิชีวนะสกัด' },
+];
+
+export const SKILLS = {
+  gathering: 'เก็บเกี่ยว', crafting: 'ประดิษฐ์', cooking: 'ทำอาหาร',
+  medicine: 'การแพทย์', combat: 'การต่อสู้', survival: 'เอาตัวรอด',
+  building: 'ก่อสร้าง', farming: 'เพาะปลูก', fishing: 'ตกปลา', tailoring: 'ตัดเย็บ', recreation: 'สันทนาการ',
+};
+export const skillLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 25)) + 1;
+export const xpForLevel = (lvl) => (lvl - 1) * (lvl - 1) * 25;
+
+const T = (key, name, lat, lon, r, n, tall) => ({ key, name, x: lonToX(lon), z: latToZ(lat), r, n, tall });
+export const TOWNS = [
+  T('chonburi', 'เมืองชลบุรี', 13.361, 100.99, 60, 34, 1.3),
+  T('bangsaen', 'บางแสน', 13.283, 100.925, 45, 22, 1),
+  T('sriracha', 'ศรีราชา', 13.170, 100.945, 50, 28, 1.4),
+  T('laemchabang', 'ท่าเรือแหลมฉบัง', 13.083, 100.905, 55, 26, 0.7),
+  T('banglamung', 'บางละมุง', 13.047, 100.935, 35, 14, 0.8),
+  T('pattaya', 'พัทยา', 12.927, 100.893, 65, 44, 2.4),
+  T('jomtien', 'จอมเทียน', 12.870, 100.888, 40, 22, 1.8),
+  T('sattahip', 'สัตหีบ', 12.662, 100.915, 45, 20, 0.8),
+  T('phanat', 'พนัสนิคม', 13.447, 101.181, 40, 18, 0.7),
+  T('banbueng', 'บ้านบึง', 13.313, 101.109, 40, 16, 0.7),
+  T('khaokheow', 'สวนสัตว์เปิดเขาเขียว', 13.24, 101.03, 25, 6, 0.4),
+];
+export const SPAWN_TOWN = 'bangsaen';
+
+// ช่องสวมใส่ และกระเป๋า
+export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้อ', legs: '👖 กางเกง/กระโปรง', hands: '🧤 ถุงมือ', socks: '🧦 ถุงเท้า', shoes: '👟 รองเท้า', back: '🎒 กระเป๋า', off: '🛡️ มือซ้าย' };
+export const BASE_SLOTS = 48;
+
+// ---------- จำนวนสัตว์เลี้ยง ----------
+// เริ่มต้นชนิดละ 3 ตัว · มีบ้าน (เตียง) แล้วสร้างบ้านสัตว์เลี้ยง ได้เพิ่ม +2 ตัว/ชนิด ต่อหลัง
+export const PET_BASE = 3, PET_PER_HOUSE = 2;
+export const petCap = (houses, beds) => PET_BASE + (beds > 0 ? houses * PET_PER_HOUSE : 0);
+
+// ---------- อาชีพ (เลือกตอนสร้างตัวละคร) ----------
+// skill = ทักษะหลักของอาชีพ · xp = ตัวคูณประสบการณ์ · perks = [เลเวลทักษะหลักที่ปลดล็อก, คำอธิบาย]
+export const JOBS = {
+  engineer: { name: 'ช่างเครื่องมือ', icon: '🔧', skill: 'crafting', xp: { crafting: 1.5 }, kit: { hammer: 1, scrap: 3 }, desc: 'สร้างเครื่องมือและอาวุธขั้นสูง',
+    perks: [[1, 'XP ประดิษฐ์ +50% · ปลดล็อก ขวานเหล็ก / หอกเหล็กกล้า'], [4, 'เครื่องมือเก็บของแรงขึ้น 30%'], [8, 'โอกาส 25% ได้วัตถุดิบคืนทั้งหมดเมื่อประดิษฐ์']] },
+  mechanic: { name: 'ช่างยนต์', icon: '🚗', skill: 'crafting', xp: { crafting: 1.3 }, kit: { fuel: 2, scrap: 4 }, desc: 'สร้างและซ่อมยานพาหนะ',
+    perks: [[1, 'ปลดล็อก รถกระบะดัดแปลง / มอเตอร์ไซค์ไม่ใช้แบตเตอรี่'], [4, 'ยานพาหนะกินน้ำมันน้อยลง 50%'], [8, 'ยานพาหนะวิ่งเร็วขึ้น 15%']] },
+  farmer: { name: 'เกษตรกร', icon: '🌾', skill: 'farming', xp: { farming: 1.5, cooking: 1.2 }, kit: { seeds_corn: 4, seeds_veg: 4 }, desc: 'ปลูกพืชได้ผลผลิตมาก',
+    perks: [[1, 'เก็บเกี่ยวได้ผลผลิต ×2 · ปลดล็อก อาหารชุดใหญ่'], [4, 'เก็บเกี่ยวได้เมล็ดพันธุ์คืน'], [8, 'เก็บเกี่ยวได้ผลผลิต ×3']] },
+  fisher: { name: 'ชาวประมง', icon: '🎣', skill: 'fishing', xp: { fishing: 1.5 }, kit: { rod: 1 }, desc: 'ตกปลาเก่ง ได้ปลาหายากบ่อย',
+    perks: [[1, 'ปลาหายากติดบ่อยขึ้น · ปลดล็อก เบ็ดคาร์บอน / ต้มยำปลา'], [4, 'ปลากินเบ็ดเร็วขึ้น 40%'], [8, 'ได้ปลา 2 ตัวในครั้งเดียว (โอกาส 30%)']] },
+  builder: { name: 'ช่างก่อสร้าง', icon: '🏠', skill: 'building', xp: { building: 1.5 }, kit: { hammer: 1, wood: 6 }, desc: 'สร้างบ้านถูกและเร็ว',
+    perks: [[1, 'วัสดุก่อสร้างลดลง 25% · ปลดล็อก หอสังเกตการณ์ราคาถูก'], [4, 'รื้อแล้วได้วัสดุคืนเต็ม 100%'], [8, 'วัสดุก่อสร้างลดลง 40%']] },
+  hunter: { name: 'นักล่า', icon: '🏹', skill: 'combat', xp: { combat: 1.3 }, kit: { spear: 1 }, desc: 'ล่าสัตว์และสู้ผู้ติดเชื้อเก่ง',
+    perks: [[1, 'ได้เนื้อ/หนังจากสัตว์เพิ่ม · ปลดล็อก ชุดพรางนักล่า / เนื้อตากแห้ง'], [4, 'ดาเมจ +20%'], [8, 'เชื่องสัตว์เร็วขึ้น ×2 และดาเมจ +35%']] },
+  doctor: { name: 'หมอ', icon: '🩺', skill: 'medicine', xp: { medicine: 1.5 }, kit: { bandage: 3, herbal_med: 2 }, desc: 'รักษาอาการบาดเจ็บ ติดเชื้อ ป่วย',
+    perks: [[1, 'ยาและการรักษาได้ผล +50% · ปลดล็อก ชุดปฐมพยาบาล / ยาสมุนไพรสูตรประหยัด'], [4, 'รักษาเพื่อน/สัตว์เลี้ยง มีโอกาส 50% ไม่เสียยา · ปลดล็อก ยาต้านไวรัส'], [8, 'เชื้อในตัวลุกลามช้าลง 50% และฟื้นพลังชีวิตเร็วขึ้น ×2']] },
+  entertainer: { name: 'นักสันทนาการ', icon: '🎸', skill: 'recreation', xp: { recreation: 1.5 }, kit: { guitar: 1 }, desc: 'ลดความเครียดให้ตัวเองและเพื่อน',
+    perks: [[1, 'ความเครียดเพิ่มช้าลง 40% · เล่นดนตรีได้ผลแรง · ปลดล็อก กีตาร์ / ชาคลายเครียด'], [4, 'เพื่อนที่อยู่ใกล้คุณเครียดช้าลง · ดนตรีเพิ่มความภักดีสัตว์เลี้ยง'], [8, 'ดนตรีฟื้นพลังชีวิต +15 และสตามิน่าเต็มให้ทุกคนรอบตัว']] },
+  athlete: { name: 'นักกีฬา', icon: '🏃', skill: 'survival', xp: { survival: 1.4 }, kit: { energy_drink: 2 }, desc: 'แข็งแรง วิ่งไว ทนทาน แบกของได้มาก',
+    perks: [[1, 'พลังชีวิต +20 · สตามิน่า +30 · กระเป๋า +8 ช่อง · ปลดล็อก เกลือแร่ / อกไก่ต้ม'], [4, 'วิ่งเร็วขึ้น 10% · กระโดดสูงขึ้น · สตามิน่าฟื้นเร็วขึ้น 30%'], [8, 'ดาเมจ +15% · ตกจากที่สูงไม่บาดเจ็บ']] },
+  chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
+    perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
+};
+export const jobOf = (ch) => (JOBS[ch?.profile?.job] ? ch.profile.job : null);
+// มีความสามารถขั้นที่ tier (0,1,2) หรือยัง
+export function hasPerk(ch, job, tier) {
+  if (jobOf(ch) !== job) return false;
+  const J = JOBS[job]; return skillLevel(ch.skills?.[J.skill]) >= J.perks[tier][0];
+}
+// ตัวคูณดาเมจ (ใช้ทั้งในเครื่องและฝั่งเซิร์ฟเวอร์ตอนตรวจโกง)
+export const dmgMulOf = (ch) => (1 + (skillLevel(ch.skills?.combat) - 1) * 0.08) * (hasPerk(ch, 'hunter', 2) ? 1.35 : hasPerk(ch, 'hunter', 1) ? 1.2 : 1)
+  * (hasPerk(ch, 'athlete', 2) ? 1.15 : 1) * (killPerk(ch, 4) ? 1.15 : killPerk(ch, 0) ? 1.05 : 1);
+// พลังชีวิต/สตามิน่าสูงสุด และช่องกระเป๋าเพิ่ม
+export const maxHpOf = (ch) => 100 + (skillLevel(ch.skills?.survival) - 1) * 5 + (hasPerk(ch, 'athlete', 0) ? 20 : 0);
+export const maxStamOf = (ch) => 100 + (skillLevel(ch.skills?.survival) - 1) * 4 + (hasPerk(ch, 'athlete', 0) ? 30 : 0) + (killPerk(ch, 4) ? 20 : 0);
+export const extraSlots = (ch) => (hasPerk(ch, 'athlete', 0) ? 8 : 0);
+
+// ---------- ความสามารถจากการกำจัดผู้ติดเชื้อ ----------
+export const KILL_PERKS = [
+  [50, '🗡️ ดาเมจ +5%'],
+  [150, '🥷 ผู้ติดเชื้อมองเห็นคุณยากขึ้น 10%'],
+  [300, '🛡️ ลดโอกาสติดเชื้อเมื่อถูกกัด 15%'],
+  [500, '🩸 มองเห็นเลือด (พลังชีวิต) และระดับของผู้ติดเชื้อ'],
+  [1000, '💀 ตำนานนักล่า: ดาเมจ +15% และสตามิน่าสูงสุด +20'],
+];
+export const killPerk = (ch, i) => (ch?.stats?.kills || 0) >= KILL_PERKS[i][0];
+// ค่าวัสดุก่อสร้างหลังหักส่วนลดช่างก่อสร้าง
+export function buildCost(ch, cost) {
+  const off = hasPerk(ch, 'builder', 2) ? 0.4 : hasPerk(ch, 'builder', 0) ? 0.25 : 0;
+  if (!off) return { ...cost };
+  const out = {}; for (const [k, q] of Object.entries(cost)) out[k] = Math.max(1, Math.round(q * (1 - off)));
+  return out;
+}
+// จำนวนชิ้นต่อ 1 ช่องกระเป๋า
+export const stackOf = (k) => { const it = ITEMS[k]; return it.wear || it.tool || it.place || it.petGear || it.instrument ? 1 : it.food || it.med ? 10 : 30; };
+export function wearStats(wear) {
+  const t = { def: 0, bite: 0, spd: 0, stam: 0, gather: 0, carry: 0, block: 0 };
+  for (const k of Object.values(wear || {})) { const w = k && ITEMS[k]?.wear; if (w) for (const f in t) t[f] += w[f] || 0; }
+  t.def = Math.min(0.6, t.def); t.bite = Math.min(0.7, t.bite); t.block = Math.min(0.5, t.block);
+  return t;
+}
+
+// จุดของภารกิจหลัก "ตามหาศูนย์อพยพสัตหีบ"
+export const QUEST_SPOTS = {
+  radio: { name: 'ป้อมยามชายหาดบางแสน', x: lonToX(100.928), z: latToZ(13.279), keepOut: 6 },
+  tower: { name: 'เสาส่งสัญญาณเขาศรีราชา', x: lonToX(100.975), z: latToZ(13.16), keepOut: 10 },
+  camp: { name: 'ศูนย์อพยพ ฐานทัพเรือสัตหีบ', x: lonToX(100.945), z: latToZ(12.665), size: 36, keepOut: 26 },
+};
+
+export const LOOT_TABLE = [
+  ['canned', 18], ['bottle', 14], ['clean_water', 12], ['cloth', 16], ['scrap', 16],
+  ['bandage', 9], ['antibiotic', 3], ['herb', 6], ['raw_fish', 4], ['coconut', 4],
+  ['seeds_corn', 7], ['seeds_veg', 7], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1],
+];
+
+export const NPCS = [
+  { id: 'npc_mali', name: 'มะลิ', sex: 'f', town: 'bangsaen', likes: 'herb', bio: 'พยาบาลจากโรงพยาบาลชลบุรี' },
+  { id: 'npc_somchai', name: 'สมชาย', sex: 'm', town: 'chonburi', likes: 'scrap', bio: 'ช่างซ่อมรถย่านตลาดหนองมน' },
+  { id: 'npc_napa', name: 'นภา', sex: 'f', town: 'pattaya', likes: 'canned', bio: 'นักเต้นที่ติดอยู่ในพัทยา' },
+  { id: 'npc_boonmee', name: 'บุญมี', sex: 'm', town: 'sriracha', likes: 'raw_fish', bio: 'ชาวประมงเกาะลอย ศรีราชา' },
+  { id: 'npc_kaew', name: 'แก้ว', sex: 'f', town: 'sattahip', likes: 'clean_water', bio: 'อดีตทหารเรือสัตหีบ' },
+  { id: 'npc_ton', name: 'ต้น', sex: 'm', town: 'phanat', likes: 'berry', bio: 'นักศึกษามหาวิทยาลัยบูรพา' },
+  { id: 'npc_plaifah', name: 'ปลายฟ้า', sex: 'f', town: 'banbueng', likes: 'coconut', bio: 'ครูอนุบาลบ้านบึง' },
+  { id: 'npc_james', name: 'เจมส์', sex: 'm', town: 'jomtien', likes: 'cooked_meat', bio: 'นักท่องเที่ยวที่กลับบ้านไม่ได้' },
+];
+
+export const PET_TYPES = {
+  dog: { name: 'สุนัข', foods: ['raw_meat', 'cooked_meat', 'raw_fish', 'canned'], perk: 'ช่วยกัดผู้ติดเชื้อ', base: { hp: 40, atk: 9 } },
+  cat: { name: 'แมว', foods: ['raw_fish', 'grilled_fish', 'canned'], perk: 'ล่าหนูนำเนื้อมาให้', base: { hp: 26, atk: 5 } },
+  bird: { name: 'นกขุนทอง', foods: ['berry'], perk: 'บินสอดแนม เห็นศัตรูบนแผนที่', base: { hp: 16, atk: 3 } },
+};
+
+// ความสามารถพิเศษของสัตว์เลี้ยง (สุ่มตอนทำให้เชื่อง แต่ละตัวได้ไม่เหมือนกัน)
+export const PET_TRAITS = {
+  healer: { name: 'หมอประจำตัว', icon: '💗', desc: 'ทุก 90 วินาที ฟื้นพลังชีวิตเจ้าของ 8' },
+  forager: { name: 'นักหาของ', icon: '🌿', desc: 'ทุก 2 นาที หาสมุนไพร/ผลไม้/ใยพืช/ไม้มาให้' },
+  fisher: { name: 'นักจับปลา', icon: '🐟', desc: 'ทุก 150 วินาที จับปลามาให้' },
+  guardian: { name: 'ผู้พิทักษ์', icon: '🛡️', desc: 'อยู่ใกล้ ๆ แล้วเจ้าของได้รับความเสียหายลดลง 15%' },
+  sniffer: { name: 'จมูกไว', icon: '👃', desc: 'เห็นกล่องเสบียงใกล้ ๆ บนแผนที่ย่อ' },
+  alarm: { name: 'สัญญาณเตือนภัย', icon: '🔔', desc: 'ส่งเสียงเตือนเมื่อผู้ติดเชื้อเข้าใกล้' },
+  lucky: { name: 'นำโชค', icon: '🍀', desc: 'ค้นกล่องเสบียงมีโอกาส 30% ได้ของเพิ่ม' },
+  medic: { name: 'นักสมุนไพร', icon: '🧪', desc: 'ทุก 60 วินาที ลดการติดเชื้อของเจ้าของ 6%' },
+  calm: { name: 'ปลอบใจ', icon: '🫶', desc: 'อยู่ใกล้แล้วได้บัฟ "มีกำลังใจ" เหมือนอยู่กับครอบครัว' },
+  swift: { name: 'ว่องไว', icon: '💨', desc: 'สตามิน่าของเจ้าของฟื้นเร็วขึ้น 25%' },
+  brave: { name: 'ใจกล้า', icon: '🔥', desc: 'เข้าสู้กับผู้ติดเชื้อ (แม้จะเป็นแมวหรือนก)' },
+  thief: { name: 'จอมแอบหยิบ', icon: '🦝', desc: 'ทุก 150 วินาที แอบหยิบเศษเหล็กหรือผ้ามาให้' },
+};
+export const PET_RARITY = [
+  { key: 'common', name: 'ธรรมดา', color: '#ced4da', traits: 1, mul: 1, w: 68 },
+  { key: 'rare', name: 'หายาก', color: '#4cc9f0', traits: 2, mul: 1.15, w: 26 },
+  { key: 'legend', name: 'ตำนาน', color: '#ffd60a', traits: 3, mul: 1.3, w: 6 },
+];
+export const PET_SLOTS = { head: '🎩 หมวก', neck: '📿 ปลอกคอ', body: '🦺 ชุด', weapon: '🗡️ อาวุธ', feet: '🐾 รองเท้า' };
+export const petLevel = (xp) => Math.min(20, Math.floor(Math.sqrt((xp || 0) / 30)) + 1);
+
+export const CHILD_NAMES = ['น้ำหวาน', 'ต้นกล้า', 'ข้าวหอม', 'ภูผา', 'ฟ้าใส', 'ทะเล', 'ใบบัว', 'ก้องภพ', 'แสงดาว', 'ชลธี'];
+
+export const RADIO = [
+  'วิทยุ: "...ศูนย์อพยพที่ค่ายทหารเรือสัตหีบยังเปิดรับผู้รอดชีวิต..."',
+  'วิทยุ: "...ห้ามดื่มน้ำจากแหล่งน้ำโดยไม่ต้มก่อน เชื้อแพร่ทางน้ำ..."',
+  'วิทยุ: "...พบผู้ติดเชื้อจำนวนมากในเขตเมืองพัทยา หลีกเลี่ยงตอนกลางคืน..."',
+  'วิทยุ: "...สัญญาณจากกรุงเทพฯ ขาดหายไปเป็นวันที่สามแล้ว..."',
+  'วิทยุ: "...อ่างเก็บน้ำบางพระยังเป็นแหล่งน้ำจืดที่ใช้ได้..."',
+  'วิทยุ: "...ถ้าใครได้ยิน... อยู่ด้วยกันไว้ อย่าอยู่คนเดียว..."',
+];

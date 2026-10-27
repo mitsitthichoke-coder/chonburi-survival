@@ -1,0 +1,20 @@
+# Render Blueprint: กด New → Blueprint แล้วเลือก repo นี้
+services:
+  - type: web
+    name: chonburi-survival
+    runtime: node
+    plan: starter            # ต้องเป็นแบบเสียเงินจึงใช้ดิสก์ถาวรได้ (เก็บบัญชีและตัวละคร)
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: MAX_PLAYERS
+        value: "40"
+      - key: ADMIN_USERS
+        sync: false          # ใส่ชื่อผู้ใช้แอดมิน คั่นด้วย , เช่น mitsit
+    disk:
+      name: game-data
+      mountPath: /var/data
+      sizeGB: 1

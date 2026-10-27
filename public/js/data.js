@@ -108,6 +108,13 @@ const RAW_ITEMS = {
   car_seat: { name: 'เบาะรถ', icon: '💺', value: 8 },
   battery_pack: { name: 'แบตเตอรี่ประกอบ', icon: '🔋', value: 14 },
   raft_kit: { name: 'ชุดลำแพไม้ไผ่', icon: '🪵', value: 8 },
+  steering_wheel: { name: 'พวงมาลัย', icon: '🎡', value: 8 },
+  spark_plug: { name: 'หัวเทียน', icon: '🕯️', value: 6 },
+  ev_battery: { name: 'แบตเตอรี่ EV', icon: '🔋', value: 40 },
+  ev_motor: { name: 'มอเตอร์ไฟฟ้า', icon: '⚡', value: 30 },
+  copper_wire: { name: 'สายไฟทองแดง', icon: '🧵', value: 4 },
+  solar_panel: { name: 'แผงโซล่าเซลล์', icon: '🔆', value: 35, place: 'solar' },
+  ev_car: { name: 'รถยนต์ไฟฟ้า EV', icon: '🚙', value: 120, place: 'vehicle', vt: 'ev_car' },
   // ---- โล่ (ถือมือซ้าย) · block = โอกาสกันการโจมตีได้ (เหลือความเสียหาย 25% และไม่ติดเชื้อ) ----
   shield_wood: { name: 'โล่ไม้เล็ก', icon: '🛡️', value: 6, wear: { slot: 'off', def: 0.04, block: 0.15, size: 0.8, color: '#9c6644' } },
   shield_lid: { name: 'โล่ฝาถังเหล็ก', icon: '🛡️', value: 10, wear: { slot: 'off', def: 0.06, block: 0.22, size: 0.9, round: true, color: '#8d99ae' } },
@@ -282,7 +289,14 @@ export const RECIPES = [
   { out: 'raft_kit', need: { wood: 6, fiber: 4 }, skill: 'crafting', lvl: 1, label: 'ชุดลำแพไม้ไผ่' },
   { out: 'bicycle', need: { wheel: 2, wood: 2 }, skill: 'crafting', lvl: 2, label: '🔧 ประกอบจักรยาน (ล้อ 2)' },
   { out: 'motorbike', need: { wheel: 2, engine: 1, car_seat: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ (ล้อ 2 + เครื่องยนต์ + เบาะ)' },
-  { out: 'pickup', need: { wheel: 4, engine: 1, chassis: 1, car_seat: 1, battery_pack: 1 }, skill: 'crafting', lvl: 4, label: '🔧 ประกอบรถกระบะ (ล้อ 4 + เครื่องยนต์ + โครง + เบาะ + แบต)' },
+  { out: 'steering_wheel', need: { scrap: 2, hide: 1 }, skill: 'crafting', lvl: 2, label: 'พวงมาลัย' },
+  { out: 'spark_plug', need: { scrap: 2, copper_wire: 1 }, skill: 'crafting', lvl: 2, label: 'หัวเทียน' },
+  { out: 'copper_wire', need: { scrap: 1, rag: 1 }, skill: 'crafting', lvl: 1, qty: 2, label: 'สายไฟทองแดง ×2' },
+  { out: 'ev_battery', need: { battery_pack: 3, copper_wire: 4, zipper: 2 }, skill: 'electric', lvl: 2, job: 'electrician', label: 'แบตเตอรี่ EV (สายช่างไฟฟ้า)' },
+  { out: 'ev_motor', need: { scrap: 8, copper_wire: 6, zipper: 2 }, skill: 'electric', lvl: 2, job: 'electrician', label: 'มอเตอร์ไฟฟ้า (สายช่างไฟฟ้า)' },
+  { out: 'solar_panel', need: { scrap: 6, copper_wire: 4, battery_pack: 1 }, skill: 'electric', lvl: 1, job: 'electrician', label: 'แผงโซล่าเซลล์ (วางแล้วใช้ชาร์จรถ EV)' },
+  { out: 'pickup', need: { wheel: 4, engine: 1, chassis: 1, steering_wheel: 1, battery_pack: 1, spark_plug: 1, fuel: 2 }, skill: 'crafting', lvl: 4, label: '🔧 ประกอบรถกระบะน้ำมัน (ล้อ 4 + เครื่องยนต์ + โครง + พวงมาลัย + แบต + หัวเทียน + น้ำมัน)' },
+  { out: 'ev_car', need: { wheel: 4, ev_motor: 1, chassis: 1, steering_wheel: 1, ev_battery: 1 }, skill: 'crafting', lvl: 4, label: '🔧 ประกอบรถ EV (ล้อ 4 + มอเตอร์ไฟฟ้า + โครง + พวงมาลัย + แบต EV · ไม่ใช้น้ำมัน)' },
   { out: 'raft', need: { raft_kit: 2, fiber: 2 }, skill: 'crafting', lvl: 1, label: '🔧 ประกอบแพ (ชุดลำแพ 2)' },
   { out: 'shield_wood', need: { wood: 4, fiber: 2 }, skill: 'crafting', lvl: 1 },
   { out: 'shield_lid', need: { scrap: 4, rag: 2 }, skill: 'crafting', lvl: 2 },
@@ -349,7 +363,7 @@ export const RECIPES = [
 export const SKILLS = {
   gathering: 'เก็บเกี่ยว', crafting: 'ประดิษฐ์', cooking: 'ทำอาหาร',
   medicine: 'การแพทย์', combat: 'การต่อสู้', survival: 'เอาตัวรอด',
-  building: 'ก่อสร้าง', farming: 'เพาะปลูก', fishing: 'ตกปลา', tailoring: 'ตัดเย็บ', recreation: 'สันทนาการ', tech: 'เทคโนโลยี', spirit: 'จิตใจ',
+  building: 'ก่อสร้าง', farming: 'เพาะปลูก', fishing: 'ตกปลา', tailoring: 'ตัดเย็บ', recreation: 'สันทนาการ', tech: 'เทคโนโลยี', spirit: 'จิตใจ', electric: 'ไฟฟ้า',
 };
 export const skillLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 25)) + 1;
 export const xpForLevel = (lvl) => (lvl - 1) * (lvl - 1) * 25;
@@ -402,6 +416,8 @@ export const JOBS = {
     perks: [[1, 'ปลดล็อก มือถือดัดแปลง / เรดาร์ / โดรน'], [4, 'อุปกรณ์ทุกชิ้นตรวจจับได้ไกลขึ้น ×2'], [8, 'แฮกสัญญาณ: เห็นตำแหน่งกล่องหายากและบอสตลอด']] },
   monk: { name: 'พระ', icon: '🙏', skill: 'spirit', xp: { spirit: 1.5, medicine: 1.2 }, kit: { prayer_beads: 1 }, desc: 'เพิ่มกำลังใจ ลดความตื่นตระหนกของทุกคน',
     perks: [[1, 'ตื่นตระหนกช้าลง 50% · สวดมนต์ลดความเครียดและให้ "กำลังใจ" ทุกคนรอบตัว · ปลดล็อก ลูกประคำ / ผ้ายันต์'], [4, 'เพื่อนที่อยู่ใกล้ตื่นตระหนกช้าลง · สวดมนต์ฟื้นพลังชีวิต +10'], [8, 'พลังเมตตา: หลังสวดมนต์ ผู้ติดเชื้อมองไม่เห็นคุณ 15 วินาที']] },
+  electrician: { name: 'ช่างไฟฟ้า', icon: '🔌', skill: 'electric', xp: { electric: 1.5, crafting: 1.2 }, kit: { copper_wire: 4, battery_pack: 1 }, desc: 'สร้างแผงโซล่าเซลล์ ทำรถ EV และระบบชาร์จไฟ',
+    perks: [[1, 'ปลดล็อก แผงโซล่าเซลล์ / แบตเตอรี่ EV / มอเตอร์ไฟฟ้า · ชาร์จไฟเร็วขึ้น ×2'], [4, 'รถไฟฟ้าใช้ไฟน้อยลง 40%'], [8, 'ชาร์จรถ EV ได้ทุกที่ตอนกลางวัน (แผงพกพา)']] },
   doctor: { name: 'หมอ', icon: '🩺', skill: 'medicine', xp: { medicine: 1.5 }, kit: { bandage: 3, herbal_med: 2 }, desc: 'รักษาอาการบาดเจ็บ ติดเชื้อ ป่วย',
     perks: [[1, 'ยาและการรักษาได้ผล +50% · ปลดล็อก ชุดปฐมพยาบาล / ยาสมุนไพรสูตรประหยัด'], [4, 'รักษาเพื่อน/สัตว์เลี้ยง มีโอกาส 50% ไม่เสียยา · ปลดล็อก ยาต้านไวรัส'], [8, 'เชื้อในตัวลุกลามช้าลง 50% และฟื้นพลังชีวิตเร็วขึ้น ×2']] },
   entertainer: { name: 'นักสันทนาการ', icon: '🎸', skill: 'recreation', xp: { recreation: 1.5 }, kit: { guitar: 1 }, desc: 'ลดความเครียดให้ตัวเองและเพื่อน',
@@ -482,13 +498,14 @@ export const NPCS = [
   { id: 'npc_somsak', name: 'สมศักดิ์', sex: 'm', town: 'laemchabang', likes: 'scrap', job: 'engineer', bio: 'ช่างกลโรงงานท่าเรือแหลมฉบัง' },
   { id: 'npc_daeng', name: 'แดง', sex: 'f', town: 'banglamung', likes: 'wood', job: 'builder', bio: 'ผู้รับเหมาก่อสร้างหญิงแกร่งแห่งบางละมุง' },
   { id: 'npc_noi', name: 'ป้าน้อย', sex: 'f', town: 'chonburi', likes: 'veg', job: 'chef', bio: 'แม่ครัวร้านข้าวหลามหนองมน' },
+  { id: 'npc_chai', name: 'ช่างชัย', sex: 'm', town: 'sriracha', likes: 'copper_wire', job: 'electrician', bio: 'ช่างไฟฟ้านิคมอุตสาหกรรมศรีราชา ติดโซล่าเซลล์เป็นอาชีพ' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];
 // ร้านแลกของของ NPC ตามอาชีพ: [ไอเท็ม, ราคา(แต้มมูลค่า), จำนวนต่อวัน]
 // จ่ายด้วยการแลกของ: ของที่เอามาแลกคิดมูลค่า 80% · ยิ่งสนิทยิ่งได้ส่วนลด (สูงสุด 25%)
 export const SHOPS = {
   doctor: [['bandage', 8, 5], ['herbal_med', 10, 4], ['splint', 8, 3], ['antibiotic', 24, 2], ['first_aid', 32, 1]],
-  mechanic: [['fuel', 8, 4], ['scrap', 5, 8], ['zipper', 6, 4], ['bicycle', 35, 1], ['motorbike', 90, 1]],
+  mechanic: [['fuel', 8, 4], ['scrap', 5, 8], ['spark_plug', 7, 3], ['steering_wheel', 9, 2], ['wheel', 10, 4], ['bicycle', 35, 1], ['motorbike', 90, 1]],
   entertainer: [['guitar', 30, 1], ['calm_tea', 8, 4], ['canned', 8, 4], ['coconut_dessert', 18, 2]],
   fisher: [['raw_fish', 4, 8], ['rod', 8, 2], ['rod_pro', 30, 1], ['big_fish', 12, 3], ['net', 14, 1]],
   hunter: [['spear', 12, 2], ['hide', 6, 4], ['raw_meat', 5, 6], ['shield_wood', 10, 2], ['hunter_cloak', 36, 1]],
@@ -498,6 +515,7 @@ export const SHOPS = {
   engineer: [['stone_axe', 10, 2], ['stone_hammer', 8, 2], ['hammer', 10, 2], ['steel_axe', 36, 1], ['torch', 5, 4]],
   builder: [['wood', 2, 20], ['stone', 2, 20], ['wood_hammer', 5, 2], ['hammer', 10, 1]],
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
+  electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],
   monk: [['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
 };
 

@@ -10,7 +10,7 @@ import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
 import { Boxes } from './boxes.js';
-import { jobKit, applyResult, REPAIR_COST } from './economy.js';
+import { jobKit, applyResult, repairCost } from './economy.js';
 const jobOfMe = (g) => jobOf(g.ch);
 import { Sfx } from './audio.js';
 import { TouchControls, isTouchDevice } from './touch.js';
@@ -391,8 +391,8 @@ export class Game {
     const sc = !l && this.world.nearSearchedCar(P.x, P.z, 3.6);
     if (sc) {
       // รถที่ค้นไปแล้ว: ซ่อมให้ขับได้ (ถ้ามีวัสดุ)
-      const C = hasPerk(this.ch, 'mechanic', 0) ? REPAIR_COST.mechanic : REPAIR_COST.normal, ok = Object.entries(C).every(([k, q]) => this.hasItem(k, q));
-      return { type: 'quest', q: { act: () => this.auth.do('repaircar', { id: sc.id }) }, text: `🔧 ซ่อมรถร้างให้ขับได้ (${Object.entries(C).map(([k, q]) => `${ITEMS[k].icon}${this.inv[k] || 0}/${q}`).join(' ')})${ok ? '' : ' — วัสดุไม่พอ'}` };
+      const has = (C) => Object.entries(C).every(([k, q]) => this.hasItem(k, q)), gas = repairCost(this.ch, false), ev = repairCost(this.ch, true), useEv = has(ev) && !has(gas), C = useEv ? ev : gas, ok = has(C);
+      return { type: 'quest', q: { act: () => (has(ev) && has(gas) ? this.ui.confirm('มีชิ้นส่วนครบทั้ง 2 แบบ — ประกอบเป็น ⚡ รถ EV ไหม? (กด "ไม่" = รถน้ำมัน)', (yes) => this.auth.do('repaircar', { id: sc.id, ev: yes })) : this.auth.do('repaircar', { id: sc.id, ev: useEv })) }, text: `${has(ev) && has(gas) ? '🔧⚡ ซ่อมรถ (เลือกได้: น้ำมัน หรือ EV)' : useEv ? '⚡ ประกอบเป็นรถ EV' : '🔧 ซ่อมเป็นรถน้ำมัน'} (${Object.entries(C).map(([k, q]) => `${ITEMS[k].icon}${this.inv[k] || 0}/${q}`).join(' ')})${ok ? '' : ' — ของไม่ครบ (หรือใช้ชุด EV: ล้อ มอเตอร์ไฟฟ้า พวงมาลัย แบต EV)'}` };
     }
     if (l) return { type: 'loot', l, text: l.kind === 'car' ? '🚗 ค้นรถร้าง (ค้นแล้วซ่อมให้ขับได้)' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
     const sh = this.world.nearStructure(P.x, P.z, 'shelter', 3);

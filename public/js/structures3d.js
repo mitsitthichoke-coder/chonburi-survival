@@ -21,6 +21,16 @@ export function makeStructureMesh(s) {
     case 'campfire': add(makeCampfire()); root.userData.flame = root.children[0].userData.flame; break;
     case 'shelter': { const m = add(makeShelter()); m.rotation.y = s.ry || 0; break; }
     case 'watchtower': add(makeWatchtower()); break;
+    case 'solar': {
+      // แผงโซล่าเซลล์: เสา + แผงเอียงรับแดด + กล่องอินเวอร์เตอร์
+      const g = add(new THREE.Group()); g.rotation.y = s.ry || 0;
+      g.add(box(0.12, 1.2, 0.12, '#6c757d', -0.8, 0.6, 0), box(0.12, 1.2, 0.12, '#6c757d', 0.8, 0.6, 0));
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 1.4), new THREE.MeshPhongMaterial({ color: '#1d3557', shininess: 120, specular: '#8ecae6' }));
+      panel.position.y = 1.3; panel.rotation.x = -0.5; g.add(panel);
+      for (let i = -1; i <= 1; i++) { const l = box(0.02, 0.07, 1.38, '#adb5bd', i * 0.55, 1.3, 0); l.rotation.x = -0.5; g.add(l); }
+      g.add(box(0.4, 0.5, 0.25, '#e9ecef', 0, 0.3, 0.5), box(0.1, 0.06, 0.02, '#52b788', 0, 0.45, 0.63));
+      break;
+    }
     case 'foundation': { const h = 0.5 + (s.drop || 0); add(box(G, h, G, '#8a7a66', 0, 0.5 - h / 2, 0)); } add(box(G - 0.1, 0.04, G - 0.1, PLANK, 0, 0.51, 0)); break;
     case 'wall': case 'window': case 'door': {
       const g = add(edgeGroup(s));
@@ -106,6 +116,11 @@ export function makeVehicle(vt) {
   } else if (vt === 'motorbike') {
     for (const z of [-0.65, 0.65]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.12, 8, 16), mat('#1b1b1b')); w.rotation.y = Math.PI / 2; w.position.set(0, 0.36, z); g.add(w); }
     g.add(box(0.35, 0.35, 1.0, '#264653', 0, 0.62, 0), box(0.32, 0.12, 0.6, '#111', 0, 0.85, -0.15), box(0.6, 0.06, 0.06, '#adb5bd', 0, 1.0, 0.55), box(0.18, 0.18, 0.1, '#ffd166', 0, 0.85, 0.72));
+  } else if (vt === 'ev_car') {
+    // รถ EV: ทรงเตี้ยมน สีขาวฟ้า มีสัญลักษณ์สายฟ้า
+    for (const x of [-0.8, 0.8]) for (const z of [-1.25, 1.25]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 14), mat('#1b1b1b')); w.rotation.z = Math.PI / 2; w.position.set(x, 0.36, z); g.add(w); }
+    g.add(box(1.7, 0.5, 3.8, '#f1faee', 0, 0.65, 0), box(1.56, 0.5, 2.1, '#a8dadc', 0, 1.15, -0.1), box(1.6, 0.4, 1.9, '#1d3557', 0, 1.17, -0.1));
+    g.add(box(1.2, 0.06, 0.05, '#4cc9f0', 0, 0.72, 1.91), box(0.25, 0.35, 0.03, '#ffd60a', 0.86, 0.75, 0.3), box(1.6, 0.08, 0.05, '#e63946', 0, 0.75, -1.91));
   } else if (vt === 'pickup') {
     for (const x of [-0.8, 0.8]) for (const z of [-1.2, 1.2]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 12), mat('#1b1b1b')); w.rotation.z = Math.PI / 2; w.position.set(x, 0.38, z); g.add(w); }
     g.add(box(1.7, 0.5, 3.6, '#bc4749', 0, 0.75, 0), box(1.6, 0.6, 1.3, '#bc4749', 0, 1.3, 0.45), box(1.5, 0.45, 0.06, '#8ecae6', 0, 1.35, 1.12));

@@ -3,7 +3,7 @@ import { PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_M
 import { heightAt, waterAt } from './terrain.js';
 import { ITEMS , hasPerk } from './data.js';
 
-const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
+const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
 const INTERACT = new Set(['door', 'gate', 'bed', 'storage', 'plot', 'coop', 'pond', 'pethouse', 'vehicle']);
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -54,9 +54,14 @@ export class Homestead {
       case 'plot': return this.plotTarget(s, now);
       case 'vehicle': {
         const V = VEH[s.vt];
-        if (VEH[s.vt]?.fuel && (s.fuel ?? 0) < 80 && g.hasItem('fuel')) return { text: `⛽ เติมน้ำมัน${V.name} (${Math.round(s.fuel ?? 0)}%)`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 50) }); g.sfx.play('drink'); } };
+        if (V?.electric && (s.fuel ?? 0) < 95) {
+          // รถ EV: ชาร์จที่แผงโซล่าเซลล์ (ช่างไฟฟ้าขั้นสูงชาร์จได้ทุกที่ตอนกลางวัน)
+          const solar = g.world.nearestStructure(s.x, s.z, 9, (x) => x.type === 'solar'), anywhere = hasPerk(g.auth.ch, 'electrician', 2) && !g.isNight();
+          if (solar || anywhere) return { text: `⚡ ชาร์จ${V.name} (🔋 ${Math.round(s.fuel ?? 0)}%)${g.isNight() ? ' — กลางคืนชาร์จช้า' : ''}`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 30) }); g.sfx.play('radio'); } };
+        }
+        if (VEH[s.vt]?.fuel && !V.electric && (s.fuel ?? 0) < 80 && g.hasItem('fuel')) return { text: `⛽ เติมน้ำมัน${V.name} (${Math.round(s.fuel ?? 0)}%)`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 50) }); g.sfx.play('drink'); } };
         if (s.driver && s.driver !== g.id) return { text: `${V.name} (มีคนขับอยู่)`, act: () => {} };
-        return { text: `${ITEMS[s.vt].icon} ขี่${V.name}${VEH[s.vt]?.fuel ? ` (⛽ ${Math.round(s.fuel ?? 0)}%)` : ''}`, act: () => this.mount(s) };
+        return { text: `${ITEMS[s.vt].icon} ขี่${V.name}${VEH[s.vt]?.fuel ? ` (${V.electric ? '🔋' : '⛽'} ${Math.round(s.fuel ?? 0)}%)` : ''}`, act: () => this.mount(s) };
       }
     }
     return null;
@@ -126,7 +131,7 @@ export class Homestead {
   // ---------- ยานพาหนะ ----------
   mount(s) {
     const g = this.g;
-    if (VEH[s.vt]?.fuel && (s.fuel ?? 0) <= 0) g.ui.toast('⛽ น้ำมันหมด! หาน้ำมันจากรถร้างหรือกล่องเสบียง', 'warn');
+    if (VEH[s.vt]?.fuel && (s.fuel ?? 0) <= 0) g.ui.toast(VEH[s.vt].electric ? '🔋 แบตหมด! ไปชาร์จที่แผงโซล่าเซลล์' : '⛽ น้ำมันหมด! หาน้ำมันจากรถร้างหรือกล่องเสบียง', 'warn');
     if (s.vt === 'raft' && !waterAt(s.x, s.z)) g.ui.toast('🛶 แพต้องอยู่ในน้ำ — วางแพที่ชายหาดแล้วพายออกทะเล', 'warn');
     this.op(s, { o: 'drive', on: true });
     const mesh = g.world.structureMeshes.get(s.id);
@@ -162,7 +167,7 @@ export class Homestead {
     p.pos.y = (s.vt === 'raft' && W ? W.level - 0.05 : heightAt(p.pos.x, p.pos.z)) + V.seat;
     p.vy = 0; p.onGround = true; p.swim = false; p.speedNow = Math.abs(v.speed);
     if (s.vt === 'bicycle' && Math.abs(v.speed) > 1) st.stamina = Math.max(0, st.stamina - 2 * dt);
-    if (V.fuel) { s.fuel = Math.max(0, (s.fuel ?? 0) - Math.abs(v.speed) * dt * V.fuel * (hasPerk(g.auth.ch, 'mechanic', 1) ? 0.5 : 1)); g.sfx.engine(Math.abs(v.speed) / V.spd); }
+    if (V.fuel) { s.fuel = Math.max(0, (s.fuel ?? 0) - Math.abs(v.speed) * dt * V.fuel * (hasPerk(g.auth.ch, 'mechanic', 1) ? 0.5 : 1) * (V.electric && hasPerk(g.auth.ch, 'electrician', 1) ? 0.6 : 1)); g.sfx.engine(Math.abs(v.speed) / V.spd); }
     s.x = p.pos.x; s.z = p.pos.z; s.ry = p.ry;
     if (v.mesh) { v.mesh.position.set(p.pos.x, p.pos.y - V.seat, p.pos.z); v.mesh.rotation.y = p.ry; v.mesh.visible = true; }
     // กล้องหมุนตามหลังยานพาหนะ

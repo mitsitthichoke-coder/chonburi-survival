@@ -44,7 +44,12 @@ export function rollLoot(rand) {
   return out;
 }
 // ราคาในร้าน NPC และมูลค่าของที่เอามาแลก
-export const REPAIR_COST = { normal: { scrap: 10, fuel: 2, zipper: 2 }, mechanic: { scrap: 5, fuel: 1 } };
+// ซ่อม/ประกอบรถร้างในแผนที่: รถน้ำมัน หรือ รถไฟฟ้า EV (ช่างยนต์ไม่ต้องใช้ล้อครบ 4 — ใช้ล้อเดิมได้ 2 ล้อ)
+export const REPAIR_COST = {
+  gas: { wheel: 4, engine: 1, steering_wheel: 1, battery_pack: 1, spark_plug: 1, fuel: 2 },
+  ev: { wheel: 4, ev_motor: 1, steering_wheel: 1, ev_battery: 1 },
+};
+export const repairCost = (ch, ev) => { const c = { ...REPAIR_COST[ev ? 'ev' : 'gas'] }; if (hasPerk(ch, 'mechanic', 0)) c.wheel = 2; return c; };
 export const shopPrice = (base, pts) => Math.ceil(base * (1 - Math.min(0.25, Math.max(0, pts) / 1000)));
 export const tradeValue = (k) => (ITEMS[k]?.value || 0) * 0.8;
 export function rollDrops(kind, rand) {
@@ -85,10 +90,10 @@ const A = {
     const L = env.loot(p.id); if (!L || L.kind !== 'car') return { err: 'ไม่พบรถคันนี้' };
     if (dist(env, ch, L.x, L.z) > 5) return { err: 'อยู่ไกลเกินไป' };
     if (L.until > env.now() + 864e5) return { err: 'รถคันนี้ถูกซ่อมไปแล้ว' };
-    const cost = hasPerk(ch, 'mechanic', 0) ? REPAIR_COST.mechanic : REPAIR_COST.normal;
+    const ev = !!p.ev, cost = repairCost(ch, ev);
     for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: `ซ่อมรถต้องใช้ ${Object.entries(cost).map(([a, b]) => `${ITEMS[a].name} ${b}`).join(' + ')}` };
-    if (lvl(ch, 'crafting') < 2 && !hasPerk(ch, 'mechanic', 0)) return { err: 'ต้องมีทักษะประดิษฐ์ Lv2 (หรือสเตตัสสายช่างยนต์) จึงซ่อมรถได้' };
-    return { take: cost, place: { type: 'vehicle', vt: 'pickup', x: +L.x.toFixed(2), z: +L.z.toFixed(2), ry: 0, fuel: 40 }, loot: { id: p.id, until: env.now() + 7 * 864e5 }, xp: { crafting: 30 }, msg: '🔧 ซ่อมรถร้างสำเร็จ! กลายเป็นรถกระบะ ขับได้เลย (เติมน้ำมันเพิ่มได้)', sfx: 'craft' };
+    if (lvl(ch, 'crafting') < 2 && !hasPerk(ch, 'mechanic', 0) && !hasPerk(ch, 'electrician', 0)) return { err: 'ต้องมีทักษะประดิษฐ์ Lv2 (หรือสเตตัสสายช่างยนต์/ช่างไฟฟ้า) จึงซ่อมรถได้' };
+    return { take: cost, place: { type: 'vehicle', vt: ev ? 'ev_car' : 'pickup', x: +L.x.toFixed(2), z: +L.z.toFixed(2), ry: 0, fuel: ev ? 60 : 40 }, loot: { id: p.id, until: env.now() + 7 * 864e5 }, xp: { crafting: 30, electric: ev ? 20 : 0 }, msg: ev ? '⚡ ประกอบรถ EV สำเร็จ! ชาร์จไฟได้ที่แผงโซล่าเซลล์' : '🔧 ซ่อมรถร้างสำเร็จ! กลายเป็นรถกระบะน้ำมัน ขับได้เลย', sfx: 'craft' };
   },
   // จับสัตว์ป่าด้วยแห: ยิ่งสัตว์บาดเจ็บยิ่งจับง่าย · เลี้ยงสัตว์ป่าได้ 1 ตัว
   capture(ch, p, env) {
@@ -242,7 +247,7 @@ const A = {
     }
     const it = ITEMS[p.item]; if (!it?.place || !has(ch, p.item)) return { err: 'ไม่มีของชิ้นนี้' };
     const st = { ...clean, type: it.place }; delete st.y;
-    if (it.vt) { st.vt = it.vt; if (it.vt === 'motorbike' || it.vt === 'pickup') st.fuel = 60; }
+    if (it.vt) { st.vt = it.vt; if (it.vt === 'motorbike' || it.vt === 'pickup' || it.vt === 'ev_car') st.fuel = 60; }
     return { take: { [p.item]: 1 }, place: st, xp: { survival: 5 }, sfx: 'place' };
   },
 
@@ -389,7 +394,18 @@ export function sopCost(ch, s, op, env) {
       if (C && hasPerk(ch, 'farmer', 0)) { give[C.out[0]] = C.out[1] * (hasPerk(ch, 'farmer', 2) ? 2 : 1); if (hasPerk(ch, 'farmer', 1)) give[C.seed] = 1; }
       return { xp: { farming: 8 }, give };
     }
-    case 'move': { if ((op.fuel ?? s.fuel) > (s.fuel ?? 0) + 1) { if (!has(ch, 'fuel')) return { err: 'ต้องมีน้ำมัน' }; return { take: { fuel: 1 }, fuel: Math.min(100, (s.fuel ?? 0) + 50) }; } return { fuel: Math.min(s.fuel ?? 0, op.fuel ?? s.fuel ?? 0) }; }
+    case 'move': {
+      if ((op.fuel ?? s.fuel) > (s.fuel ?? 0) + 1) {
+        // รถ EV: ชาร์จที่แผงโซล่าเซลล์ (หรือช่างไฟฟ้าขั้นสูงชาร์จได้ทุกที่) ไม่ใช้น้ำมัน
+        if (s.vt === 'ev_car') {
+          if (!env.near('solar', { x: s.x, z: s.z }, 9) && !hasPerk(ch, 'electrician', 2)) return { err: '🔆 ต้องจอดใกล้แผงโซล่าเซลล์ (ไม่เกิน 9 หน่วย) จึงจะชาร์จได้' };
+          if (!cool(ch, 'charge', 4, env.now())) return { err: 'กำลังชาร์จ... รอสักครู่', silent: true };
+          return { fuel: Math.min(100, (s.fuel ?? 0) + (hasPerk(ch, 'electrician', 0) ? 30 : 15)), xp: { electric: 2 } };
+        }
+        if (!has(ch, 'fuel')) return { err: 'ต้องมีน้ำมัน' }; return { take: { fuel: 1 }, fuel: Math.min(100, (s.fuel ?? 0) + 50) };
+      }
+      return { fuel: Math.min(s.fuel ?? 0, op.fuel ?? s.fuel ?? 0) };
+    }
   }
   return {};
 }

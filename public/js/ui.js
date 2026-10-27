@@ -85,6 +85,21 @@ export class UI {
     this.syncThemeBtn = syncT;
     tb.onclick = (ev) => { ev.stopPropagation(); const v = isHalloween() ? 'apocalypse' : 'halloween'; if (this.g.changeTheme(v) && !this.g.net.online) this.toast(v === 'halloween' ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี... ระวังผู้ติดเชื้อหัวฟักทอง!' : '🌆 กลับสู่โลกล่มสลาย'); syncT(); };
     syncT(); setInterval(syncT, 3000);
+    // ปุ่ม ⛶ ขยาย/ย่อเต็มหน้าจอ — iPhone ไม่รองรับ Fullscreen API จึงแนะนำให้เพิ่มลงหน้าจอโฮม
+    const fb = $('#fs-btn'), d = document, root = d.documentElement;
+    const fsEl = () => d.fullscreenElement || d.webkitFullscreenElement;
+    const syncF = () => { fb.textContent = fsEl() ? '🗗' : '⛶'; fb.title = fsEl() ? 'ออกจากเต็มหน้าจอ' : 'ขยายเต็มหน้าจอ'; };
+    fb.onclick = (ev) => {
+      ev.stopPropagation();
+      if (fsEl()) { (d.exitFullscreen || d.webkitExitFullscreen)?.call(d); return; }
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      const ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+      const iosHint = () => this.toast(!ios ? '⛶ เบราว์เซอร์นี้ไม่ยอมให้เต็มจอจากในหน้า ลองกด F11 หรือเปิดเกมในแท็บใหม่' : navigator.standalone ? '📱 กำลังเล่นแบบเต็มจอจากหน้าจอโฮมอยู่แล้ว' : '📱 iPhone: กดปุ่มแชร์ ⬆️ ใน Safari → "เพิ่มไปยังหน้าจอโฮม" แล้วเปิดเกมจากไอคอน จะได้เต็มจอ', 'warn');
+      if (!req) return iosHint();
+      try { req.call(root, { navigationUI: 'hide' })?.catch?.(() => {}); } catch {}
+      setTimeout(() => { if (!fsEl()) iosHint(); }, 900);
+    };
+    d.addEventListener('fullscreenchange', syncF); d.addEventListener('webkitfullscreenchange', syncF); syncF();
     $('#hand-btn').onclick = (ev) => { ev.stopPropagation(); this.g.swapHands(); };
     // แตะกล่องภารกิจ = เปิด/ปิดลูกศรนำทาง 3 มิติเหนือหัวตัวละคร
     $('#quest').addEventListener('click', (ev) => { ev.stopPropagation(); this.g.navOn = !this.g.navOn; this.toast(this.g.navOn ? '🧭 เปิดลูกศรนำทางไปยังเป้าหมายภารกิจ' : '🧭 ปิดลูกศรนำทาง'); });

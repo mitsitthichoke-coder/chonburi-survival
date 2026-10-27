@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
 <title>ชลบุรี: วันล่มสลาย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;800&display=swap" rel="stylesheet">
@@ -13,6 +16,8 @@
   body.halloween { --accent: #ff7b00; --accent2: #9d4edd; --panel: rgba(24, 12, 32, .93); --line: #3c2650; --bg: #0d0614; }
   body.halloween .card h1 span { color: #ff7b00; text-shadow: 0 0 12px #ff7b0088; } body.halloween button.primary { background: #ff7b00; } body.halloween #hud, body.halloween #quest { border-color: #9d4edd; }
   #theme-btn { position: absolute; right: 14px; top: 248px; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.5); font-size: 18px; } body.touch #theme-btn { top: 196px; }
+  /* ปุ่มเต็มจอ: มุมขวาบนของแผนที่ย่อ (มุมว่างนอกวงกลม) */
+  #fs-btn { position: absolute; right: 8px; top: 8px; z-index: 3; width: 32px; height: 32px; padding: 0; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 16px; line-height: 1; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
   button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #222a33; color: var(--text); border-radius: 8px; padding: 6px 12px; }
   button:hover:not(:disabled) { background: #2f3a46; }
@@ -198,6 +203,7 @@
     #sidequest { font-size: 10px; padding: 3px 7px; } #sidequest .sqb small { display: none; }
     #minimap, body.touch #minimap { right: max(8px, env(safe-area-inset-right)); top: 6px; width: 104px; height: 104px; }
     #mute-btn, body.touch #mute-btn { right: max(8px, env(safe-area-inset-right)); top: 116px; width: 34px; height: 34px; font-size: 15px; }
+    #fs-btn { right: calc(max(8px, env(safe-area-inset-right)) - 4px); top: 2px; width: 28px; height: 28px; font-size: 14px; }
     #theme-btn, body.touch #theme-btn { right: calc(max(8px, env(safe-area-inset-right)) + 40px); top: 116px; width: 34px; height: 34px; font-size: 15px; }
     #hand-btn, body.touch #hand-btn { right: max(8px, env(safe-area-inset-right)); left: auto; top: 156px; bottom: auto; font-size: 11px; padding: 3px 8px; }
     #toasts, body.touch #toasts { left: 50%; right: auto; transform: translateX(-50%); top: 58px; width: min(300px, 40vw); }
@@ -309,6 +315,7 @@
   <div id="status"></div>
   <div id="leftcol"><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
+  <button id="fs-btn" title="ขยายเต็มหน้าจอ">⛶</button>
   <button id="theme-btn" title="สลับธีม: ฮาโลวีน / โลกล่มสลาย">🎃</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>

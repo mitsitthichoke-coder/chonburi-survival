@@ -18,7 +18,7 @@ export class Authority {
       get inv() { return g.inv; }, get wear() { return g.wear; }, get skills() { return g.skills; }, get pets() { return g.pets; },
       get equipped() { return g.equipped; }, set equipped(v) { g.equipped = v; },
       get lefty() { return g.lefty; }, set lefty(v) { g.lefty = v; },
-      get profile() { return g.profile; }, get social() { return { rels: g.social.rels }; }, get trade() { return g.trade || (g.trade = {}); }, set trade(v) { g.trade = v; }, get jobKit() { return g.jobKit; }, set jobKit(v) { g.jobKit = v; },
+      get profile() { return g.profile; }, get jp() { return g.jp; }, set jp(v) { g.jp = v; }, get social() { return { rels: g.social.rels }; }, get trade() { return g.trade || (g.trade = {}); }, set trade(v) { g.trade = v; }, get jobKit() { return g.jobKit; }, set jobKit(v) { g.jobKit = v; },
       get boxes() { return g.boxes || (g.boxes = {}); }, set boxes(v) { g.boxes = v; },
       get quest() { return g.quest; }, get stats() { return g.stats; }, t: {},
     };
@@ -41,6 +41,7 @@ export class Authority {
       freshNear: (P) => !!W.nearestStructure(P.x, P.z, 3.5, (s) => s.type === 'pond') || ring(P, 3).some(([x, z]) => waterAt(x, z)?.fresh),
       waterNear: (P) => ring(P, 3.5).some(([x, z]) => waterAt(x, z)),
       fishKind: (x, z) => (W.nearestStructure(x, z, 1.8, (s) => s.type === 'pond') ? 'pond' : (() => { const w = waterAt(x, z); return w ? (w.fresh ? 'fresh' : 'sea') : null; })()),
+      wild: (id) => { const e = ent(id); return e && e.kind === 'animal' ? { k: e.type, x: e.pos.x, z: e.pos.z, hp: e.hp, maxHp: e.maxHp } : null; },
       mob: (id) => { const e = ent(id); return e && e.kind === 'stray' ? { k: e.type, x: e.pos.x, z: e.pos.z } : null; },
       tameAdd: (id, ch, amt) => { const e = ent(id); e.tame = Math.min(100, (e.tame || 0) + amt); return e.tame; },
       tamed: (id) => { const e = ent(id); if (!e) return; if (e.netId) g.net.send({ t: 'mfeed', id: e.netId, amt: 100 }); g.ents.remove(e); },

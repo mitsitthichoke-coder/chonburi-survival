@@ -105,7 +105,7 @@ export class World {
     const L = this.layout;
     this.baseBuildings = [...L.buildings, ...L.fence, L.gate];
     this.buildings = [...this.baseBuildings];
-    for (const l of L.loot) this.addLoot(l.x, l.z, l.kind);
+    let ci = 0; for (const l of L.loot) { this.addLoot(l.x, l.z, l.kind); if (l.kind === 'car') this.loot[this.loot.length - 1].carIdx = ci++; }
     const boxes = L.boxes.map((b) => ({ ...b, color: new THREE.Color(...b.rgb) }));
     const cars = L.cars.map((c) => ({ ...c, color: new THREE.Color().setHSL(c.hue, 0.4, 0.35) }));
     // อาคาร (instanced)
@@ -219,6 +219,8 @@ export class World {
     const l = this.loot[+id.slice(1)]; if (!l) return;
     l.until = until;
     if (l.idx !== undefined) { this.lootMesh.setMatrixAt(l.idx, until > Date.now() ? ZERO : l.m); this.lootMesh.instanceMatrix.needsUpdate = true; }
+    // รถที่ถูกซ่อมไปแล้ว: ซ่อนรถร้างคันนั้น (กลายเป็นรถกระบะที่ขับได้แทน)
+    if (l.carIdx !== undefined && this.carMeshes) { const gone = until > Date.now() + 864e5; for (const im of this.carMeshes) { if (!im.userData.base) im.userData.base = []; if (!im.userData.base[l.carIdx]) { const M = new THREE.Matrix4(); im.getMatrixAt(l.carIdx, M); im.userData.base[l.carIdx] = M; } im.setMatrixAt(l.carIdx, gone ? ZERO : im.userData.base[l.carIdx]); im.instanceMatrix.needsUpdate = true; } }
   }
 
   buildResources() {
@@ -299,6 +301,8 @@ export class World {
   }
   nearRes(x, z, rad) { return this.near(this.resGrid, x, z, rad, (r) => !r.until); }
   nearLoot(x, z, rad) { return this.near(this.lootGrid, x, z, rad, (l) => !l.until); }
+  // รถร้างที่ค้นไปแล้วแต่ยังไม่ถูกซ่อม (ซ่อมให้ขับได้)
+  nearSearchedCar(x, z, rad) { const now = Date.now(); return this.near(this.lootGrid, x, z, rad, (l) => l.kind === 'car' && l.until > now && l.until < now + 864e5)[0] || null; }
 
   // ชนกับอาคาร ต้นไม้ หิน
   collide(pos, radius = 0.4) {

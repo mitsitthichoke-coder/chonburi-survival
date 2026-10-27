@@ -1,20 +1,23 @@
 // ระบบสัตว์เลี้ยง: สเตตัส เลเวล ความหายาก ความสามารถพิเศษแบบสุ่ม และชุด/อาวุธ
 import { ITEMS, PET_TYPES, PET_TRAITS, PET_RARITY, PET_SLOTS, petLevel } from './data.js';
 
-const NAMES = { dog: ['ด่าง', 'โกโก้', 'บราวนี่', 'ทองแดง', 'ข้าวเหนียว', 'บัดดี้'], cat: ['ส้มจี๊ด', 'มิว', 'ข้าวตู', 'ดำ', 'วาสนา', 'ขนมปัง'], bird: ['ขุนทอง', 'แก้ว', 'ปิ๊ก', 'ฟ้าใส'] };
+const NAMES = { dog: ['ด่าง', 'โกโก้', 'บราวนี่', 'ทองแดง', 'ข้าวเหนียว', 'บัดดี้'], cat: ['ส้มจี๊ด', 'มิว', 'ข้าวตู', 'ดำ', 'วาสนา', 'ขนมปัง'], bird: ['ขุนทอง', 'แก้ว', 'ปิ๊ก', 'ฟ้าใส'],
+  deer: ['บัมบี้', 'เขางาม', 'ลมหวน'], boar: ['ตูบ', 'อ้วนพี', 'งาเหล็ก'], chicken: ['ไก่ตัน', 'ขนฟู', 'กุ๊กไก่'], raptor: ['เร็กซ์', 'สายฟ้า', 'เขี้ยวเงิน'] };
 // ความสามารถที่แต่ละชนิดสุ่มได้ (ชนิดที่มีอยู่แล้วโดยกำเนิดจะไม่สุ่มซ้ำ)
 const POOL = {
   dog: ['healer', 'forager', 'guardian', 'sniffer', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'thief'],
   cat: ['healer', 'forager', 'fisher', 'guardian', 'sniffer', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'brave', 'thief'],
   bird: ['healer', 'forager', 'fisher', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'brave', 'thief'],
+  deer: ['healer', 'forager', 'alarm', 'lucky', 'calm'], boar: ['forager', 'sniffer', 'alarm', 'brave', 'calm'],
+  chicken: ['forager', 'lucky', 'calm', 'alarm'], raptor: ['sniffer', 'alarm', 'swift', 'brave', 'thief'],
 };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 export function rollPet(type) {
   let r = Math.random() * PET_RARITY.reduce((s, x) => s + x.w, 0), rarity = PET_RARITY[0];
   for (const x of PET_RARITY) { r -= x.w; if (r <= 0) { rarity = x; break; } }
-  const pool = [...POOL[type]], traits = [];
-  while (traits.length < rarity.traits && pool.length) traits.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  const innate = PET_TYPES[type].innate, pool = [...POOL[type]].filter((t) => t !== innate), traits = innate ? [innate] : [];
+  while (traits.length < rarity.traits + (innate ? 1 : 0) && pool.length) traits.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   const p = {
     id: 'p' + Date.now().toString(36), type, name: pick(NAMES[type]), loyal: 60, stay: false, t: 0,
     rarity: rarity.key, mul: +(rarity.mul * (0.85 + Math.random() * 0.3)).toFixed(2), traits, xp: 0, gear: emptyGear(), timers: {},
@@ -28,7 +31,7 @@ export function ensurePet(p) {
   if (!p.rarity) { const n = rollPet(p.type); Object.assign(p, { rarity: n.rarity, mul: n.mul, traits: n.traits }); }
   p.gear = { ...emptyGear(), ...(p.gear || {}) }; p.timers ||= {}; p.xp ||= 0;
   // เซฟเก่า: ผ้าพันคอ/ปลอกคอหนามเคยอยู่ช่องชุด/อาวุธ → ย้ายไปช่องปลอกคอ
-  if (p.gear.body === 'pet_bandana' && !p.gear.neck) { p.gear.neck = 'pet_bandana'; p.gear.body = null; }
+  if (String(p.gear.body).split('~')[0] === 'pet_bandana' && !p.gear.neck) { p.gear.neck = 'pet_bandana'; p.gear.body = null; }
   if (p.gear.weapon === 'pet_collar' && !p.gear.neck) { p.gear.neck = 'pet_collar'; p.gear.weapon = null; }
   if (p.hp === undefined) p.hp = petStats(p).maxHp;
   return p;
@@ -47,7 +50,7 @@ export function petStats(p) {
   };
 }
 export const rarityOf = (p) => PET_RARITY.find((r) => r.key === p.rarity) || PET_RARITY[0];
-export const fights = (p) => p.type === 'dog' || p.traits.includes('brave');
+export const fights = (p) => p.type === 'dog' || PET_TYPES[p.type]?.fight || p.traits.includes('brave');
 
 export function gainPetXp(g, p, n) {
   const before = petLevel(p.xp); p.xp += n;

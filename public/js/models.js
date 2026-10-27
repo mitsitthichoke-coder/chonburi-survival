@@ -94,6 +94,7 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
 
 // เสื้อผ้าที่สวม: ซ้อนกล่องสีบนส่วนต่าง ๆ ของตัว (wear = {head, body, legs, hands, socks, shoes, back} → key ของไอเท็ม)
 export function setOutfit(g, wear, ITEMS) {
+  wear = Object.fromEntries(Object.entries(wear || {}).map(([s, k]) => [s, k ? String(k).split('~')[0] : k])); // ของสุ่มสเตตัสหน้าตาเหมือนของปกติ
   const u = g.userData;
   for (const o of u.outfit || []) o.parent?.remove(o);
   const out = u.outfit = []; u.shield = null;
@@ -170,13 +171,37 @@ export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
   u.lLeg.rotation.x = a; u.rLeg.rotation.x = -a;
   if (u.kind === 'zombie') { u.lArm.rotation.x = -1.3 + a * 0.2; u.rArm.rotation.x = -1.4 - a * 0.2; u.head.rotation.z = Math.sin(u.phase * 0.3) * 0.3; }
   else {
-    // แขนที่ถืออาวุธเป็นแขนที่ฟัน (สลับมือได้)
+    // แขนที่ถืออาวุธเป็นแขนที่ใช้ (สลับมือได้) · ท่าต่างกันตามชนิดอุปกรณ์
     const [wpn, off] = u.lefty ? [u.lArm, u.rArm] : [u.rArm, u.lArm];
-    off.rotation.x = u.lefty ? a * 0.8 : -a * 0.8;
-    wpn.rotation.x = attacking > 0 ? -2.4 + (1 - attacking) * 2.6 : (u.lefty ? -a * 0.8 : a * 0.8);
+    const H = u.lefty ? u.lHand : u.hand, side = u.lefty ? -1 : 1;
+    off.rotation.x = u.lefty ? a * 0.8 : -a * 0.8; wpn.rotation.z = 0; u.inner.rotation.y = 0; if (H) H.position.z = 0.05;
+    if (attacking > 0) {
+      const t = 1 - attacking, k = Math.sin(t * Math.PI); // 0→1→0
+      switch (u.atkStyle || ATK_STYLE[String(u.tool || '').split('~')[0]] || (u.tool ? 'slash' : 'punch')) {
+        case 'thrust': // หอก: ดึงกลับแล้วแทงไปข้างหน้าตรง ๆ
+          wpn.rotation.x = -1.5; if (H) H.position.z = 0.05 + (t < 0.3 ? -0.25 * (t / 0.3) : 0.7 * k); u.inner.rotation.x = 0.18 * k; break;
+        case 'slash': // มีด/ขวาน: เงื้อแล้วฟันเฉียงจากบนลงล่าง บิดตัวตาม
+          wpn.rotation.x = -2.6 + t * 2.4; wpn.rotation.z = side * (0.9 - t * 1.6); u.inner.rotation.y = side * (0.35 - t * 0.7); break;
+        case 'smash': // ค้อน: ยกสูงเหนือหัวแล้วทุบลงแรง ๆ พร้อมย่อตัว
+          wpn.rotation.x = t < 0.4 ? -3.1 * (t / 0.4) : -3.1 + ((t - 0.4) / 0.6) * 3.3; u.inner.rotation.x = t > 0.4 ? 0.25 * k : 0; break;
+        case 'flick': // เบ็ด: ตวัดจากหลังไปข้างหน้าเร็ว ๆ
+          wpn.rotation.x = t < 0.35 ? -2.9 : -2.9 + ((t - 0.35) / 0.65) * 1.9; break;
+        case 'throw': // แห: เหวี่ยงจากข้างลำตัวออกไปข้างหน้า
+          wpn.rotation.x = -1.2 - k * 0.8; wpn.rotation.z = side * (1.2 - t * 1.6); u.inner.rotation.y = side * (0.4 - t * 0.8); break;
+        case 'shoot': // ธนู/หน้าไม้/หนังสติ๊ก: ยกเล็งไปข้างหน้า แขนอีกข้างง้าง
+          wpn.rotation.x = -1.55; off.rotation.x = -1.4 - 0.3 * k; break;
+        case 'pour': // บัวรดน้ำ: ยื่นแขนไปข้างหน้าแล้วเอียงลง
+          wpn.rotation.x = -1.2 - k * 0.2; wpn.rotation.z = side * 0.5 * k; break;
+        default: // หมัด: ชกตรง
+          wpn.rotation.x = -1.6 * k - 0.2; if (H) H.position.z = 0.05 + 0.35 * k;
+      }
+    } else { wpn.rotation.x = u.lefty ? -a * 0.8 : a * 0.8; u.atkStyle = null; }
   }
 }
 
+// ท่าโจมตี/ใช้งานตามชนิดอุปกรณ์
+const ATK_STYLE = { club: 'smash', nail_bat: 'smash', sickle: 'slash', iron_sword: 'slash', slingshot: 'shoot', bow: 'shoot', crossbow: 'shoot', spear: 'thrust', steel_spear: 'thrust', bone_spear: 'thrust', machete: 'slash', stone_axe: 'slash', steel_axe: 'slash', torch: 'slash',
+  hammer: 'smash', wood_hammer: 'smash', stone_hammer: 'smash', king_hammer: 'smash', rod: 'flick', rod_pro: 'flick', net: 'throw', watering_can: 'pour' };
 const TOOL_MESH = {
   stone_axe: () => { const g = new THREE.Group(); g.add(box(0.06, 0.7, 0.06, '#7f5539', 0, -0.2, 0.1)); g.add(box(0.08, 0.18, 0.22, '#8a8a8a', 0, -0.5, 0.2)); g.rotation.x = Math.PI / 2; return g; },
   spear: () => { const g = new THREE.Group(); g.add(box(0.05, 1.8, 0.05, '#9c6644', 0, 0, 0)); g.add(box(0.08, 0.25, 0.08, '#cccccc', 0, 0.95, 0)); g.rotation.x = Math.PI / 2; return g; },
@@ -196,8 +221,16 @@ const TOOL_MESH = {
     const core = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), new THREE.MeshBasicMaterial({ color: '#fff3b0' })); core.position.y = 0.56; g.add(core);
     g.userData.flame = fl; g.rotation.x = 0.4; return g;
   },
+  club: () => clubMesh('#9c6644', false), nail_bat: () => clubMesh('#b08968', true),
+  sickle: () => { const g = new THREE.Group(); g.add(box(0.05, 0.35, 0.05, '#7f5539', 0, 0, 0)); const b = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 4, 10, Math.PI), mat('#ced4da')); b.position.set(0, 0.3, 0.1); b.rotation.y = Math.PI / 2; g.add(b); g.rotation.x = Math.PI / 2; return g; },
+  iron_sword: () => { const g = new THREE.Group(); g.add(box(0.06, 0.2, 0.06, '#432818', 0, 0, 0)); g.add(box(0.22, 0.04, 0.06, '#adb5bd', 0, 0.12, 0)); g.add(box(0.05, 0.85, 0.02, '#e9ecef', 0, 0.56, 0)); g.rotation.x = Math.PI / 2; return g; },
+  slingshot: () => { const g = new THREE.Group(); g.add(box(0.04, 0.25, 0.04, '#7f5539', 0, 0, 0)); g.add(box(0.04, 0.16, 0.04, '#7f5539', -0.06, 0.18, 0), box(0.04, 0.16, 0.04, '#7f5539', 0.06, 0.18, 0)); g.rotation.x = 0.4; return g; },
+  bow: () => { const g = new THREE.Group(); const arc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 4, 14, Math.PI), mat('#bc6c25')); arc.rotation.y = Math.PI / 2; arc.rotation.x = Math.PI / 2; g.add(arc); g.add(box(0.01, 0.01, 1.0, '#eeeeee', 0, 0, 0)); g.rotation.z = Math.PI / 2; return g; },
+  crossbow: () => { const g = new THREE.Group(); g.add(box(0.08, 0.08, 0.7, '#495057', 0, 0, 0.2)); g.add(box(0.7, 0.05, 0.06, '#343a40', 0, 0.02, 0.45)); return g; },
+  watering_can: () => { const g = new THREE.Group(); g.add(box(0.22, 0.22, 0.3, '#2a9d8f', 0, -0.05, 0.12)); const sp = box(0.05, 0.05, 0.32, '#2a9d8f', 0, 0.02, 0.38); sp.rotation.x = -0.5; g.add(sp); g.add(box(0.04, 0.16, 0.04, '#264653', 0, 0.12, 0)); return g; },
   guitar: () => { const g = new THREE.Group(); g.add(box(0.28, 0.34, 0.08, '#bc6c25', 0, -0.1, 0)); g.add(box(0.06, 0.5, 0.04, '#6f4518', 0, 0.3, 0)); return g; },
 };
+function clubMesh(c, nails) { const g = new THREE.Group(); g.add(box(0.06, 0.4, 0.06, c, 0, -0.05, 0)); g.add(box(0.12, 0.5, 0.12, c, 0, 0.38, 0)); if (nails) for (let i = 0; i < 6; i++) g.add(box(0.16, 0.02, 0.02, '#adb5bd', 0, 0.2 + i * 0.07, 0)); g.rotation.x = Math.PI / 2; return g; }
 function hammerMesh(handle, head, size) { const g = new THREE.Group(); g.add(box(0.05, 0.55, 0.05, handle, 0, -0.1, 0.08)); g.add(box(size * 0.8, size, size * 1.6, head, 0, -0.42, 0.14)); g.rotation.x = Math.PI / 2; return g; }
 function rodMesh(c) { const g = new THREE.Group(); g.add(box(0.035, 1.6, 0.035, c, 0, 0.6, 0)); g.add(box(0.01, 0.6, 0.01, '#eeeeee', 0, 1.1, 0.25)); g.rotation.x = Math.PI / 2.6; return g; }
 // lefty = สลับมือ: อาวุธอยู่มือซ้าย โล่อยู่มือขวา
@@ -247,6 +280,23 @@ export function makeAnimal(type) {
     g.add(box(0.05, 0.08, 0.04, '#444', -0.07, 0.64, 0.3)); g.add(box(0.05, 0.08, 0.04, '#444', 0.07, 0.64, 0.3));
     const tail = box(0.05, 0.05, 0.4, '#555', 0, 0.55, -0.35); tail.rotation.x = -0.8; g.add(tail);
     addLegs('#444', 0.07, 0.25, 0.07, 0.17);
+  } else if (type === 'raptor') {
+    // แร็พเตอร์: เดินสองขา หางยาว กรงเล็บ
+    const c = '#6a994e', d = '#386641';
+    g.add(box(0.5, 0.55, 1.1, c, 0, 1.05, 0)); g.add(box(0.36, 0.36, 0.6, c, 0, 1.45, 0.65)); g.add(box(0.3, 0.12, 0.4, '#f2e8cf', 0, 1.32, 0.85));
+    g.add(box(0.06, 0.06, 0.06, '#ffd60a', -0.13, 1.55, 0.85), box(0.06, 0.06, 0.06, '#ffd60a', 0.13, 1.55, 0.85));
+    const tail = box(0.22, 0.22, 1.3, d, 0, 1.15, -1.1); tail.rotation.x = -0.15; g.add(tail);
+    for (let i = 0; i < 4; i++) g.add(box(0.06, 0.16, 0.12, '#bc4749', 0, 1.36, 0.3 - i * 0.28));
+    g.add(box(0.08, 0.3, 0.08, d, -0.22, 0.95, 0.45), box(0.08, 0.3, 0.08, d, 0.22, 0.95, 0.45));
+    for (const x of [-0.18, 0.18]) { const l = limb(0.16, 0.8, 0.2, d, x, 0.8, -0.1); legs.push(l); g.add(l); }
+  } else if (type === 'trike') {
+    // ไทรเซอราทอปส์: ตัวใหญ่ สี่ขา แผงคอ สามเขา
+    const c = '#9c6644', d = '#7f5539';
+    g.add(box(1.4, 1.2, 2.4, c, 0, 1.4, 0)); g.add(box(0.9, 0.8, 0.9, c, 0, 1.4, 1.55));
+    g.add(box(1.6, 1.2, 0.12, '#bc6c25', 0, 1.9, 1.15));
+    g.add(box(0.1, 0.1, 0.7, '#f2e8cf', -0.3, 1.85, 1.95), box(0.1, 0.1, 0.7, '#f2e8cf', 0.3, 1.85, 1.95), box(0.09, 0.09, 0.4, '#f2e8cf', 0, 1.45, 2.1));
+    const tail = box(0.4, 0.4, 1.1, d, 0, 1.2, -1.6); tail.rotation.x = 0.3; g.add(tail);
+    addLegs(d, 0.36, 0.9, 0.5, 0.8);
   } else if (type === 'bird') {
     g.add(box(0.16, 0.16, 0.28, '#1d1d1d', 0, 0.15, 0)); g.add(box(0.06, 0.05, 0.1, '#f4d35e', 0, 0.18, 0.18));
     const wl = box(0.3, 0.03, 0.16, '#222', -0.2, 0.2, 0), wr = box(0.3, 0.03, 0.16, '#222', 0.2, 0.2, 0);
@@ -261,13 +311,17 @@ const PET_BODY = {
   dog: [0.35, 0.35, 0.8, 0.55, 0.78, 0.36, 0.95, 0.5, 0.32, [0.12, 0.28]],
   cat: [0.22, 0.22, 0.5, 0.35, 0.5, 0.2, 0.62, 0.3, 0.22, [0.07, 0.17]],
   bird: [0.16, 0.16, 0.28, 0.15, 0.2, 0.1, 0.25, 0.14, 0.16, null],
+  deer: [0.5, 0.55, 1.2, 1.1, 1.35, 0.5, 1.55, 0.65, 0.3, [0.18, 0.45]],
+  boar: [0.7, 0.6, 1.2, 0.75, 0.85, 0.55, 0.85, 0.75, 0.45, [0.22, 0.4]],
+  chicken: [0.3, 0.3, 0.4, 0.35, 0.5, 0.15, 0.6, 0.18, 0.18, [0.06, 0.0]],
+  raptor: [0.5, 0.55, 1.1, 1.05, 1.3, 0.4, 1.45, 0.65, 0.36, [0.18, -0.1]],
 };
 export function setPetGear(g, type, gear, ITEMS) {
   if (g.userData.gear) g.remove(g.userData.gear);
   const grp = new THREE.Group(); g.add(grp); g.userData.gear = grp;
   const [w, h, d, y, ny, nz, hy, hz, hs, legs] = PET_BODY[type];
   const col = (k, def) => ITEMS?.[k]?.petGear?.color || def;
-  const G = gear || {};
+  const G = Object.fromEntries(Object.entries(gear || {}).map(([s, k]) => [s, k ? String(k).split('~')[0] : k]));
   if (G.head) { grp.add(box(hs * 1.1, hs * (G.head === 'pet_helmet' ? 0.45 : 0.3), hs * 1.1, col(G.head, '#e63946'), 0, hy + hs * 0.25, hz - 0.02)); if (G.head === 'pet_cap') grp.add(box(hs * 0.9, 0.03, hs * 0.5, col(G.head), 0, hy + hs * 0.1, hz + hs * 0.6)); }
   if (G.neck) { grp.add(box(w * 0.95, h * 0.2, w * 0.7, col(G.neck, '#e63946'), 0, ny, nz)); if (G.neck === 'pet_collar') for (const sx of [-1, 1]) grp.add(box(0.05, 0.05, 0.08, '#adb5bd', sx * w * 0.48, ny, nz)); if (G.neck === 'pet_bell') grp.add(box(0.07, 0.07, 0.07, '#ffd166', 0, ny - h * 0.15, nz + w * 0.35)); }
   if (G.body) {

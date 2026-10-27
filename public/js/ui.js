@@ -1,4 +1,4 @@
-import { SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats } from './data.js';
+import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES } from './building-core.js';
 import { shopPrice, tradeValue } from './economy.js';
@@ -39,6 +39,9 @@ export class UI {
     this.g = game; this.tab = 'inv'; this.open = null; this.person = null; this.hudT = 0;
     $('#game-ui').style.display = 'block';
     $('#panel').addEventListener('click', (ev) => this.onPanelClick(ev));
+    // คลิกที่แถบสเตตัสเพื่อดูคำอธิบาย
+    document.querySelectorAll('#hud .stat[data-stat]').forEach((el) => el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showStatHelp(el.dataset.stat); }));
+    addEventListener('click', () => { const h = $('#stat-help'); if (h) h.style.display = 'none'; this.statHelp = null; });
     this.initDrag();
     $('#panel').addEventListener('contextmenu', (ev) => {
       const st = ev.target.closest('[data-dep],[data-wd]');
@@ -77,6 +80,21 @@ export class UI {
     document.exitPointerLock?.();
     const done = (v) => { d.style.display = 'none'; cb(v); };
     $('#confirm-yes').onclick = () => done(true); $('#confirm-no').onclick = () => done(false);
+  }
+  showStatHelp(k) {
+    const g = this.g, s = g.stats, h = $('#stat-help');
+    if (this.statHelp === k) { h.style.display = 'none'; this.statHelp = null; return; }
+    this.statHelp = k;
+    const H = {
+      hp: ['❤️ พลังชีวิต', `${Math.ceil(s.hp)}/${g.maxHp()}`, 'หมดแล้วตาย · ลดเมื่อถูกตี หิว/กระหายจนหมด เลือดออก หรือติดเชื้อเต็ม · ฟื้นเองช้า ๆ เมื่ออิ่มและไม่ติดเชื้อ (ใกล้กองไฟฟื้นเร็วขึ้น) · ใช้ผ้าพันแผล/ยาเพื่อฟื้นทันที'],
+      food: ['🍗 ความอิ่ม', `${Math.ceil(s.hunger)}/100`, 'ลดลงตามเวลา (วิ่งแล้วลดเร็ว) · ถ้าหมดจะเสียพลังชีวิต · กินอาหาร (อาหารปรุงสุกดีกว่าดิบ) · เชฟทำให้อาหารได้ผลมากขึ้น'],
+      water: ['💧 ความกระหาย', `${Math.ceil(s.thirst)}/100`, 'ลดลงตามเวลา (กลางวันร้อนลดเร็ว) · ถ้าหมดเสียพลังชีวิตเร็ว · ดื่มน้ำต้มสุก/มะพร้าว · น้ำดิบเสี่ยงท้องเสีย ให้ต้มที่กองไฟก่อน'],
+      stam: ['⚡ สตามิน่า', `${Math.ceil(s.stamina)}/${g.maxStamina()}`, 'ใช้ตอนวิ่ง กระโดด ตี และว่ายน้ำ · ฟื้นเมื่อหยุดวิ่ง · ฟื้นช้าลงเมื่อหิว ติดเชื้อหนัก หรือเครียด · ฟื้นเร็วขึ้นเมื่อใส่ถุงเท้า อยู่ใกล้คนรัก หรือมีกำลังใจ'],
+      inf: ['🦠 การติดเชื้อ', `${Math.floor(s.infection)}%`, 'เพิ่มเมื่อถูกผู้ติดเชื้อกัด แล้วลุกลามเองเรื่อย ๆ · เกิน 60% สตามิน่าฟื้นช้า เกิน 70% เดินช้า · ถึง 100% จะเสียพลังชีวิตจนตาย · รักษาด้วยยาสมุนไพร ยาปฏิชีวนะ หรือยาต้านไวรัส'],
+      stress: ['😰 ความเครียด/ตื่นตระหนก', `${Math.floor(s.stress || 0)}/100`, 'เพิ่มเมื่อมีผู้ติดเชื้อใกล้ กลางคืน หิว เจ็บ · 60+ สตามิน่าฟื้นช้า · 85+ ดาเมจลด · ลดได้ด้วยการพักในที่พัก/ใกล้กองไฟ อยู่กับเพื่อนหรือสัตว์เลี้ยง ฟังดนตรี สวดมนต์ หรือกินของอร่อย'],
+    }[k];
+    if (!H) return;
+    h.innerHTML = `<b>${H[0]}</b> — ${H[1]}<br><small>${H[2]}</small><br><small class="hint">คลิกอีกครั้งเพื่อปิด</small>`; h.style.display = 'block';
   }
   flashHurt() { const v = $('#vignette'); v.style.opacity = 0.7; setTimeout(() => (v.style.opacity = 0), 180); }
   setPrompt(t) { const p = $('#prompt'); if (p._t !== t) { p._t = t; p.innerHTML = t || ''; p.style.display = t ? 'block' : 'none'; } }
@@ -192,6 +210,18 @@ export class UI {
   }
 
   // ---------- แผงเมนู ----------
+  openTrade() { if (!(this.open === 'panel' && this.tab === 'trade')) { this.closeAll(); this.tab = 'trade'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); } this.refreshPanels(); }
+  // หน้าต่างแลกของกับผู้เล่น
+  tradeHTML() {
+    const g = this.g, T = g.tradeSt; if (!T) return '<p class="hint">ไม่ได้แลกของกับใครอยู่</p>';
+    const list = (o, own) => Object.entries(o || {}).map(([k, q]) => `<span class="item small" ${own ? `data-toff="${k}" title="คลิกเพื่อเอาออก"` : ''}>${ITEMS[k]?.icon || '❔'}<b>×${q}</b></span>`).join('') || '<span class="hint">ยังไม่มี</span>';
+    const mine = Object.entries(g.inv).filter(([k, q]) => q > (T.mine?.[k] || 0) && !ITEMS[k].quest && k !== g.equipped).map(([k, q]) => `<span class="item small" data-tadd="${k}" title="${esc(ITEMS[k].name)} (มี ${q})">${ITEMS[k].icon}<b>${q - (T.mine?.[k] || 0)}</b></span>`).join('');
+    return `<h3>🔄 แลกของกับ ${esc(T.name)}</h3>
+      <div class="cols"><div><h4>ของที่คุณให้ ${T.okMine ? '✅' : ''}</h4><div class="gifts">${list(T.mine, true)}</div></div><div><h4>ของที่คุณได้ ${T.okTheirs ? '✅' : ''}</h4><div class="gifts">${list(T.theirs)}</div></div></div>
+      <div class="acts"><button data-tok="1" class="${T.okMine ? 'on' : ''}">${T.okMine ? '⏳ รออีกฝ่ายยืนยัน' : '✅ ยืนยันการแลก'}</button><button data-tcancel="1">✖ ยกเลิก</button></div>
+      <h4>🎒 กระเป๋าของคุณ (คลิกเพื่อใส่ของที่จะให้)</h4><div class="gifts">${mine || '<span class="hint">ไม่มีของ</span>'}</div>
+      <p class="hint">ถ้ามีใครแก้ของที่เสนอ ทั้งสองฝ่ายต้องกดยืนยันใหม่ · ของจะสลับกันพร้อมกันเมื่อยืนยันครบทั้งคู่</p>`;
+  }
   togglePanel(tab) {
     this.g.sfx?.play('click');
     if (this.open === 'panel' && this.tab === tab) return this.closeAll();
@@ -210,11 +240,21 @@ export class UI {
       const miss = Object.entries(p.cost).filter(([i, q]) => (g.inv[i] || 0) < q), lock = lvl < p.lvl;
       return `<button class="piece ${miss.length || lock || !hammer ? 'dis' : ''}" data-build="${k}"><span class="ic">${p.icon}</span><b>${esc(p.name)}</b><small>${Object.entries(p.cost).map(([i, q]) => `<span class="${(g.inv[i] || 0) >= q ? 'have' : 'miss'}">${ITEMS[i].icon}${g.inv[i] || 0}/${q}</span>`).join(' ')}${lock ? ` · 🔒 ก่อสร้าง Lv${p.lvl}` : ''}</small></button>`;
     };
-    return `<p class="hint">${hammer ? '' : '<b class="miss">ต้องมี 🔨 ค้อนช่างไม้ก่อน (ประดิษฐ์ในแท็บกระเป๋า: ไม้ 3 + หิน 2)</b><br>'}สร้างบ้านทีละชิ้นบนกริด: วาง <b>ฐานราก</b> → <b>ผนัง/ประตู/หน้าต่าง</b> รอบขอบ → <b>หลังคา</b> (ขึ้นไปยืนบนหลังคาแล้ววางผนังต่อเป็นชั้นสองได้) · วาง <b>เตียง</b> เพื่อตั้งเป็นจุดเกิด
+    return `<p class="hint">${hammer ? '' : '<b class="miss">ต้องมีค้อนก่อน — ประดิษฐ์ 🪵 ค้อนไม้ ได้จากรายการด้านล่างของหน้านี้</b><br>'}สร้างบ้านทีละชิ้นบนกริด: วาง <b>ฐานราก</b> → <b>ผนัง/ประตู/หน้าต่าง</b> รอบขอบ → <b>หลังคา</b> (ขึ้นไปยืนบนหลังคาแล้ววางผนังต่อเป็นชั้นสองได้) · วาง <b>เตียง</b> เพื่อตั้งเป็นจุดเกิด
       <br>${g.touch ? '✅ วาง · ↻ หมุน · 🗑 รื้อ · ✖ ออก' : 'คลิกซ้าย = วาง · Q = หมุน · X = โหมดรื้อ · L = ล็อกประตู/หีบ · Esc = ออก'} · ทักษะก่อสร้าง Lv${lvl}</p>
       ${Object.entries(cats).map(([c, list]) => `<h4>${esc(c)}</h4><div class="pieces">${list.map(card).join('')}</div>`).join('')}
       <div class="acts"><button data-demolish="1" ${hammer ? '' : 'class="dis"'}>🗑️ โหมดรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)</button></div>
+      ${this.buildCraftHTML()}
       <p class="hint">🚲 จักรยาน 🏍️ มอเตอร์ไซค์ 🛶 แพ และ 🎣 เบ็ดตกปลา ประดิษฐ์ได้ในแท็บกระเป๋า · ทุกอย่างที่สร้างจะเห็นร่วมกันเมื่อเล่นออนไลน์</p>`;
+  }
+  // ประดิษฐ์ค้อน วัสดุ และของที่ใช้สร้างบ้านได้จากหน้าสร้างบ้านเลย
+  buildCraftHTML() {
+    const g = this.g, fire = g.nearFire, used = new Set(Object.values(PIECES).flatMap((p) => Object.keys(p.cost)));
+    const rows = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => (ITEMS[r.out].builds || ITEMS[r.out].place || used.has(r.out)) && (!r.job || hasPerk(g.ch, r.job, 0))).map(({ r, i }) => {
+      const lock = skillLevel(g.skills[r.skill]) < r.lvl, noSt = r.station === 'fire' && !fire, miss = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q), ok = !lock && !noSt && !miss.length;
+      return `<button class="piece ${ok ? '' : 'dis'}" data-craft="${i}" title="${lock ? `ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}` : noSt ? 'ต้องอยู่ใกล้กองไฟ' : ''}"><span class="ic">${ITEMS[r.out].icon}</span><b>${esc(r.label || ITEMS[r.out].name)}${r.qty > 1 ? ' ×' + r.qty : ''}</b><small>${Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${g.inv[k] || 0}/${q}</span>`).join(' ')}</small></button>`;
+    }).join('');
+    return `<h4>🧰 ประดิษฐ์ค้อน วัสดุ และของใช้ก่อสร้าง (ไม่ต้องสลับแท็บ)</h4><div class="pieces">${rows}</div>`;
   }
   structHTML() {
     const g = this.g, s = g.world.structures.find((x) => x.id === this.struct.id) || this.struct, P = PIECES[s.type];
@@ -240,6 +280,7 @@ export class UI {
     else if (this.tab === 'pets') html += this.petsHTML();
     else if (this.tab === 'build') html += this.buildHTML();
     else if (this.tab === 'struct' && this.struct) html += this.structHTML();
+    else if (this.tab === 'trade') html += this.tradeHTML();
     else if (this.tab === 'map') html += `<canvas id="bigmap" width="430" height="700"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
     $('#panel').innerHTML = html + '</div>';
     if (this.tab === 'map') this.drawBigMap();
@@ -255,11 +296,11 @@ export class UI {
     const inv = items.length ? items.map(([k, q]) => {
       const it = ITEMS[k];
       const tag = it.tool ? (g.equipped === k ? 'ถืออยู่' : 'ถือ') : it.instrument ? 'เล่น' : it.food ? 'กิน' : it.med ? 'ใช้' : it.place ? 'วาง' : it.wear ? 'สวม' : it.petGear ? 'ให้สัตว์' : '';
-      return `<div class="item" data-item="${k}" title="คลิก = ${tag || 'ดู'} · คลิกขวา = ใส่ช่องลัด"><span class="ic">${it.icon}</span><span>${it.name}${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</span><b>×${q}</b>${tag ? `<em>${tag}</em>` : ''}${g.hotbar.includes(k) ? '<i>📌</i>' : ''}</div>`;
+      return `<div class="item" data-item="${k}" title="คลิก = ${tag || 'ดู'} · คลิกขวา = ใส่ช่องลัด"><span class="ic">${it.icon}</span><span ${it.rarity ? `style="color:${RARITY[it.rarity].color}"` : ''}>${it.name}${it.bonus ? ` <small>(${it.bonus})</small>` : ''}${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</span><b>×${q}</b>${tag ? `<em>${tag}</em>` : ''}${g.hotbar.includes(k) ? '<i>📌</i>' : ''}</div>`;
     }).join('') : '<p class="hint">กระเป๋าว่างเปล่า — ลองเก็บไม้ หิน หญ้า หรือค้นกล่องเสบียงในเมือง</p>';
     const fire = g.nearFire;
     const myJob = g.profile.job;
-    const all = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => !r.job || r.job === myJob).map(({ r, i }) => {
+    const all = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => !r.job || hasPerk(g.ch, r.job, 0)).map(({ r, i }) => {
       const lvl = skillLevel(g.skills[r.skill]);
       const missing = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q);
       const lock = lvl < r.lvl, noSt = r.station === 'fire' && !fire;
@@ -277,11 +318,16 @@ export class UI {
     return `<div class="cols"><div><h3>กระเป๋า <small class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()} ช่อง${g.wear.back ? ` · ${ITEMS[g.wear.back].name}` : ' · ยังไม่มีกระเป๋า'}</small> <button data-dropmode="1" class="${this.dropMode ? 'on' : ''}">${this.dropMode ? '✋ เลิกทิ้งของ' : '🗑️ ทิ้งของ'}</button></h3>${catBar(ic, icount, 'icat')}<div class="inv ${this.dropMode ? 'dropping' : ''}">${inv}</div><p class="hint">${this.dropMode ? '<b class="miss">โหมดทิ้งของ: คลิกที่ไอเท็มเพื่อทิ้งทั้งกอง</b>' : 'คลิกเพื่อใช้/ถือ/สวม · คลิกขวาเพื่อปักไว้ที่ช่องลัด 1–6'} · ของชนิดเดียวกันซ้อนได้ 30 ชิ้น/ช่อง (อาหาร/ยา 10, เครื่องมือและเสื้อผ้า 1)</p></div><div><h3>ประดิษฐ์ ${fire ? '<span class="chip orange">🔥 ใกล้กองไฟ</span>' : ''}</h3>${catBar(rc, rcount, 'rcat')}${fbar}<div class="recipes">${rec}</div></div></div>`;
   }
 
+  // สเตตัสสายอาชีพ: ลงแต้มได้เอง ความสามารถปลดล็อกตามแต้มของแต่ละสาย
   jobHTML() {
-    const g = this.g, J = JOBS[g.profile.job]; if (!J) return '<p class="hint">ยังไม่ได้เลือกอาชีพ (เลือกได้ที่หน้าสร้างตัวละคร)</p>';
-    const L = skillLevel(g.skills[J.skill]);
-    return `<div class="jobbox"><b>${J.icon} อาชีพ: ${J.name}</b> <small>ทักษะหลัก ${SKILLS[J.skill]} Lv${L} · XP ${Object.entries(J.xp).map(([k, m]) => `${SKILLS[k]} ×${m}`).join(', ')}</small>
-      ${J.perks.map(([l, t], i) => `<div class="perk ${hasPerk(g.auth.ch, g.profile.job, i) ? 'on' : ''}">${hasPerk(g.auth.ch, g.profile.job, i) ? '✅' : '🔒'} <b>Lv${l}</b> ${t}</div>`).join('')}</div>`;
+    const g = this.g, P = jobPts(g.ch), free = freePts(g.ch), main = jobOf(g.ch);
+    const rows = Object.entries(JOBS).sort(([a], [b]) => (P[b] || 0) - (P[a] || 0)).map(([k, J]) => {
+      const n = P[k] || 0, nextT = PERK_PTS.find((t) => t > n);
+      const tiers = J.perks.map(([, t], i) => `<div class="perk ${n >= PERK_PTS[i] ? 'on' : ''}">${n >= PERK_PTS[i] ? '✅' : '🔒'} <b>${PERK_PTS[i]} แต้ม</b> ${t}</div>`).join('');
+      return `<details class="jobrow" ${k === main ? 'open' : ''}><summary><span>${J.icon} <b>${J.name}</b>${k === main ? ' <small class="chip">สายหลัก</small>' : ''}</span><span class="jpts">${'●'.repeat(Math.min(n, 14))}<b>${n}</b></span><button data-statup="${k}" ${free > 0 ? '' : 'disabled'} title="ลง 1 แต้ม">＋</button></summary><small>${J.desc}${nextT ? ` · อีก ${nextT - n} แต้มปลดล็อกขั้นถัดไป` : ' · ปลดล็อกครบแล้ว'}</small>${tiers}</details>`;
+    }).join('');
+    return `<div class="jobbox"><b>🎓 สเตตัสสายอาชีพ</b> <small>เลเวลตัวละคร ${g.charLevel()} · แต้มว่าง <b class="${free ? 'have' : ''}">${free}</b> (ได้ 1 แต้มทุกเลเวล)</small>
+      <p class="hint">ลงแต้มสายไหนก็ได้ ไม่ต้องตรงกับอาชีพที่เลือกตอนสร้างตัวละคร · สายที่มีแต้มมากสุดคือสายหลัก · ความสามารถ/สูตรพิเศษปลดล็อกที่ ${PERK_PTS.join(' / ')} แต้ม · XP โบนัสของสายเพิ่มตามแต้ม</p>${rows}</div>`;
   }
 
   charHTML() {
@@ -307,11 +353,12 @@ export class UI {
     const tdesc = (t) => [t.dmg && `⚔️ ${t.dmg}`, t.range && `📏 ${t.range}`, t.gather && `🪓 ×${t.gather}`, t.fish && '🐟 แทงปลา', t.rod && '🎣 ตกปลา'].filter(Boolean).join(' ');
     const T = g.equipped && ITEMS[g.equipped], S = g.wear.off && ITEMS[g.wear.off];
     const toolSide = g.lefty ? 'L' : 'R';
+    const dom = g.profile.hand === 'l' ? 'L' : 'R';
     const hand = (side) => {
       const isTool = side === toolSide, it = isTool ? T : S;
       const stat = !it ? (isTool ? '✊ มือเปล่า: ต่อยได้ · เก็บของ' : 'ว่าง — ลากโล่มาใส่') : isTool ? tdesc(it.tool) : `🛡️ กัน ${Math.round(it.wear.block * 100)}% · ลดดาเมจ ${Math.round(it.wear.def * 100)}%`;
       const un = it ? (isTool ? '<button data-hold="">เก็บ</button>' : '<button data-unwear="off">ถอด</button>') : '';
-      return `<div class="hand" data-drop="${side}"><h4>${side === 'R' ? '🫱 มือขวา' : '🫲 มือซ้าย'} <small>${isTool ? 'อาวุธ/เครื่องมือ' : 'โล่'}</small></h4>
+      return `<div class="hand" data-drop="${side}"><h4>${side === 'R' ? '🫱 มือขวา' : '🫲 มือซ้าย'} <small>${isTool ? 'อาวุธ/เครื่องมือ' : 'โล่'}${side === dom ? ' · ⭐ ถนัด' : ''}</small></h4>
         <div class="hbig ${it ? 'dragme' : ''}" ${it ? `data-drag="hand:${side}" title="ลากไปอีกมือเพื่อสลับ · ลากลงกระเป๋าเพื่อเก็บ"` : ''}>${it ? it.icon : '✋'}</div><b>${it ? esc(it.name) : 'ว่าง'}</b><small>${stat}</small>${un}</div>`;
     };
     const rank = (k) => (ITEMS[k].tool ? 0 : ITEMS[k].wear?.slot === 'off' ? 1 : 2);
@@ -322,7 +369,14 @@ export class UI {
     <h4>🎒 ของที่ถือ/สวมได้ <small class="hint">ลากไปวางที่มือหรือช่องเครื่องแต่งกาย · คลิก = ใช้ทันที</small></h4>
     <div class="dbag" data-drop="bag">${bag || '<small class="hint">ไม่มีอาวุธ เครื่องมือ โล่ หรือเสื้อผ้าในกระเป๋า</small>'}</div>
     <p class="hint">⚔️ ดาเมจ ×${g.dmgMul().toFixed(2)} · 🛡️ โอกาสกันการโจมตี ${Math.round(ws.block * 100)}% (กันได้ = เจ็บแค่ 25% ไม่เลือดออก ไม่ติดเชื้อ)${g.lefty ? ' · ↔️ ถนัดซ้าย (สลับมืออยู่)' : ''}</p>
-    <h4>👕 เครื่องแต่งกาย</h4><div data-drop="wear">${this.wearHTML(true)}</div>`;
+    <h4>👕 เครื่องแต่งกาย</h4><div data-drop="wear">${this.wearHTML(true)}</div>
+    <h4>📊 สเตตัสตัวละคร</h4><div class="statgrid">${[
+      ['❤️ พลังชีวิตสูงสุด', g.maxHp()], ['⚡ สตามิน่าสูงสุด', g.maxStamina()], ['⚔️ ดาเมจ', '×' + (g.dmgMul() * g.handMul()).toFixed(2) + (g.handMul() > 1 ? ' (มือถนัด)' : ' (มือไม่ถนัด)')],
+      ['🛡️ ลดดาเมจ', Math.round(ws.def * 100) + '%'], ['🔰 กันการโจมตี', Math.round(ws.block * 100) + '%'], ['🦠 ลดติดเชื้อ', Math.round(ws.bite * 100) + '%'],
+      ['💨 ความเร็ว', '+' + Math.round(ws.spd * 100) + '%'], ['🥷 ซ่อนตัว', Math.round((1 - g.stealthMul()) * 100) + '%'], ['🎒 กระเป๋า', g.usedSlots() + '/' + g.maxSlots()],
+      ['🧟 กำจัดแล้ว', g.stats.kills + ' ตัว'], ['🎯 เลเวล', g.charLevel()], ['🫱 มือถนัด', g.profile.hand === 'l' ? 'ซ้าย' : 'ขวา'],
+    ].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>
+    ${this.jobHTML()}`;
   }
 
   // ลาก-วาง ด้วย pointer (ใช้ได้ทั้งเมาส์และนิ้ว)
@@ -420,7 +474,10 @@ export class UI {
       </div>`;
     }).join('');
     const env = g.auth.env(), houses = env.ownCount('pethouse'), beds = env.ownCount('bed'), cap = petCap(houses, beds);
-    const capLine = `<div class="jobbox">🐾 จำนวนสูงสุด: <b>ชนิดละ ${cap} ตัว</b> — ${['dog', 'cat', 'bird'].map((t) => `${PET_TYPES[t].name} ${g.pets.filter((p) => p.type === t).length}/${cap}`).join(' · ')}<br><small>${beds ? `🏡 บ้านสัตว์เลี้ยง ${houses} หลัง (หลังละ +2 ตัว/ชนิด) — สร้างเพิ่มในเมนูสร้างบ้าน` : 'เริ่มต้นชนิดละ 3 ตัว · อยากเลี้ยงเพิ่ม: ต้องมีบ้าน (วาง 🛏️ เตียง) แล้วสร้าง 🏡 บ้านสัตว์เลี้ยง หลังละ +2 ตัว/ชนิด'} · สัตว์เลี้ยงเดินตามเป็นแถวข้างหลังคุณ</small></div>`;
+    const wildN = g.pets.filter((p) => PET_TYPES[p.type]?.wild).length;
+    const capLine = `<div class="jobbox">🐾 จำนวนสูงสุด: <b>ชนิดละ ${cap} ตัว</b> — ${['dog', 'cat', 'bird'].map((t) => `${PET_TYPES[t].name} ${g.pets.filter((p) => p.type === t).length}/${cap}`).join(' · ')} · 🦌 สัตว์ป่า ${wildN}/${WILD_PET_MAX}
+      <br><small>${beds ? `🏡 บ้านสัตว์เลี้ยง ${houses} หลัง (หลังละ +1 ตัว/ชนิด)` : 'อยากเลี้ยงเพิ่ม: ต้องมีบ้าน (วาง 🛏️ เตียง) แล้วสร้าง 🏡 บ้านสัตว์เลี้ยง หลังละ +1 ตัว/ชนิด'} · จับสัตว์ป่า (กวาง หมูป่า ไก่ แร็พเตอร์) ด้วย 🕸️ แห: ถือแหแล้วคลิกใส่สัตว์ ยิ่งมันบาดเจ็บยิ่งจับง่าย</small>
+      <div><button data-petsup="1">⬆️ เรียกสัตว์เลี้ยงขึ้นมาบนที่สูง [G]</button></div></div>`;
     return capLine + `<p class="hint">หาสุนัข แมว หรือนกขุนทองจรจัดในเมือง แล้วกด <b>E</b> ป้อนอาหารที่มันชอบจนเชื่อง 100%<br>🐕 สุนัข: ${PET_TYPES.dog.foods.map((f) => ITEMS[f].name).join(', ')} · 🐈 แมว: ${PET_TYPES.cat.foods.map((f) => ITEMS[f].name).join(', ')} · 🐦 นก: ${PET_TYPES.bird.foods.map((f) => ITEMS[f].name).join(', ')}</p>${list || '<p class="hint">ยังไม่มีสัตว์เลี้ยง</p>'}`;
   }
 
@@ -478,7 +535,7 @@ export class UI {
     return `<button data-back="1">← กลับ</button><h3>${other.sex === 'f' ? '👩' : '👨'} ${esc(other.name)} <span class="chip" style="background:${L.color}">${L.name}</span></h3>
       <p><small>${npc ? esc(e.def.bio) + ` · ${JOBS[e.def.job]?.icon || ''} อาชีพ${JOBS[e.def.job]?.name || ''} · ชอบ: ${ITEMS[e.def.likes].icon}?` : 'ผู้เล่นออนไลน์'}</small></p>
       <div class="pbar big"><i style="width:${pct}%;background:${L.color}"></i></div><small>${Math.floor(r.pts)} แต้ม ${next ? `→ ${next.name} ที่ ${next.min}` : ''}</small>
-      <div class="acts">${acts}${npc ? '' : this.friendBtn(e.id)}</div><h4>🎁 ให้ของขวัญ</h4><div class="gifts">${gifts || '<span class="hint">ไม่มีของ</span>'}</div>
+      <div class="acts">${acts}${npc ? '' : this.friendBtn(e.id) + `<button data-treq="${esc(e.id)}">🔄 แลกของ</button>`}</div><h4>🎁 ให้ของขวัญ</h4><div class="gifts">${gifts || '<span class="hint">ไม่มีของ</span>'}</div>
       ${npc && SHOPS[e.def.job] ? this.shopHTML(e.def, r) : ''}
       <p class="hint">ปุ่มสีจาง = ยังทำไม่ได้ (ชี้เมาส์เพื่อดูเหตุผล) · การกระทำสำคัญต้องได้รับความยินยอมจากอีกฝ่าย</p>`;
   }
@@ -504,6 +561,12 @@ export class UI {
     if (d.tunpay) { const B = this.basket || {}; if (--B[d.tunpay] <= 0) delete B[d.tunpay]; return this.refreshPanels(); }
     if (d.tclear) { this.basket = {}; return this.refreshPanels(); }
     if (d.tbuy) { const r = g.auth.do('npctrade', { npc: this.person.id, buy: d.tbuy, pay: { ...this.basket } }); if (!g.auth.server && r && !r.err) this.basket = {}; else if (g.auth.server) this.basket = {}; return this.refreshPanels(); }
+    if (d.statup) { g.auth.do('statup', { job: d.statup }); return this.refreshPanels(); }
+    if (d.petsup) { g.callPetsUp(); return; }
+    if (d.treq) { g.net.send({ t: 'trade', a: 'req', to: d.treq }); return; }
+    if (d.tadd || d.toff) { const o = { ...(g.tradeSt?.mine || {}) }; if (d.tadd) o[d.tadd] = (o[d.tadd] || 0) + 1; else if (--o[d.toff] <= 0) delete o[d.toff]; g.net.send({ t: 'trade', a: 'offer', items: o }); return; }
+    if (d.tok) { g.net.send({ t: 'trade', a: 'ok' }); return; }
+    if (d.tcancel) { g.net.send({ t: 'trade', a: 'cancel' }); return; }
     if (d.rfilter) { this.rfilter = d.rfilter; return this.refreshPanels(); }
     if (d.unwear) { g.unequip(d.unwear); return this.refreshPanels(); }
     if (d.craft) { g.craft(+d.craft); return this.refreshPanels(); }

@@ -24,6 +24,8 @@ const seg = (el, opts, cur, set, swatch) => {
   mark();
 };
 seg($('#f-sex'), [], () => profile.sex, (v) => (profile.sex = v));
+if (profile.hand !== 'l') profile.hand = 'r';
+seg($('#f-hand'), [], () => profile.hand, (v) => (profile.hand = v));
 // อาชีพ
 if (!JOBS[profile.job]) profile.job = 'engineer';
 $('#f-job').innerHTML = Object.entries(JOBS).map(([k, J]) => `<button data-v="${k}" class="job"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></button>`).join('');
@@ -78,7 +80,7 @@ function showAccount() {
   $('#acct-name').textContent = `${account.username}${account.email ? ' · ' + account.email : ''}`;
   $('#server-row').hidden = true; $('#room-row').hidden = true; $('#b-solo').style.display = 'none';
   $('#f-name-label').textContent = 'ชื่อตัวละคร (ห้ามซ้ำกับผู้เล่นคนอื่น)';
-  if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; refreshSegs(); }
+  if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; profile.hand = C.hand === 'l' ? 'l' : 'r'; refreshSegs(); }
   $('#b-online').textContent = C ? '▶️ เข้าเกม' : '✨ สร้างตัวละครและเข้าเกม';
   if (account.mustChange) { $('#pwbox').hidden = false; $('#p-err').textContent = 'คุณใช้รหัสผ่านชั่วคราว กรุณาตั้งรหัสผ่านใหม่'; }
 }
@@ -121,7 +123,7 @@ async function start(online) {
   const typed = $('#f-name').value.trim();
   if (serverMode) {
     if (!account) return aerr('เข้าสู่ระบบหรือสมัครก่อน');
-    try { account = (await api('/api/character', { name: typed, sex: profile.sex, look: profile.look, job: profile.job })).user; } catch (e) { $('#f-name-ok').textContent = '❌ ' + e.message; return; }
+    try { account = (await api('/api/character', { name: typed, sex: profile.sex, look: profile.look, job: profile.job, hand: profile.hand })).user; } catch (e) { $('#f-name-ok').textContent = '❌ ' + e.message; return; }
     Object.assign(profile, { id: account.id, name: account.char.name });
     online = true;
   } else profile.name = typed || (profile.sex === 'f' ? 'ผู้รอดชีวิตหญิง' : 'ผู้รอดชีวิตชาย');

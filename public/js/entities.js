@@ -9,13 +9,14 @@ import { relName, relColor } from './social-core.js';
 import { inCamp } from './citygen.js';
 import { petStats, rarityOf, fights, gainPetXp } from './pets.js';
 import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
-import { killPerk } from './data.js';
+import { killPerk, WILD, pickWild } from './data.js';
 
 const ANIMALS = {
   zombie: { hp: 40, speed: 1.6, chase: 3.0, drops: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1]] },
   boar: { hp: 35, speed: 1.4, flee: 4.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]], hostileWhenHit: true },
   deer: { hp: 25, speed: 1.2, flee: 6.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]] },
   chicken: { hp: 8, speed: 0.8, flee: 3.5, drops: [['raw_meat', 1]] },
+  raptor: { hp: 70, speed: 2.2, flee: 0, drops: [] }, trike: { hp: 170, speed: 1.0, flee: 0, drops: [] },
   dog: { hp: 30, speed: 1.4, stray: true }, cat: { hp: 20, speed: 1.0, stray: true }, bird: { hp: 10, speed: 1.8, stray: true, fly: true },
 };
 const tmp = new THREE.Vector3();
@@ -162,7 +163,7 @@ export class Entities {
   }
   // ----- สัตว์ป่า สัตว์จรจัด NPC จากเซิร์ฟเวอร์ -----
   syncNetFauna(flat) {
-    const K = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc'];
+    const K = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike'];
     this.netF ||= new Map();
     const seen = new Set();
     for (let i = 0; i + 5 < flat.length; i += 6) {
@@ -231,7 +232,7 @@ export class Entities {
     if (byPet) e.lastPet = byPet;
     if (e.netId) { e.hurt = 0.25; this.g.net.send({ t: 'zdmg', id: e.netId, dmg, pet: byPet?.id }); return; }
     e.hp -= dmg; e.hurt = 0.25; e.alert = 8;
-    if (ANIMALS[e.type]?.hostileWhenHit) e.angry = 12;
+    if (ANIMALS[e.type]?.hostileWhenHit || WILD[e.type]?.angryHit || WILD[e.type]?.hostile) e.angry = 12;
     if (e.kind === 'stray') e.tame = Math.max(0, e.tame - 30);
     if (e.hp <= 0) {
       this.remove(e);
@@ -346,7 +347,7 @@ export class Entities {
         const kk = TOWNS.find((t) => t.key === 'khaokheow');
         const nearZoo = (kk.x - s.x) ** 2 + (kk.z - s.z) ** 2 < 150 * 150;
         const r = Math.random();
-        this.spawnMob(nearZoo && r < 0.5 ? 'deer' : r < 0.55 ? 'chicken' : r < 0.85 ? 'boar' : 'deer', s.x, s.z);
+        this.spawnMob(pickWild(nearZoo, r), s.x, s.z);
       }
     }
     if (town && sc < 3) { const s = spawnAt(20, 50); if (s) this.spawnMob(['dog', 'cat', 'bird'][Math.floor(Math.random() * 3)], s.x, s.z); }
@@ -405,13 +406,16 @@ export class Entities {
         }
         case 'animal': {
           if (e.netId) { this.netLerp(e, dt); animateAnimal(e.mesh, dt, e.speed); break; }
-          if (e.angry > 0 && dP < 30) {
+          const W = WILD[e.type] || {};
+          // ไดโนเสาร์กินเนื้อ: ไล่ล่าผู้เล่นที่เข้าใกล้ (ย่อ/คลานช่วยให้รอด)
+          if (W.hostile && dP < W.hostile * g.stealthMul() && !g.dead && g.safeTime <= 0 && !(e.angry > 0)) e.angry = 6;
+          if (e.angry > 0 && dP < 40) {
             e.angry -= dt;
-            const d = this.steer(e, P.x, P.z, 4.2, dt);
-            if (d < 1.6 && e.atkCd <= 0) { e.atkCd = 1.5; g.player.hurt(6, { bleed: 0.15, src: 'หมูป่า' }); }
-          } else if (dP < (e.type === 'boar' ? 6 : 12) || e.alert > 0) {
+            const d = this.steer(e, P.x, P.z, W.chase || 4.2, dt);
+            if (d < (W.dino ? 2.2 : 1.6) && e.atkCd <= 0 && P.y - e.pos.y < 2.2) { e.atkCd = 1.5; g.player.hurt(W.dmg || 6, { bleed: W.bleed || 0.15, src: W.name || 'สัตว์ป่า' }); }
+          } else if ((W.flee ?? 10) && (dP < (W.flee ?? 10) || e.alert > 0)) {
             if (e.alert > 0) e.alert -= dt;
-            this.steer(e, P.x, P.z, A.flee, dt, true);
+            this.steer(e, P.x, P.z, W.fleeSpd || A.flee, dt, true);
           } else this.wanderAround(e, e.pos.x, e.pos.z, 10, A.speed, dt);
           animateAnimal(e.mesh, dt, e.speed);
           break;
@@ -448,14 +452,18 @@ export class Entities {
               // เดินเป็นแถวอยู่ข้างหลังผู้เล่น แถวละ 3 ตัว จะได้ไม่บังของที่จะเก็บ
               const fol = pets.filter((x) => !x.pet.home && !x.pet.stay && !(x.pet.down > 0)), k = Math.max(0, fol.indexOf(e));
               const row = Math.floor(k / 3), inRow = Math.min(3, fol.length - row * 3), col = (k % 3) - (inRow - 1) / 2;
-              const back = 2.6 + row * 1.4, side = col * 1.4, ry = g.player.ry;
+              const up = g.petsUp, back = up ? 0.9 + row * 0.6 : 2.6 + row * 1.4, side = col * (up ? 0.6 : 1.4), ry = g.player.ry;
               const fx = P.x - Math.sin(ry) * back + Math.cos(ry) * side, fz = P.z - Math.cos(ry) * back - Math.sin(ry) * side;
               const d = Math.hypot(fx - e.pos.x, fz - e.pos.z);
               if (d > 60) { e.pos.set(fx, heightAt(fx, fz), fz); }
-              if (d > 1) this.steer(e, fx, fz, Math.min(g.player.speedNow + 1.5, d * 1.5 + 1), dt); else e.speed = 0;
+              if (up) {
+                // อยู่บนที่สูงกับผู้เล่น: ยืนตามหลังบนหลังคา/หอ ไม่ตกลงพื้น
+                if (P.y - heightAt(P.x, P.z) < 1.2) g.petsUp = false;
+                else { e.pos.x += (fx - e.pos.x) * Math.min(1, dt * 6); e.pos.z += (fz - e.pos.z) * Math.min(1, dt * 6); e.pos.y = P.y + (e.type === 'bird' ? 1 : 0); e.speed = d > 0.3 ? 2 : 0; }
+              } else if (d > 1) this.steer(e, fx, fz, Math.min(g.player.speedNow + 1.5, d * 1.5 + 1), dt); else e.speed = 0;
             }
           }
-          if (e.type === 'bird') this.moveOnGround(e, 0, 0, dt);
+          if (e.type === 'bird' && !g.petsUp) this.moveOnGround(e, 0, 0, dt);
           animateAnimal(e.mesh, dt, e.speed);
           // ท่าต่อสู้: สุนัขพุ่งงับ · แมวยืนตะปบ · นกโฉบจิก
           if (e.lunge > 0) {

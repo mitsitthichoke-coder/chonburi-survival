@@ -5,7 +5,7 @@ import { getLayout } from './citygen.js';
 import { getResources } from './resources-core.js';
 import { applyOp, collidersFor } from './building-core.js';
 import { heightAt, waterAt, hash2 } from './terrain.js';
-import { ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf } from './data.js';
+import { ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
 import { relLevel, canDo, applyAction, ACTIONS } from './social-core.js';
 import { petStats } from './pets.js';
 
@@ -27,6 +27,7 @@ export function installEconomy(core) {
     const self = this, me = () => this.players.get(id);
     return {
       now: () => Date.now(), rand: Math.random,
+      wild: (fid) => { const f = self.fauna.get(+fid); return f && WILD[f.k] ? { k: f.k, x: f.x, z: f.z, hp: f.hp, maxHp: WILD[f.k].hp } : null; },
       npcPos: (nid) => { const i = NPCS.findIndex((n) => n.id === nid), f = self.fauna.get(100000 + i); return f ? { x: f.x, z: f.z } : null; },
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
@@ -53,7 +54,7 @@ export function installEconomy(core) {
   };
 
   // ส่งผลลัพธ์ + สถานะกระเป๋าจริงกลับไปให้ผู้เล่น
-  core.charView = function (ch) { return { inv: ch.inv, wear: ch.wear, skills: ch.skills, equipped: ch.equipped, lefty: !!ch.lefty, boxes: ch.boxes || {}, trade: ch.trade || {}, quest: ch.quest, pets: ch.pets, kills: ch.stats?.kills || 0 }; };
+  core.charView = function (ch) { return { inv: ch.inv, wear: ch.wear, skills: ch.skills, equipped: ch.equipped, lefty: !!ch.lefty, boxes: ch.boxes || {}, trade: ch.trade || {}, jp: ch.jp || null, quest: ch.quest, pets: ch.pets, kills: ch.stats?.kills || 0 }; };
   core.sendEcon = function (id, r) {
     const ch = this.chars.get(id); if (!ch) return;
     const slim = r && { err: r.err, silent: r.silent, msg: r.msg, give: r.give, take: r.quietTake ? null : r.take, quietGive: r.quietGive, fx: r.fx, res: r.res, loot: r.loot, pet: r.pet, tame: r.tame, quest: r.quest, questMsg: r.questMsg, levelUp: r.levelUp, fish: r.fish, raw: r.raw, giveBack: r.giveBack, sfx: r.sfx, placed: r.placed?.id, wore: r.wore, held: r.held, seq: r.seq };
@@ -169,6 +170,15 @@ export function installEconomy(core) {
   };
 
   // ของขวัญ/รักษาระหว่างผู้เล่นต้องมีของจริง
+  // แลกของระหว่างผู้เล่น: ตรวจว่ามีของจริง และสลับของที่เซิร์ฟเวอร์
+  core.canOffer = function (id, items) {
+    const ch = this.chars.get(id); if (!ch) return false;
+    return Object.entries(items || {}).every(([k, q]) => ITEMS[k] && !ITEMS[k].quest && (ch.inv[k] || 0) >= q && ch.equipped !== k);
+  };
+  core.tradeApply = function (id, take, give) {
+    const ch = this.chars.get(id); if (!ch) return;
+    this.sendEcon(id, applyResult(ch, { take, give, msg: '🤝 แลกของสำเร็จ' }));
+  };
   core.econSocial = function (id, ch, me, m) {
     const target = this.players.get(m.target);
     if (!target || !ACTIONS[m.action]) return;
@@ -224,7 +234,7 @@ export function installEconomy(core) {
   };
   core.damageFauna = function (fid, dmg, by) {
     const f = this.fauna.get(fid), had = !!f; baseF(fid, dmg, by);
-    if (had && !this.fauna.has(fid) && ['boar', 'deer', 'chicken'].includes(f.k)) { const ch = this.chars.get(by); if (ch) this.sendEcon(by, killReward(ch, f.k, Math.random)); }
+    if (had && !this.fauna.has(fid) && WILD[f.k]) { const ch = this.chars.get(by); if (ch) this.sendEcon(by, killReward(ch, f.k, Math.random)); }
   };
 
   // ประสบการณ์เอาตัวรอด: ทุก 1 นาทีที่ออนไลน์

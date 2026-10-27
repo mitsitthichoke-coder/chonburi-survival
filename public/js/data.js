@@ -5,7 +5,7 @@ export const PREG_MS = 20 * 60 * 1000;       // ตั้งครรภ์ 20 �
 export const BABY_MS = 30 * 60 * 1000;       // ทารก -> เด็ก
 export const CHILD_MS = 90 * 60 * 1000;      // เด็ก -> วัยรุ่น (ช่วยหาของได้)
 
-export const ITEMS = {
+const RAW_ITEMS = {
   wood: { name: 'ไม้', icon: '🪵', value: 1 },
   stone: { name: 'หิน', icon: '🪨', value: 1 },
   fiber: { name: 'เส้นใยพืช', icon: '🌿', value: 1 },
@@ -88,6 +88,26 @@ export const ITEMS = {
   // ---- ของพระ (อาชีพพระ) ----
   prayer_beads: { name: 'ลูกประคำ', icon: '📿', value: 25, instrument: true, chant: true },
   amulet: { name: 'ผ้ายันต์กำลังใจ', icon: '🪬', value: 30, food: { stress: -35 }, morale: 300 },
+  dino_bone: { name: 'กระดูกไดโนเสาร์', icon: '🦴', value: 15 },
+  bone_spear: { name: 'หอกกระดูกไดโน', icon: '🔱', value: 30, tool: { gather: 1.2, dmg: 32, range: 3.6, fish: true } },
+  // ---- อาวุธระยะประชิด ----
+  club: { name: 'กระบองไม้', icon: '🏏', value: 4, tool: { gather: 1, dmg: 13, range: 2.4 } },
+  nail_bat: { name: 'ไม้ตอกตะปู', icon: '🏏', value: 12, tool: { gather: 1, dmg: 24, range: 2.5 } },
+  sickle: { name: 'เคียวเกี่ยวหญ้า', icon: '🌙', value: 8, tool: { gather: 2.5, dmg: 16, range: 2.3 } },
+  iron_sword: { name: 'ดาบเหล็กตีมือ', icon: '🗡️', value: 30, tool: { gather: 1.5, dmg: 36, range: 2.9 } },
+  // ---- อาวุธระยะไกล (ต้องมีกระสุน) ----
+  slingshot: { name: 'หนังสติ๊ก', icon: '🪃', value: 6, tool: { gather: 0.5, dmg: 12, range: 14, ranged: true, ammo: 'pebble' } },
+  bow: { name: 'ธนูไม้ไผ่', icon: '🏹', value: 14, tool: { gather: 0.5, dmg: 24, range: 20, ranged: true, ammo: 'arrow' } },
+  crossbow: { name: 'หน้าไม้เหล็ก', icon: '🏹', value: 34, tool: { gather: 0.5, dmg: 40, range: 26, ranged: true, ammo: 'bolt' } },
+  arrow: { name: 'ลูกธนู', icon: '➶', value: 1 },
+  bolt: { name: 'ลูกดอกหน้าไม้', icon: '➹', value: 2 },
+  // ---- ชิ้นส่วนรถ (คราฟท์แล้วประกอบเป็นยานพาหนะ) ----
+  wheel: { name: 'ล้อรถ', icon: '🛞', value: 8 },
+  engine: { name: 'เครื่องยนต์', icon: '⚙️', value: 30 },
+  chassis: { name: 'โครงรถ', icon: '🔧', value: 18 },
+  car_seat: { name: 'เบาะรถ', icon: '💺', value: 8 },
+  battery_pack: { name: 'แบตเตอรี่ประกอบ', icon: '🔋', value: 14 },
+  raft_kit: { name: 'ชุดลำแพไม้ไผ่', icon: '🪵', value: 8 },
   // ---- โล่ (ถือมือซ้าย) · block = โอกาสกันการโจมตีได้ (เหลือความเสียหาย 25% และไม่ติดเชื้อ) ----
   shield_wood: { name: 'โล่ไม้เล็ก', icon: '🛡️', value: 6, wear: { slot: 'off', def: 0.04, block: 0.15, size: 0.8, color: '#9c6644' } },
   shield_lid: { name: 'โล่ฝาถังเหล็ก', icon: '🛡️', value: 10, wear: { slot: 'off', def: 0.06, block: 0.22, size: 0.9, round: true, color: '#8d99ae' } },
@@ -120,6 +140,7 @@ export const ITEMS = {
   stone_hammer: { name: 'ค้อนหินพื้นฐาน', icon: '🪨', value: 5, tool: { gather: 2.2, dmg: 12, range: 2.4, mine: true, hammer: true } },
   torch: { name: 'คบเพลิง', icon: '🔥', value: 4, tool: { gather: 0.5, dmg: 16, range: 2.4, light: true, fire: true } },
   net: { name: 'แหจับสัตว์', icon: '🕸️', value: 6, tool: { gather: 0.3, dmg: 1, range: 4, net: true } },
+  watering_can: { name: 'บัวรดน้ำ', icon: '🚿', value: 6, tool: { gather: 0.5, dmg: 3, range: 2, water: true } },
   rod: { name: 'เบ็ดตกปลาพื้นฐาน', icon: '🎣', value: 6, tool: { gather: 1, dmg: 4, range: 2, rod: true } },
   seeds_corn: { name: 'เมล็ดข้าวโพด', icon: '🌰', value: 2 },
   seeds_veg: { name: 'เมล็ดผักบุ้ง', icon: '🫘', value: 2 },
@@ -146,6 +167,52 @@ export const ITEMS = {
   watchtower: { name: 'หอสังเกตการณ์', icon: '🗼', value: 25, place: 'watchtower' },
   shelter: { name: 'เพิงพัก', icon: '⛺', value: 20, place: 'shelter' },
 };
+
+// ---------- ของสุ่มสเตตัส (ความหายาก) ----------
+// ไอเท็มสวมใส่/เครื่องมือ/อุปกรณ์สัตว์ที่ได้จากการคราฟท์หรือดรอป อาจได้ระดับพิเศษ เก็บเป็นคีย์ "ชื่อ~ระดับเลขสุ่ม" เช่น spear~R7
+// ระดับสูงขึ้น = ค่าพลังคูณเพิ่ม + โบนัสสุ่ม 1 อย่าง · คีย์เดียวกันได้ค่าเดิมเสมอ (ทุกเครื่องคำนวณตรงกัน)
+export const RARITY = {
+  U: { name: 'ดี', mul: 1.12, color: '#52b788' }, R: { name: 'หายาก', mul: 1.25, color: '#4cc9f0' },
+  E: { name: 'มหากาพย์', mul: 1.45, color: '#c77dff' }, L: { name: 'ตำนาน', mul: 1.7, color: '#ffd60a' },
+};
+export const baseOf = (k) => String(k).split('~')[0];
+const SCALE = { tool: ['dmg', 'gather'], wear: ['def', 'bite', 'spd', 'stam', 'block', 'gather'], petGear: ['atk', 'def', 'hp'] };
+const BONUS = {
+  tool: [['dmg', 0.12, 'ดาเมจ'], ['range', 0.35, 'ระยะ'], ['gather', 0.6, 'เก็บของ']],
+  wear: [['def', 0.03, 'ลดดาเมจ'], ['spd', 0.03, 'ความเร็ว'], ['stam', 0.1, 'สตามิน่า'], ['bite', 0.05, 'กันติดเชื้อ']],
+  petGear: [['atk', 3, 'โจมตี'], ['def', 0.04, 'ป้องกัน'], ['hp', 8, 'พลังชีวิต']],
+};
+const variantCache = new Map();
+function makeVariant(key) {
+  if (variantCache.has(key)) return variantCache.get(key);
+  const [base, code] = key.split('~'), B = RAW_ITEMS[base], R = code && RARITY[code[0]];
+  if (!B || !R) return undefined;
+  const seed = parseInt(code.slice(1), 36) || 0, it = JSON.parse(JSON.stringify(B));
+  it.base = base; it.rarity = code[0]; it.name = `${B.name} ★${R.name}`; it.value = Math.round((B.value || 1) * R.mul * 1.6);
+  for (const part of ['tool', 'wear', 'petGear']) {
+    if (!it[part]) continue;
+    for (const f of SCALE[part]) if (typeof it[part][f] === 'number' && it[part][f] > 0) it[part][f] = +(it[part][f] * R.mul).toFixed(3);
+    const [f, amt, label] = BONUS[part][seed % BONUS[part].length], extra = +(amt * (part === 'tool' && f === 'dmg' ? (B.tool.dmg || 6) : 1) * (1 + 'URE L'.indexOf(code[0]) * 0.5)).toFixed(3);
+    it[part][f] = +((it[part][f] || 0) + extra).toFixed(3); it.bonus = `+${label}`;
+  }
+  variantCache.set(key, it); return it;
+}
+export const ITEMS = new Proxy(RAW_ITEMS, {
+  get: (t, k) => (typeof k === 'string' && k.includes('~') ? makeVariant(k) : t[k]),
+  has: (t, k) => (typeof k === 'string' && k.includes('~') ? !!makeVariant(k) : k in t),
+});
+// สุ่มความหายากให้ของที่ได้ (luck = โอกาสเพิ่ม เช่น กล่องหายาก/บอส)
+export function rollVariant(k, rand, luck = 0) {
+  const it = RAW_ITEMS[k]; if (!it || !(it.tool || it.wear || it.petGear) || it.quest) return k;
+  const r = rand() * (1 - luck);
+  const tier = r < 0.01 ? 'L' : r < 0.05 ? 'E' : r < 0.15 ? 'R' : r < 0.38 ? 'U' : null;
+  return tier ? `${k}~${tier}${Math.floor(rand() * 1296).toString(36)}` : k;
+}
+export function rollVariants(give, rand, luck = 0) {
+  const out = {};
+  for (const [k, q] of Object.entries(give || {})) for (let i = 0; i < q; i++) { const v = rollVariant(k, rand, luck); out[v] = (out[v] || 0) + 1; }
+  return out;
+}
 
 // station: 'fire' = ต้องอยู่ใกล้กองไฟ
 export const RECIPES = [
@@ -195,6 +262,28 @@ export const RECIPES = [
   { out: 'drone', need: { scrap: 8, fiber: 4, zipper: 2 }, skill: 'tech', lvl: 3, job: 'it', label: 'โดรนสอดแนม (กดใช้: ส่องทุกอย่างรอบตัว 150 หน่วย)' },
   { out: 'prayer_beads', need: { wood: 2, fiber: 3 }, skill: 'spirit', lvl: 1, job: 'monk', label: 'ลูกประคำ (สวดมนต์ให้กำลังใจทุกคนรอบตัว)' },
   { out: 'amulet', need: { rag: 2, herb: 1 }, skill: 'spirit', lvl: 1, job: 'monk', label: 'ผ้ายันต์กำลังใจ (หายตื่นตระหนก + กำลังใจ 5 นาที)' },
+  { out: 'bone_spear', need: { dino_bone: 2, wood: 2, fiber: 2 }, skill: 'crafting', lvl: 2, label: 'หอกกระดูกไดโน (ดาเมจสูง)' },
+  // อาวุธ
+  { out: 'club', need: { wood: 3 }, skill: 'crafting', lvl: 1, label: 'กระบองไม้' },
+  { out: 'nail_bat', need: { wood: 3, scrap: 3 }, skill: 'crafting', lvl: 2, label: 'ไม้ตอกตะปู' },
+  { out: 'sickle', need: { scrap: 2, wood: 1 }, skill: 'crafting', lvl: 1, label: 'เคียว (เก็บพืช/หญ้าเร็ว)' },
+  { out: 'iron_sword', need: { scrap: 8, hide: 1, wood: 1 }, skill: 'crafting', lvl: 4, station: 'fire', label: 'ดาบเหล็ก (ตีที่กองไฟ)' },
+  { out: 'slingshot', need: { wood: 1, hide: 1, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'หนังสติ๊ก (ยิงด้วยก้อนกรวด)' },
+  { out: 'bow', need: { wood: 3, fiber: 5 }, skill: 'crafting', lvl: 2, label: 'ธนูไม้ไผ่ (ยิงไกล)' },
+  { out: 'arrow', need: { twig: 2, fiber: 1, pebble: 1 }, skill: 'crafting', lvl: 1, qty: 5, label: 'ลูกธนู ×5' },
+  { out: 'crossbow', need: { scrap: 8, wood: 3, fiber: 4, zipper: 1 }, skill: 'crafting', lvl: 4, label: 'หน้าไม้เหล็ก (ยิงแรงมาก)' },
+  { out: 'bolt', need: { scrap: 1, twig: 2 }, skill: 'crafting', lvl: 3, qty: 4, label: 'ลูกดอกหน้าไม้ ×4' },
+  // ชิ้นส่วนรถ + ประกอบยานพาหนะ
+  { out: 'wheel', need: { scrap: 3, rag: 2 }, skill: 'crafting', lvl: 2, label: 'ล้อรถ' },
+  { out: 'engine', need: { scrap: 10, zipper: 2, fuel: 1 }, skill: 'crafting', lvl: 3, label: 'เครื่องยนต์' },
+  { out: 'chassis', need: { scrap: 8, wood: 4 }, skill: 'crafting', lvl: 2, label: 'โครงรถ' },
+  { out: 'car_seat', need: { cloth: 2, rag: 3 }, skill: 'crafting', lvl: 1, label: 'เบาะรถ' },
+  { out: 'battery_pack', need: { scrap: 3, zipper: 2 }, skill: 'crafting', lvl: 2, label: 'แบตเตอรี่ประกอบ' },
+  { out: 'raft_kit', need: { wood: 6, fiber: 4 }, skill: 'crafting', lvl: 1, label: 'ชุดลำแพไม้ไผ่' },
+  { out: 'bicycle', need: { wheel: 2, wood: 2 }, skill: 'crafting', lvl: 2, label: '🔧 ประกอบจักรยาน (ล้อ 2)' },
+  { out: 'motorbike', need: { wheel: 2, engine: 1, car_seat: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ (ล้อ 2 + เครื่องยนต์ + เบาะ)' },
+  { out: 'pickup', need: { wheel: 4, engine: 1, chassis: 1, car_seat: 1, battery_pack: 1 }, skill: 'crafting', lvl: 4, label: '🔧 ประกอบรถกระบะ (ล้อ 4 + เครื่องยนต์ + โครง + เบาะ + แบต)' },
+  { out: 'raft', need: { raft_kit: 2, fiber: 2 }, skill: 'crafting', lvl: 1, label: '🔧 ประกอบแพ (ชุดลำแพ 2)' },
   { out: 'shield_wood', need: { wood: 4, fiber: 2 }, skill: 'crafting', lvl: 1 },
   { out: 'shield_lid', need: { scrap: 4, rag: 2 }, skill: 'crafting', lvl: 2 },
   { out: 'shield_hide', need: { wood: 3, hide: 3, zipper: 1 }, skill: 'crafting', lvl: 3 },
@@ -243,6 +332,7 @@ export const RECIPES = [
   { out: 'torch', need: { twig: 2, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'คบเพลิง (จากกิ่งไม้)' },
   { out: 'net', need: { fiber: 8, raw_fiber: 2 }, skill: 'crafting', lvl: 2, label: 'แหจับสัตว์ (จับสัตว์ป่ามาเลี้ยง)' },
   { out: 'rod', need: { wood: 1, fiber: 2 }, skill: 'crafting', lvl: 1, label: 'เบ็ดตกปลาพื้นฐาน' },
+  { out: 'watering_can', need: { scrap: 2, bottle: 1 }, skill: 'farming', lvl: 1, label: 'บัวรดน้ำ (รดแปลงผักได้โดยไม่ต้องใช้น้ำขวด)' },
   { out: 'grilled_corn', need: { corn: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
   { out: 'fried_egg', need: { egg: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
   { out: 'stir_veg', need: { veg: 2, herb: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
@@ -287,8 +377,10 @@ export const BASE_SLOTS = 48;
 export const canBuild = (inv) => Object.keys(inv || {}).some((k) => inv[k] > 0 && ITEMS[k]?.builds);
 
 // ---------- จำนวนสัตว์เลี้ยง ----------
-// เริ่มต้นชนิดละ 3 ตัว · มีบ้าน (เตียง) แล้วสร้างบ้านสัตว์เลี้ยง ได้เพิ่ม +2 ตัว/ชนิด ต่อหลัง
-export const PET_BASE = 3, PET_PER_HOUSE = 2;
+// เริ่มต้นชนิดละ 1 ตัว (สุนัข แมว นก) · มีบ้าน (เตียง) + บ้านสัตว์เลี้ยง ได้เพิ่ม +1 ตัว/ชนิด ต่อหลัง · สัตว์ป่าจับด้วยแหได้ 1 ตัว
+// สัตว์ป่าที่จะเกิด: แถวสวนสัตว์เขาเขียวมีไดโนเสาร์หลุดออกมา (ที่อื่นพบได้ยาก)
+export const pickWild = (zoo, r) => (zoo ? (r < 0.3 ? 'raptor' : r < 0.45 ? 'trike' : r < 0.75 ? 'deer' : 'boar') : r < 0.02 ? 'raptor' : r < 0.04 ? 'trike' : r < 0.5 ? 'chicken' : r < 0.8 ? 'boar' : 'deer');
+export const PET_BASE = 1, PET_PER_HOUSE = 1, WILD_PET_MAX = 1;
 export const petCap = (houses, beds) => PET_BASE + (beds > 0 ? houses * PET_PER_HOUSE : 0);
 
 // ---------- อาชีพ (เลือกตอนสร้างตัวละคร) ----------
@@ -319,12 +411,19 @@ export const JOBS = {
   chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
     perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
 };
-export const jobOf = (ch) => (JOBS[ch?.profile?.job] ? ch.profile.job : null);
-// มีความสามารถขั้นที่ tier (0,1,2) หรือยัง
-export function hasPerk(ch, job, tier) {
-  if (jobOf(ch) !== job) return false;
-  const J = JOBS[job]; return skillLevel(ch.skills?.[J.skill]) >= J.perks[tier][0];
-}
+// ---------- สเตตัสสายอาชีพ ----------
+// สร้างตัวละคร: สายอาชีพที่เลือกได้ 5 แต้ม · ทุกเลเวลตัวละครได้ +1 แต้ม เอาไปลงสายไหนก็ได้
+// ความสามารถขั้นที่ 1/2/3 ของแต่ละสาย ปลดล็อกเมื่อสเตตัสสายนั้นถึง 3/8/14 · XP โบนัสเพิ่มตามแต้ม (เต็มที่ 5 แต้ม)
+export const START_PTS = 5, PERK_PTS = [3, 8, 14];
+export const jobPts = (ch) => ch?.jp || (JOBS[ch?.profile?.job] ? { [ch.profile.job]: START_PTS } : {});
+export const charLvl = (ch) => Object.keys(ch?.skills || {}).reduce((s, k) => s + skillLevel(ch.skills[k]) - 1, 0) + 1;
+export const freePts = (ch) => START_PTS + charLvl(ch) - 1 - Object.values(jobPts(ch)).reduce((a, b) => a + b, 0);
+// สายหลัก = สายที่มีแต้มมากที่สุด
+export const jobOf = (ch) => { let best = null, b = 0; for (const [k, v] of Object.entries(jobPts(ch))) if (JOBS[k] && v > b) { b = v; best = k; } return best; };
+// มีความสามารถขั้นที่ tier (0,1,2) ของสายนี้หรือยัง
+export const hasPerk = (ch, job, tier) => (jobPts(ch)[job] || 0) >= PERK_PTS[tier];
+// ตัวคูณประสบการณ์ของทักษะ s จากทุกสายที่ลงแต้มไว้
+export function xpMulOf(ch, s) { let m = 1; for (const [k, v] of Object.entries(jobPts(ch))) { const x = JOBS[k]?.xp?.[s]; if (x) m += (x - 1) * Math.min(1, v / 5); } return m; }
 // ตัวคูณดาเมจ (ใช้ทั้งในเครื่องและฝั่งเซิร์ฟเวอร์ตอนตรวจโกง)
 export const dmgMulOf = (ch) => (1 + (skillLevel(ch.skills?.combat) - 1) * 0.08) * (hasPerk(ch, 'hunter', 2) ? 1.35 : hasPerk(ch, 'hunter', 1) ? 1.2 : 1)
   * (hasPerk(ch, 'athlete', 2) ? 1.15 : 1) * (killPerk(ch, 4) ? 1.15 : killPerk(ch, 0) ? 1.05 : 1);
@@ -406,6 +505,20 @@ export const PET_TYPES = {
   dog: { name: 'สุนัข', foods: ['raw_meat', 'cooked_meat', 'raw_fish', 'canned'], perk: 'ช่วยกัดผู้ติดเชื้อ', base: { hp: 40, atk: 9 } },
   cat: { name: 'แมว', foods: ['raw_fish', 'grilled_fish', 'canned'], perk: 'ล่าหนูนำเนื้อมาให้', base: { hp: 26, atk: 5 } },
   bird: { name: 'นกขุนทอง', foods: ['berry'], perk: 'บินสอดแนม เห็นศัตรูบนแผนที่', base: { hp: 16, atk: 3 } },
+  // สัตว์ป่าที่จับมาเลี้ยงด้วยแห (เลี้ยงได้ 1 ตัว)
+  deer: { name: 'กวาง', foods: ['berry', 'veg', 'corn'], perk: 'ว่องไว: คุณฟื้นสตามิน่าเร็วขึ้นเมื่ออยู่ใกล้', base: { hp: 34, atk: 4 }, wild: true, innate: 'swift' },
+  boar: { name: 'หมูป่า', foods: ['corn', 'veg', 'raw_meat'], perk: 'บึกบึน: พุ่งชนผู้ติดเชื้อและช่วยรับดาเมจแทน', base: { hp: 60, atk: 10 }, wild: true, innate: 'guardian', fight: true },
+  chicken: { name: 'ไก่', foods: ['corn', 'berry', 'seeds_corn'], perk: 'ออกไข่ทุก 3 นาที', base: { hp: 14, atk: 2 }, wild: true },
+  raptor: { name: 'แร็พเตอร์', foods: ['raw_meat', 'raw_fish', 'cooked_meat'], perk: 'นักล่าดึกดำบรรพ์: กัดแรงมาก', base: { hp: 70, atk: 18 }, wild: true, fight: true },
+};
+// สัตว์ป่าในแผนที่ (ใช้ร่วมกันทั้งเครื่องผู้เล่นและเซิร์ฟเวอร์)
+// hostile = ไล่ทำร้ายผู้เล่นในระยะนี้ · angryHit = โกรธเมื่อโดนตี · net = จับด้วยแหได้
+export const WILD = {
+  boar: { name: 'หมูป่า', hp: 35, flee: 6, fleeSpd: 4.5, angryHit: true, dmg: 6, net: true },
+  deer: { name: 'กวาง', hp: 25, flee: 12, fleeSpd: 6.5, net: true },
+  chicken: { name: 'ไก่ป่า', hp: 8, flee: 12, fleeSpd: 3.5, net: true },
+  raptor: { name: 'แร็พเตอร์', hp: 70, hostile: 22, chase: 6.2, dmg: 12, bleed: 0.3, net: true, dino: true },
+  trike: { name: 'ไทรเซอราทอปส์', hp: 170, angryHit: true, chase: 4.2, dmg: 18, flee: 0, dino: true },
 };
 
 // ความสามารถพิเศษของสัตว์เลี้ยง (สุ่มตอนทำให้เชื่อง แต่ละตัวได้ไม่เหมือนกัน)

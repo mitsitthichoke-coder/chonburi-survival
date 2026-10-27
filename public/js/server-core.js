@@ -1,7 +1,7 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS } from './data.js';
+import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild } from './data.js';
 import { relLevel } from './social-core.js';
 import { applyOp, collidersFor, refundFor } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -33,6 +33,48 @@ export class WorldCore {
 
   dirty() { this.onDirty(); }
   pub(p) { return { id: p.id, name: p.name, sex: p.sex, look: p.look, p: p.p, ry: p.ry, anim: p.anim, hp: p.hp, pets: p.pets }; }
+  // ---------- แลกของระหว่างผู้เล่น ----------
+  // ขอแลก → อีกฝ่ายตอบรับ → ใส่ของเสนอทั้งสองฝ่าย → กดยืนยันครบทั้งคู่ → สลับของพร้อมกัน (ถ้าแก้ของ ต้องยืนยันใหม่)
+  tradeOf(id) { for (const t of (this.trades ||= new Map()).values()) if (t.a === id || t.b === id) return t; return null; }
+  tradeSend(t) { for (const [me, them] of [[t.a, t.b], [t.b, t.a]]) this.send(me, { t: 'tradestate', id: t.id, with: them, name: this.players.get(them)?.name || '?', mine: t.offer[me], theirs: t.offer[them], okMine: !!t.ok[me], okTheirs: !!t.ok[them] }); }
+  tradeEnd(t, why) { this.trades.delete(t.id); for (const p of [t.a, t.b]) this.send(p, { t: 'tradeend', why }); }
+  canOffer() { return true; }          // เซิร์ฟเวอร์สาธารณะตรวจของจริงใน server-econ
+  tradeApply(id, take, give) { this.send(id, { t: 'tradedone', take, give }); } // เล่นผ่านลิงก์: แต่ละเครื่องปรับกระเป๋าเอง
+  tradeMsg(id, m) {
+    const me = this.players.get(id); this.trades ||= new Map();
+    const say = (who, text) => this.send(who, { t: 'friendmsg', text });
+    let t = this.tradeOf(id);
+    switch (m.a) {
+      case 'req': {
+        const o = this.players.get(String(m.to)); if (!o || o.id === id) return;
+        if (t || this.tradeOf(o.id)) return say(id, 'มีคนกำลังแลกของอยู่ ลองใหม่ภายหลัง');
+        if (Math.hypot(o.p[0] - me.p[0], o.p[2] - me.p[2]) > 12) return say(id, 'ต้องอยู่ใกล้กัน (ไม่เกิน ~600 ม.) จึงจะแลกของได้');
+        (this.tradeReq ||= new Map()).set(o.id + '|' + id, Date.now());
+        this.send(o.id, { t: 'tradereq', from: id, name: me.name }); return say(id, `📨 ส่งคำขอแลกของถึง ${o.name} แล้ว`);
+      }
+      case 'accept': {
+        const from = String(m.to), k = id + '|' + from, at = this.tradeReq?.get(k); if (!at || Date.now() - at > 60000) return say(id, 'คำขอหมดอายุแล้ว');
+        this.tradeReq.delete(k); if (t || this.tradeOf(from) || !this.players.get(from)) return;
+        t = { id: 'tr' + (this.reqSeq++), a: from, b: id, offer: { [from]: {}, [id]: {} }, ok: {} }; this.trades.set(t.id, t); return this.tradeSend(t);
+      }
+      case 'decline': { this.tradeReq?.delete(id + '|' + m.to); return say(String(m.to), `${me.name} ไม่สะดวกแลกของตอนนี้`); }
+      case 'offer': {
+        if (!t) return;
+        const items = {}; for (const [k, q] of Object.entries(m.items || {}).slice(0, 12)) { const n = Math.floor(+q); if (n > 0 && n < 10000) items[String(k).slice(0, 40)] = n; }
+        if (!this.canOffer(id, items)) return say(id, 'ของที่เสนอไม่ครบตามที่มีในกระเป๋า');
+        t.offer[id] = items; t.ok = {}; return this.tradeSend(t);
+      }
+      case 'ok': {
+        if (!t) return; t.ok[id] = true;
+        if (!(t.ok[t.a] && t.ok[t.b])) return this.tradeSend(t);
+        if (!this.canOffer(t.a, t.offer[t.a]) || !this.canOffer(t.b, t.offer[t.b])) return this.tradeEnd(t, 'ของของอีกฝ่ายไม่ครบ ยกเลิกการแลก');
+        const A = t.offer[t.a], Bo = t.offer[t.b];
+        this.tradeApply(t.a, A, Bo); this.tradeApply(t.b, Bo, A);
+        return this.tradeEnd(t, '🤝 แลกของสำเร็จ!');
+      }
+      case 'cancel': if (t) this.tradeEnd(t, `${me.name} ยกเลิกการแลกของ`); return;
+    }
+  }
   // ---------- ระบบเพื่อน ----------
   friendIds(id) { const out = []; for (const k of Object.keys(this.db.friends ||= {})) { const [a, b] = k.split('|'); if (a === id) out.push(b); else if (b === id) out.push(a); } return out; }
   isFriend(a, b) { return !!this.db.friends?.[pairKey(a, b)]; }
@@ -99,6 +141,7 @@ export class WorldCore {
   }
   leave(id) {
     if (!this.players.delete(id)) return;
+    { const t = this.tradeOf?.(id); if (t) this.tradeEnd(t, 'อีกฝ่ายออกจากเกม ยกเลิกการแลกของ'); }
     for (const f of this.friendIds(id)) this.sendFriends(f);
     if (this.relayState) this.broadcast({ t: 'leave', id });
   }
@@ -152,6 +195,7 @@ export class WorldCore {
       case 'npcfollow': { const f = this.fauna.get(100000 + (m.idx | 0)); if (f) { f.follow = m.on ? id : null; if (!m.on) f.home = { x: f.x, z: f.z }; } break; }
       case 'music': this.broadcast({ t: 'music', id, x: +m.x || 0, z: +m.z || 0, p: Math.min(40, Math.max(0, +m.p || 0)), heal: m.heal ? 1 : 0, mo: m.mo ? 1 : 0 }, id); break;
       case 'friend': return this.friendMsg(id, m);
+      case 'trade': return this.tradeMsg(id, m);
       case 'horde': this.horde(m.x, m.z, Math.min(8, m.n | 0), id); break;
       case 'act': this.act(me, m); break;
       case 'respond': this.respond(me, m); break;
@@ -243,14 +287,14 @@ export class WorldCore {
 
   // ---------- สัตว์ป่า / สัตว์จรจัด / NPC ----------
   spawnFauna(k, x, z) {
-    const hp = { boar: 35, deer: 25, chicken: 8, dog: 30, cat: 20, bird: 10 }[k];
+    const hp = WILD[k]?.hp ?? { dog: 30, cat: 20, bird: 10 }[k];
     const f = { id: this.fseq++, k, x, z, ry: Math.random() * 6.28, spd: 0, hp, t: 0, tame: {}, angry: 0 };
     this.fauna.set(f.id, f); return f;
   }
   damageFauna(fid, dmg, by) {
     const f = this.fauna.get(fid); if (!f || f.k === 'npc') return;
     f.hp -= dmg; f.alert = 8;
-    if (f.k === 'boar') { f.angry = 12; f.angryId = by; }
+    if (WILD[f.k]?.angryHit || WILD[f.k]?.hostile) { f.angry = 12; f.angryId = by; }
     if (f.hp <= 0) { this.fauna.delete(fid); this.broadcast({ t: 'mdie', id: fid, by, k: f.k }); }
   }
   moveMob(m, tx, tz, spd, dt, away = false, canSwim = false) {
@@ -295,18 +339,20 @@ export class WorldCore {
         else this.wander(m, m.x, m.z, 8, m.k === 'bird' ? 1.8 : 1.2, dt, m.k === 'bird');
         continue;
       }
-      // สัตว์ป่า
+      // สัตว์ป่า · ไดโนเสาร์กินเนื้อไล่ล่าผู้เล่นที่เข้าใกล้
+      const W = WILD[m.k] || {};
+      if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0)) { m.angry = 6; m.angryId = P.id; }
       if (m.angry > 0) {
         m.angry -= dt;
         const T = this.players.get(m.angryId);
         if (T && T.p) {
-          const d = this.moveMob(m, T.p[0], T.p[2], 4.2, dt);
-          if (d < 1.6 && m.cd <= 0 && !T.safe && (T.p[1] ?? 0) - heightAt(m.x, m.z) < 2.2) { m.cd = 1.5; this.send(T.id, { t: 'zhit', dmg: 6, bleed: 0.15, infect: 0, src: 'หมูป่า' }); }
+          const d = this.moveMob(m, T.p[0], T.p[2], W.chase || 4.2, dt);
+          if (d < (W.dino ? 2.2 : 1.6) && m.cd <= 0 && !T.safe && (T.p[1] ?? 0) - heightAt(m.x, m.z) < 2.2) { m.cd = 1.5; this.send(T.id, { t: 'zhit', dmg: W.dmg || 6, bleed: W.bleed || 0.15, infect: 0, src: W.name || 'สัตว์ป่า' }); }
           continue;
         }
       }
-      const flee = { boar: 6, deer: 12, chicken: 12 }[m.k] || 10, fleeSpd = { boar: 4.5, deer: 6.5, chicken: 3.5 }[m.k] || 4;
-      if (dP < flee || m.alert > 0) { if (m.alert > 0) m.alert -= dt; this.moveMob(m, P.p[0], P.p[2], fleeSpd, dt, true); }
+      const flee = W.flee ?? 10, fleeSpd = W.fleeSpd || 4;
+      if ((flee && dP < flee) || (m.alert > 0 && flee)) { if (m.alert > 0) m.alert -= dt; this.moveMob(m, P.p[0], P.p[2], fleeSpd, dt, true); }
       else this.wander(m, m.x, m.z, 10, m.k === 'chicken' ? 0.8 : 1.3, dt);
     }
   }
@@ -319,11 +365,11 @@ export class WorldCore {
       const [px, , pz] = p.p;
       const town = TOWNS.find((t) => (t.x - px) ** 2 + (t.z - pz) ** 2 < (t.r * 1.6) ** 2);
       let an = 0, st = 0;
-      for (const m of this.fauna.values()) { if (Math.hypot(m.x - px, m.z - pz) > 140) continue; if (['boar', 'deer', 'chicken'].includes(m.k)) an++; else if (m.k !== 'npc') st++; }
+      for (const m of this.fauna.values()) { if (Math.hypot(m.x - px, m.z - pz) > 140) continue; if (WILD[m.k]) an++; else if (m.k !== 'npc') st++; }
       const spot = (a0, a1) => { for (let i = 0; i < 6; i++) { const a = Math.random() * Math.PI * 2, r = a0 + Math.random() * (a1 - a0), x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r; if (this.validSpot(x, z)) return [x, z]; } return null; };
       if (an < (town ? 2 : 7)) {
         const s = spot(35, 100);
-        if (s) { const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random(); this.spawnFauna(zoo && r < 0.5 ? 'deer' : r < 0.55 ? 'chicken' : r < 0.85 ? 'boar' : 'deer', ...s); }
+        if (s) { const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random(); this.spawnFauna(pickWild(zoo, r), ...s); }
       }
       if (town && st < 3) { const s = spot(20, 50); if (s) this.spawnFauna(['dog', 'cat', 'bird'][Math.floor(Math.random() * 3)], ...s); }
     }
@@ -457,7 +503,7 @@ export class WorldCore {
     this.tMs -= dt;
     if (this.tMs <= 0) {
       this.tMs = 0.25;
-      const K = { boar: 0, deer: 1, chicken: 2, dog: 3, cat: 4, bird: 5, npc: 6 };
+      const K = { boar: 0, deer: 1, chicken: 2, dog: 3, cat: 4, bird: 5, npc: 6, raptor: 7, trike: 8 };
       const m = [];
       for (const f of this.fauna.values()) m.push(f.k === 'npc' ? f.idx : f.id, K[f.k], Math.round(f.x * 10), Math.round(f.z * 10), Math.round(f.ry * 100), Math.round(f.spd * 10));
       this.broadcast({ t: 'ms', m });

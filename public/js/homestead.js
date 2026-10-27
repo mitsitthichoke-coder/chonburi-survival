@@ -74,6 +74,7 @@ export class Homestead {
     if (!s.wt) {
       const w = ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
       if (g.weather.rain) return { text: `🌧️ ฝนรดน้ำให้${C.name}แล้ว (${Math.floor(p * 100)}%)`, act: () => this.op(s, { o: 'water' }) };
+      if (ITEMS[g.equipped]?.tool?.water) return { text: `🚿 รดน้ำ${C.name}ด้วยบัว (${Math.floor(p * 100)}%)`, act: () => { g.atkT = 1; g.player.mesh.userData.atkStyle = 'pour'; g.sfx.play('splash'); this.op(s, { o: 'water' }); } };
       return { text: w ? `💧 รดน้ำ${C.name} (${Math.floor(p * 100)}%)` : `${C.name} ${Math.floor(p * 100)}% — ต้องมีน้ำ 1 ขวดเพื่อรดน้ำ (โตเร็วขึ้น ~3 เท่า)`, act: () => { if (w) this.op(s, { o: 'water' }); } };
     }
     const left = (1 - p) * C.grow;

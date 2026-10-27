@@ -5,13 +5,13 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
+import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
 import { Boxes } from './boxes.js';
-import { jobKit } from './economy.js';
-const jobOfMe = (g) => g.profile?.job;
+import { jobKit, applyResult, REPAIR_COST } from './economy.js';
+const jobOfMe = (g) => jobOf(g.ch);
 import { Sfx } from './audio.js';
 import { TouchControls, isTouchDevice } from './touch.js';
 import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, equipPet } from './pets.js';
@@ -43,6 +43,7 @@ export class Game {
     this.builder = new Builder(this); this.fishing = new Fishing(this); this.home = new Homestead(this); this.vehicle = null;
     this.touch = this.lowSpec ? new TouchControls(this) : null;
     this.auth = new Authority(this);
+    this.lefty = this.profile.hand === 'l';
     if (!this.auth.server) { this.load(); const k = jobKit(this.auth.ch); if (k) setTimeout(() => this.onEcon(k, null), 1500); } // โหมดเซิร์ฟเวอร์: ตัวละครโหลดจากเซิร์ฟเวอร์
     this.ents.syncChildren(this.social.children);
     for (const p of this.pets) this.ents.spawnPet(p);
@@ -116,7 +117,7 @@ export class Game {
   maxStamina() { return maxStamOf(this.ch) - (this.social?.preg[this.id] ? 20 : 0); }
   dmgMul() { return dmgMulOf(this.ch) * (this.stats.stress >= 85 ? 0.85 : 1) * (this.moraleT > 0 ? 1.1 : 1); }
   // ผู้ติดเชื้อมองเห็นได้ไกลแค่ไหน (1 = ปกติ)
-  stealthMul() { return (this.hideT > 0 ? 0.1 : 1) * [1, 0.6, 0.35][this.stance] * (killPerk(this.ch, 1) ? 0.9 : 1) * (this.wear.body === 'hunter_cloak' ? 0.85 : 1); }
+  stealthMul() { return (this.hideT > 0 ? 0.1 : 1) * [1, 0.6, 0.35][this.stance] * (killPerk(this.ch, 1) ? 0.9 : 1) * (String(this.wear.body).split('~')[0] === 'hunter_cloak' ? 0.85 : 1); }
   setStance(v) {
     if (this.vehicle || this.player.climb || this.player.swim) v = 0;
     if (v === this.stance) return;
@@ -164,6 +165,25 @@ export class Game {
     else { let j = this.hotbar.indexOf(null); if (j < 0) j = 5; this.hotbar[j] = k; }
   }
 
+  // เรียกสัตว์เลี้ยงขึ้นมาอยู่บนที่สูงด้วยกัน (หลังคา หอสังเกตการณ์)
+  callPetsUp() {
+    const P = this.player.pos;
+    if (P.y - heightAt(P.x, P.z) < 1.2) return this.ui.toast('ตอนนี้คุณอยู่บนพื้นอยู่แล้ว — ใช้คำสั่งนี้ตอนปีนขึ้นที่สูง', 'warn');
+    const fol = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead && !e.pet.stay && !e.pet.home && !(e.pet.down > 0));
+    if (!fol.length) return this.ui.toast('ไม่มีสัตว์เลี้ยงที่เดินตามอยู่', 'warn');
+    this.petsUp = true; for (const e of fol) e.pos.set(P.x, P.y, P.z);
+    this.ui.toast(`⬆️ เรียก${fol.map((e) => e.pet.name).join(', ')}ขึ้นมาอยู่ด้วยกันแล้ว`);
+  }
+  // ลูกธนู/กระสุนบินไปข้างหน้า (แค่ภาพ)
+  fireProjectile(dir, dist, ammo) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, ammo === 'pebble' ? 0.08 : 0.55), new THREE.MeshBasicMaterial({ color: ammo === 'pebble' ? '#8d8d8d' : '#d4a373' }));
+    const P = this.player.pos; m.position.set(P.x + dir.x * 0.6, P.y + 1.45, P.z + dir.z * 0.6); m.rotation.y = Math.atan2(dir.x, dir.z); this.scene.add(m);
+    const t0 = performance.now(), dur = Math.min(400, dist * 18), from = m.position.clone();
+    const step = () => { const k = (performance.now() - t0) / dur; if (k >= 1) return this.scene.remove(m); m.position.copy(from).addScaledVector(dir, dist * k); m.position.y -= k * k * 0.3; requestAnimationFrame(step); };
+    requestAnimationFrame(step); this.sfx.play('swing');
+  }
+  // มือข้างถนัด: ถืออาวุธข้างที่ถนัดได้พลัง +15% ข้างไม่ถนัด -10%
+  handMul() { const dom = this.profile.hand === 'l' ? 'l' : 'r', using = this.lefty ? 'l' : 'r'; return dom === using ? 1.15 : 0.9; }
   holdItem(k) { return this.auth.do('hold', { k: k || null }); }
   setLefty(v) { return this.auth.do('hands', { lefty: !!v }); }
   useItem(k) {
@@ -249,6 +269,7 @@ export class Game {
     if (r.boxOpen) { this.sfx.play('loot'); this.boxUI.slow = 1; }
     if (r.quest !== undefined || r.questMsg) this.quest.onStep(r.questMsg);
     if (r.kills) { const k = this.stats.kills; for (const [n, t] of KILL_PERKS) if (k === n) { this.sfx.play('quest'); this.ui.toast(`🏅 กำจัดผู้ติดเชื้อครบ ${n} ตัว! ปลดล็อก: ${t}`, 'level'); } }
+    if (r.levelUp?.length) this.ui.toast(`🎯 เลเวลตัวละครขึ้น! มีแต้มสเตตัสว่าง ${freePts(this.ch)} แต้ม — กด I แล้วเลือกลงสายอาชีพ`, 'level');
     for (const [s, l] of r.levelUp || []) { this.sfx.play('level'); this.ui.toast(`⭐ ทักษะ "${SKILLS[s]}" เลื่อนเป็น Lv ${l}!`, 'level'); }
     this.ui.refreshPanels();
   }
@@ -261,6 +282,8 @@ export class Game {
     if (this.equipped !== c.equipped || !!this.lefty !== !!c.lefty) { this.equipped = c.equipped; this.lefty = !!c.lefty; setHeldTool(this.player.mesh, this.equipped, this.lefty); }
     if (c.quest) this.quest.step = c.quest.step;
     if (c.boxes) this.boxes = c.boxes;
+    if (c.jp) this.jp = c.jp;
+    if (c.trade) this.trade = c.trade;
     if (c.kills !== undefined) this.stats.kills = c.kills;
     for (const sp of c.pets || []) {
       const p = this.pets.find((x) => x.id === sp.id);
@@ -365,13 +388,19 @@ export class Game {
     }
     const bx = this.boxUI.prompt(P); if (bx) return bx;
     const l = this.world.nearLoot(P.x, P.z, 3.6).filter((x) => x.kind === 'car' || Math.hypot(x.x - P.x, x.z - P.z) < 2.6)[0]; // รถคันยาว ค้นได้จากรอบคัน
-    if (l) return { type: 'loot', l, text: l.kind === 'car' ? '🚗 ค้นรถร้าง' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
+    const sc = !l && this.world.nearSearchedCar(P.x, P.z, 3.6);
+    if (sc) {
+      // รถที่ค้นไปแล้ว: ซ่อมให้ขับได้ (ถ้ามีวัสดุ)
+      const C = hasPerk(this.ch, 'mechanic', 0) ? REPAIR_COST.mechanic : REPAIR_COST.normal, ok = Object.entries(C).every(([k, q]) => this.hasItem(k, q));
+      return { type: 'quest', q: { act: () => this.auth.do('repaircar', { id: sc.id }) }, text: `🔧 ซ่อมรถร้างให้ขับได้ (${Object.entries(C).map(([k, q]) => `${ITEMS[k].icon}${this.inv[k] || 0}/${q}`).join(' ')})${ok ? '' : ' — วัสดุไม่พอ'}` };
+    }
+    if (l) return { type: 'loot', l, text: l.kind === 'car' ? '🚗 ค้นรถร้าง (ค้นแล้วซ่อมให้ขับได้)' : '🟫 ค้นกล่องเสบียง (ค้นได้เลย)' };
     const sh = this.world.nearStructure(P.x, P.z, 'shelter', 3);
     if (sh) return { type: 'shelter', s: sh, text: this.isNight() && !this.net.online ? 'นอนหลับถึงเช้า' : 'พักผ่อน (ตั้งจุดเกิด)' };
     if (ITEMS[this.equipped]?.tool?.rod && this.fishing.spot()) return { type: 'cast', text: '🎣 เหวี่ยงเบ็ดตกปลา' };
     const f = this.facingPoint(1.6);
     const w = waterAt(f.x, f.z) || waterAt(P.x, P.z);
-    if (w) return { type: 'water', w, text: w.fresh ? (this.hasItem('bottle') ? 'ตักน้ำใส่ขวด (น้ำดิบ)' : 'ดื่มน้ำจากอ่าง (เสี่ยง)') : this.equipped === 'spear' ? 'แทงปลา' : 'น้ำทะเลดื่มไม่ได้' };
+    if (w) return { type: 'water', w, text: w.fresh ? (this.hasItem('bottle') ? 'ตักน้ำใส่ขวด (น้ำดิบ)' : 'ดื่มน้ำจากอ่าง (เสี่ยง)') : ITEMS[this.equipped]?.tool?.fish ? 'แทงปลา' : 'น้ำทะเลดื่มไม่ได้' };
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
@@ -403,7 +432,7 @@ export class Game {
         return this.ui.toast('พักผ่อนแล้ว — ตั้งจุดเกิดใหม่ที่เพิงนี้');
       case 'water':
         if (!t.w.fresh) {
-          if (this.equipped === 'spear') return this.auth.do('spearfish');
+          if (ITEMS[this.equipped]?.tool?.fish) return this.auth.do('spearfish');
           return this.ui.toast('น้ำทะเลเค็ม ดื่มแล้วจะยิ่งกระหาย — หาอ่างเก็บน้ำหรือมะพร้าว', 'warn');
         }
         if (this.hasItem('bottle')) this.auth.do('fill', { kind: 'fresh' });
@@ -457,14 +486,31 @@ export class Game {
     this.atkCd = 0.55; this.atkT = 1; s.stamina -= 5; this.sfx.play('swing');
     this.player.ry = this.camYaw + Math.PI;
     const dir = new THREE.Vector3(Math.sin(this.player.ry), 0, Math.cos(this.player.ry));
-    const dmg = (tool ? tool.dmg : 6) * this.dmgMul();
+    // อาวุธยิงไกล: ยิงเป้าที่อยู่ในแนวเล็งใกล้สุด ใช้กระสุน 1 นัด
+    if (tool?.ranged) {
+      if (!this.hasItem(tool.ammo)) return this.ui.toast(`ไม่มี${ITEMS[tool.ammo].icon} ${ITEMS[tool.ammo].name} — ประดิษฐ์ในแท็บกระเป๋า`, 'warn');
+      this.auth.do('shoot', {}); this.atkCd = 0.7;
+      let best = null, bd = tool.range;
+      for (const e of this.ents.list) { if (e.dead || !(e.kind === 'zombie' || e.kind === 'animal')) continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.93) { bd = d; best = e; } }
+      this.fireProjectile(dir, best ? bd : tool.range, tool.ammo);
+      if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, tool.dmg * this.dmgMul() * this.handMul(), this.player.pos); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
+      return;
+    }
+    // แห: โยนใส่สัตว์ป่าตรงหน้าเพื่อจับมาเลี้ยง
+    if (tool?.net) {
+      let best = null, bd = tool.range + 0.5;
+      for (const e of this.ents.list) { if (e.dead || e.kind !== 'animal') continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.3) { bd = d; best = e; } }
+      if (!best) return this.ui.toast('🕸️ ไม่มีสัตว์ป่าตรงหน้า — เล็งไปที่กวาง หมูป่า ไก่ หรือแร็พเตอร์', 'warn');
+      return this.auth.do('capture', { id: best.netId || best.uid });
+    }
+    const dmg = (tool ? tool.dmg : 6) * this.dmgMul() * this.handMul();
     const hit = this.ents.hitInFront(this.player.pos, dir, tool ? tool.range : 2.0, dmg);
     if (hit) { this.sfx.play('hit'); return; }
     const f = this.facingPoint(1.3);
     const r = this.world.nearRes(f.x, f.z, 2.0)[0];
     if (r) {
       this.harvest(r, !tool);
-    } else if (this.equipped === 'spear' && waterAt(f.x, f.z)) this.interact();
+    } else if (ITEMS[this.equipped]?.tool?.fish && waterAt(f.x, f.z)) this.interact();
   }
 
   sendChat(text) {
@@ -496,6 +542,7 @@ export class Game {
       if (k === 'enter') { this.ui.chatting = true; document.exitPointerLock?.(); document.getElementById('chat-input').focus(); e.preventDefault(); return; }
       if (k === 'r' && !e.repeat) return this.ui.togglePanel('rel');
       if (k === 'k' && !e.repeat) return this.ui.togglePanel('char');
+      if (k === 'g' && !e.repeat && !this.ui.open) return this.callPetsUp();
       if (k === 'control' && !e.repeat && !this.ui.open) { e.preventDefault(); return this.setStance((this.stance + 1) % 3); }
       if (k === 'i' && !e.repeat) return this.ui.togglePanel('equip');
       if (k === 'p' && !e.repeat) return this.ui.togglePanel('pets');
@@ -557,6 +604,10 @@ export class Game {
         case 'announce': this.onAnnounce(m); break;
         case 'friends': this.friends = m.list || []; this.friendReqs = m.reqs || []; if (this.ui.open === 'panel' && this.ui.tab === 'rel') this.ui.refreshPanels(); break;
         case 'friendmsg': this.ui.toast(m.text); break;
+        case 'tradereq': this.sfx.play('click'); this.ui.confirm(`🔄 ${m.name} ขอแลกของกับคุณ ตกลงไหม?`, (ok) => this.net.send({ t: 'trade', a: ok ? 'accept' : 'decline', to: m.from })); break;
+        case 'tradestate': this.tradeSt = m; this.ui.openTrade(); break;
+        case 'tradeend': this.tradeSt = null; this.ui.toast(m.why); if (this.ui.tab === 'trade') this.ui.closeAll(); break;
+        case 'tradedone': if (!this.auth.server) this.onEcon(applyResult(this.auth.ch, { take: m.take, give: m.give }), null); break;
         case 'friendreq':
           this.sfx.play('love'); this.ui.chat('', `📨 ${m.name} ขอเป็นเพื่อนกับคุณ (ตอบได้ในแท็บ 💞 ความสัมพันธ์)`, true);
           this.ui.confirm(`📨 ${m.name} ขอเป็นเพื่อนกับคุณ ตอบรับไหม?`, (ok) => this.net.send({ t: 'friend', a: ok ? 'accept' : 'decline', to: m.from }));
@@ -582,7 +633,7 @@ export class Game {
       return this.net.send({ t: 'csave', stats: this.stats, hotbar: this.hotbar, social: this.social.toJSON(), pets: this.pets.map((p) => ({ id: p.id, hp: p.hp, xp: p.xp, loyal: p.loyal, stay: p.stay, home: p.home, down: p.down, name: p.name })) });
     }
     const d = {
-      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, trade: this.trade, skills: this.skills,
+      id: this.id, profile: this.profile, stats: this.stats, inv: this.inv, hotbar: this.hotbar, equipped: this.equipped, lefty: this.lefty, boxes: this.boxes, jobKit: this.jobKit, trade: this.trade, jp: this.jp, skills: this.skills,
       pets: this.pets, wear: this.wear, pos: this.player.pos.toArray(), spawn: this.spawnPoint, social: this.social.toJSON(), quest: this.quest.toJSON(),
     };
     if (!this.net.online) Object.assign(d, {
@@ -612,7 +663,7 @@ export class Game {
     // เซฟเก่า: เสื้อเกราะผ้าเคยใส่อัตโนมัติจากกระเป๋า → สวมให้เลย
     if (!this.wear.body && this.inv.cloth_armor) { this.removeItem('cloth_armor'); this.wear.body = 'cloth_armor'; }
     setOutfit(this.player.mesh, this.wear, ITEMS);
-    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; this.trade = d.trade || {}; setHeldTool(this.player.mesh, this.equipped, this.lefty);
+    this.pets = (d.pets || []).map(ensurePet); this.spawnPoint = d.spawn || this.spawnPoint; this.equipped = d.equipped; this.lefty = !!d.lefty; this.boxes = d.boxes || {}; this.jobKit = d.jobKit ?? null; this.trade = d.trade || {}; this.jp = d.jp || null; setHeldTool(this.player.mesh, this.equipped, this.lefty);
     if (d.pos) this.player.pos.fromArray(d.pos);
     this.social.load(d.social);
     this.quest.load(d.quest);
@@ -776,7 +827,7 @@ export class Game {
   }
   // เล่นดนตรี (กีตาร์): ลดความเครียดตัวเองและคนรอบข้าง
   playMusic() {
-    const s = this.stats, ent = jobOfMe(this) === 'entertainer', P = this.player.pos;
+    const s = this.stats, ent = hasPerk(this.ch, 'entertainer', 0), P = this.player.pos;
     const power = ent ? 40 : 15, heal = hasPerk(this.ch, 'entertainer', 2);
     this.sfx.play('music');
     this.onMusic({ p: power, heal, self: true });
@@ -786,7 +837,7 @@ export class Game {
   }
   // สวดมนต์ (ลูกประคำ): ลดความตื่นตระหนก + ให้กำลังใจคนรอบตัว
   chant() {
-    const s = this.stats, P = this.player.pos, monk = jobOfMe(this) === 'monk', heal = hasPerk(this.ch, 'monk', 1);
+    const s = this.stats, P = this.player.pos, monk = hasPerk(this.ch, 'monk', 0), heal = hasPerk(this.ch, 'monk', 1);
     const power = monk ? 40 : 15;
     this.sfx.play('quest');
     this.onMusic({ p: power, heal: false, self: true, mo: monk });
@@ -892,7 +943,7 @@ export class Game {
     if (this.world._rt <= 0) { this.world._rt = 2; this.world.tickRespawn(Date.now()); }
     this.xpT += dt; if (this.xpT > 60) { this.xpT = 0; this.gainXp('survival', 4); for (const p of this.pets) if (!p.home) p.loyal = Math.max(0, p.loyal - (p.gear.neck === 'pet_bandana' ? 1 : 2)); }
     // แมวนำเนื้อมาให้
-    for (const p of this.pets) if (p.type === 'cat' && !p.stay && !p.home) { p.t = (p.t || 0) + dt; if (p.t > 180) { p.t = 0; this.auth.do('petgift', { id: p.id, kind: 'meat' }); } }
+    for (const p of this.pets) if ((p.type === 'cat' || p.type === 'chicken') && !p.stay && !p.home) { p.t = (p.t || 0) + dt; if (p.t > 180) { p.t = 0; this.auth.do('petgift', { id: p.id, kind: p.type === 'cat' ? 'meat' : 'egg' }); } }
     this.radioT -= dt; if (this.radioT <= 0) { this.radioT = 150 + Math.random() * 120; this.ui.chat('', RADIO[Math.floor(Math.random() * RADIO.length)], true); }
     this.saveT -= dt; if (this.saveT <= 0) { this.saveT = 15; this.save(); }
     this.overT = (this.overT || 0) - dt;

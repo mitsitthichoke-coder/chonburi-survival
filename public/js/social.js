@@ -1,5 +1,5 @@
 import { newRel, relLevel, canDo, applyAction, ACTIONS, REL_LEVELS } from './social-core.js';
-import { ITEMS, NPCS, PREG_MS, CHILD_MS, CHILD_NAMES } from './data.js';
+import { ITEMS, NPCS, PREG_MS, CHILD_MS, CHILD_NAMES, jobOf } from './data.js';
 
 const NPC_LINES = [
   ['...คุณเป็นใคร อย่าเข้ามาใกล้นักนะ', 'ระวังตัวด้วย ข้างนอกนั่นอันตราย'],
@@ -27,7 +27,7 @@ export class Social {
   level(id) { return relLevel(this.rels[id]); }
   isNpc(id) { return id.startsWith('npc_'); }
   person(id) {
-    if (id === this.g.id) return { id, sex: this.g.profile.sex, name: this.g.profile.name, pregnant: !!this.preg[id], celibate: this.g.profile.job === 'monk' };
+    if (id === this.g.id) return { id, sex: this.g.profile.sex, name: this.g.profile.name, pregnant: !!this.preg[id], celibate: jobOf(this.g.ch) === 'monk' };
     const n = NPCS.find((x) => x.id === id);
     if (n) return { id, sex: n.sex, name: n.name, pregnant: !!this.preg[id], celibate: !!n.celibate };
     const r = this.g.ents.remotes.get(id);

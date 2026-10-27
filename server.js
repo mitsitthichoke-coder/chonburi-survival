@@ -188,7 +188,7 @@ async function api(req, res, route) {
     if (nameTaken(name, u.id)) return json(409, { error: 'ชื่อตัวละครนี้มีคนใช้แล้ว ลองชื่ออื่น' });
     if (sockets.has(u.id)) return json(409, { error: 'ออกจากเกมก่อนแก้ไขตัวละคร' });
     if (u.char) delete U.byChar[u.char.name.toLowerCase()];
-    u.char = { name, sex: body.sex === 'f' ? 'f' : 'm', look: cleanLook(body.look), job: cleanJob(body.job) };
+    u.char = { name, sex: body.sex === 'f' ? 'f' : 'm', look: cleanLook(body.look), job: cleanJob(body.job), hand: body.hand === 'l' ? 'l' : 'r' };
     U.byChar[name.toLowerCase()] = u.id; store.saveUsers();
     return json(200, { user: publicUser(u) });
   }
@@ -291,8 +291,8 @@ wss.on('connection', (ws, req) => {
       const old = sockets.get(id);
       if (old && old !== ws) { core.leave(id); const oc = core.detachChar(id); if (oc) store.saveChar(id, oc); old.close(4006, 'logged in elsewhere'); }
       sockets.set(id, ws); sockIp.set(id, ip);
-      const C = u.char, ch = store.getChar(id) || newChar({ ...C });
-      ch.profile = { name: C.name, sex: C.sex, look: C.look, job: C.job }; jobKit(ch); ch.muted = !!u.muted;
+      const C = u.char, ch = store.getChar(id) || Object.assign(newChar({ ...C }), { lefty: C.hand === 'l' });
+      ch.profile = { name: C.name, sex: C.sex, look: C.look, job: C.job, hand: C.hand || 'r' }; jobKit(ch); ch.muted = !!u.muted;
       core.attachChar(id, ch);
       core.message(id, { t: 'hello', name: C.name, sex: C.sex, look: C.look, p: ch.pos });
       return;

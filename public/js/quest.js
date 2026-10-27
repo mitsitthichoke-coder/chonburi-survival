@@ -5,7 +5,8 @@ import { inCamp } from './citygen.js';
 
 const S = QUEST_SPOTS;
 const dist = (P, x, z) => Math.hypot(P.x - x, P.z - z);
-const WEAPONS = ['spear', 'stone_axe', 'machete'];
+const WEAPONS = ['spear', 'stone_axe', 'machete', 'steel_axe', 'steel_spear', 'bone_spear', 'king_hammer'];
+const hasWeapon = (g) => Object.keys(g.inv).some((k) => g.inv[k] > 0 && WEAPONS.includes(k.split('~')[0]));
 const DEFEND_SECS = 60;
 
 export const STEPS = [
@@ -90,7 +91,7 @@ export class Quest {
     if (!this.shownIntro && this.step === 0) { this.shownIntro = true; g.ui.chat('', '📻 มีเสียงวิทยุดังมาจากป้อมยามชายหาดบางแสน... (ดูภารกิจที่มุมซ้าย)', true); }
     if (this.done) return;
     const id = this.cur.id;
-    if (id === 'prepare' && WEAPONS.some((w) => g.hasItem(w)) && g.hasItem('clean_water', 2)) this.ask('prepare');
+    if (id === 'prepare' && hasWeapon(g) && g.hasItem('clean_water', 2)) this.ask('prepare');
     if (id === 'tower' && this.defend > 0) {
       if (dist(P, S.tower.x, S.tower.z) < 30 && !g.dead) {
         this.defend -= dt; this.hordeT += dt;
@@ -116,7 +117,7 @@ export class Quest {
       nav = `<div class="qnav"><span class="qarrow" style="transform:rotate(${-ang}rad)">⬆</span> ${esc(t.name)} · ${d >= 1000 ? (d / 1000).toFixed(1) + ' กม.' : Math.round(d) + ' ม.'}</div>`;
     }
     const extra = this.cur.id === 'tower' && this.defend > 0 ? `<div class="qdef">🛡️ ป้องกันเสา: ${Math.ceil(this.defend)} วินาที</div>` : '';
-    const check = this.cur.id === 'prepare' ? `<small>${WEAPONS.some((w) => g.hasItem(w)) ? '✅' : '⬜'} อาวุธ · ${Math.min(2, g.inv.clean_water || 0)}/2 💧 น้ำต้มสุก</small>` : '';
+    const check = this.cur.id === 'prepare' ? `<small>${hasWeapon(g) ? '✅' : '⬜'} อาวุธ · ${Math.min(2, g.inv.clean_water || 0)}/2 💧 น้ำต้มสุก</small>` : '';
     return `<small class="qn">ภารกิจ ${this.step + 1}/${STEPS.length}</small><b>${esc(this.cur.title)}</b><p>${esc(this.cur.desc)}</p>${check}${extra}${nav}`;
   }
 

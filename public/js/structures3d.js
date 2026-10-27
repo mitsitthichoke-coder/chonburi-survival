@@ -1,7 +1,8 @@
 // โมเดล 3D ของชิ้นส่วนบ้าน รั้ว ฟาร์ม เล้าไก่ บ่อปลา และยานพาหนะ
 import * as THREE from 'three';
 import { makeLabel, mat, makeAnimal, animateAnimal, makeCampfire, makeShelter, makeWatchtower } from './models.js';
-import { G, WALL_H, FENCE_H, CROPS, cropProgress, coopEggs, pondFish, baseY, cageCatch, PENS, herdOf, ageStage, penGoods, isPlot, hiveHoney, plotCrop } from './building-core.js';
+import { heightAt } from './terrain.js';
+import { G, WALL_H, FENCE_H, fenceH, CROPS, cropProgress, coopEggs, pondFish, baseY, cageCatch, PENS, herdOf, ageStage, penGoods, isPlot, hiveHoney, plotCrop } from './building-core.js';
 
 const WOOD = '#a0764a', WOOD_D = '#7f5539', PLANK = '#c49a6c', ROOF = '#8d5b3a';
 function box(w, h, d, c, x = 0, y = 0, z = 0, m) {
@@ -59,15 +60,53 @@ export function makeStructureMesh(s) {
     }
     case 'fence': case 'gate': {
       const g = add(edgeGroup(s));
+      const T = s.tier || 0, H = fenceH(s), IRON = '#6c757d', IRON_D = '#495057';
       if (s.type === 'fence') {
-        for (const x of [-1.4, 0, 1.4]) g.add(box(0.14, FENCE_H, 0.14, WOOD_D, x, FENCE_H / 2, 0));
-        for (const y of [0.5, 1.2, FENCE_H - 0.1]) g.add(box(G, 0.12, 0.08, WOOD, 0, y, 0));
+        if (T === 2) {
+          // รั้วเหล็ก: เสาเหล็ก + ซี่ลูกกรงถี่ + ปลายแหลม
+          for (const x of [-1.4, 0, 1.4]) g.add(box(0.16, H, 0.16, IRON_D, x, H / 2, 0));
+          for (const y of [0.25, H - 0.15]) g.add(box(G, 0.1, 0.1, IRON, 0, y, 0));
+          for (let i = 0; i < 11; i++) { const x = -1.35 + i * 0.27; g.add(box(0.05, H, 0.05, IRON, x, H / 2, 0)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), mat('#adb5bd')); tip.position.set(x, H + 0.1, 0); g.add(tip); }
+        } else {
+          for (const x of [-1.4, 0, 1.4]) g.add(box(T ? 0.2 : 0.14, H, T ? 0.2 : 0.14, WOOD_D, x, H / 2, 0));
+          if (T === 1) { for (let i = 0; i < 9; i++) g.add(box(0.3, H - 0.2, 0.06, i % 2 ? WOOD : PLANK, -1.32 + i * 0.33, (H - 0.2) / 2 + 0.1, 0.06)); g.add(box(G, 0.14, 0.1, WOOD_D, 0, 0.6, -0.04), box(G, 0.14, 0.1, WOOD_D, 0, H - 0.4, -0.04)); }
+          else for (const y of [0.5, 1.2, FENCE_H - 0.1]) g.add(box(G, 0.12, 0.08, WOOD, 0, y, 0));
+        }
       } else {
-        g.add(box(0.25, FENCE_H + 0.2, 0.25, WOOD_D, -1.35, (FENCE_H + 0.2) / 2, 0), box(0.25, FENCE_H + 0.2, 0.25, WOOD_D, 1.35, (FENCE_H + 0.2) / 2, 0));
+        const pc = T === 2 ? IRON_D : WOOD_D, bc = T === 2 ? IRON : WOOD;
+        g.add(box(0.25, H + 0.2, 0.25, pc, -1.35, (H + 0.2) / 2, 0), box(0.25, H + 0.2, 0.25, pc, 1.35, (H + 0.2) / 2, 0));
         const hinge = new THREE.Group(); hinge.position.set(-1.2, 0, 0); g.add(hinge);
-        for (const y of [0.4, 1.0, 1.6]) hinge.add(box(2.4, 0.14, 0.08, WOOD, 1.2, y, 0));
-        hinge.add(box(0.1, 1.4, 0.08, WOOD, 0.3, 1.0, 0), box(0.1, 1.4, 0.08, WOOD, 2.1, 1.0, 0));
+        for (const y of T ? [0.4, H / 2, H - 0.3] : [0.4, 1.0, 1.6]) hinge.add(box(2.4, 0.14, 0.08, bc, 1.2, y, 0));
+        hinge.add(box(0.1, H - 0.5, 0.08, bc, 0.3, H / 2, 0), box(0.1, H - 0.5, 0.08, bc, 2.1, H / 2, 0));
+        if (T) for (let i = 0; i < 7; i++) hinge.add(box(T === 2 ? 0.05 : 0.25, H - 0.6, 0.05, T === 2 ? IRON : PLANK, 0.3 + i * 0.3, H / 2, 0.03));
         root.userData.hinge = hinge;
+      }
+      break;
+    }
+    case 'walllamp': {
+      // 🏮 โคมไฟฟืนติดผนัง: ขายึดเหล็ก + ตะเกียงกรอบไม้ + เปลวไฟ (แสงจริงสว่างเฉพาะโคมที่ใกล้ผู้เล่น)
+      const g = add(edgeGroup(s)), side = s.sd > 0 ? 1 : -1;
+      g.add(box(0.5, 0.36, 0.12, WOOD_D, 0, 2.0, side * 0.2), box(0.06, 0.06, 0.32, '#343a40', 0, 2.3, side * 0.33));
+      g.add(box(0.26, 0.04, 0.26, '#343a40', 0, 1.88, side * 0.42), box(0.26, 0.04, 0.26, '#343a40', 0, 2.24, side * 0.42));
+      for (const [x, z] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) g.add(box(0.03, 0.36, 0.03, '#343a40', x, 2.06, side * 0.42 + z));
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 6), new THREE.MeshBasicMaterial({ color: '#ffb347' })); fl.position.set(0, 2.02, side * 0.42); g.add(fl);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.22), new THREE.MeshBasicMaterial({ color: '#ffd166', transparent: true, opacity: 0.35 })); glass.position.set(0, 2.06, side * 0.42); g.add(glass);
+      root.userData.flame = fl; root.userData.lampAt = side;
+      break;
+    }
+    case 'balcony': {
+      // 🌅 ระเบียง: พื้นไม้ยื่นออกจากบ้าน + ราวกันตก 3 ด้าน + เสาค้ำลงถึงพื้นดิน
+      add(box(G, 0.2, G, PLANK, 0, 0.1, 0)); add(box(G + 0.02, 0.03, G + 0.02, WOOD_D, 0, 0.215, 0));
+      const DD = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+      for (let r = 0; r < 4; r++) {
+        if (r === (s.rot & 3)) continue;
+        const [dx, dz] = DD[r], cx = dx * (G / 2 - 0.05), cz = dz * (G / 2 - 0.05);
+        add(box(dx ? 0.1 : G, 0.08, dx ? G : 0.1, WOOD, cx, 1.25, cz));
+        for (let i = 0; i < 7; i++) { const t = -G / 2 + 0.2 + i * ((G - 0.4) / 6); add(box(0.06, 1.05, 0.06, WOOD_D, dx ? cx : t, 0.72, dx ? t : cz)); }
+      }
+      const y0 = baseY(s);
+      for (const [x, z] of [[-1.35, -1.35], [1.35, -1.35], [-1.35, 1.35], [1.35, 1.35]]) {
+        const h = y0 - heightAt(s.x + x, s.z + z); if (h > 0.3) add(box(0.18, h, 0.18, WOOD_D, x, -h / 2, z));
       }
       break;
     }
@@ -93,12 +132,29 @@ export function makeStructureMesh(s) {
       break;
     }
     case 'plot': {
+      if (s.type === 'plot_rice') {
+        // นาข้าว: คันนาดินรอบ ๆ + น้ำขังในแปลง
+        add(box(2.8, 0.14, 2.8, '#5c4033', 0, 0.07, 0));
+        for (const [x, z, w, d] of [[0, -1.32, 2.8, 0.16], [0, 1.32, 2.8, 0.16], [-1.32, 0, 0.16, 2.8], [1.32, 0, 0.16, 2.8]]) add(box(w, 0.28, d, '#7f5539', x, 0.14, z));
+        add(box(2.48, 0.04, 2.48, '#5fa8d3', 0, 0.18, 0, new THREE.MeshPhongMaterial({ color: '#5fa8d3', transparent: true, opacity: 0.75, shininess: 90 })));
+      } else {
       add(box(2.7, 0.18, 2.7, '#5c4033', 0, 0.09, 0));
       for (let i = -1; i <= 1; i++) add(box(2.6, 0.06, 0.3, '#6f4e37', 0, 0.2, i * 0.85));
+      }
       root.userData.cropGroup = add(new THREE.Group());
       // ป้ายชนิดพืช (แปลงแยกชนิด)
       const ck = plotCrop(s.type);
       if (ck) { add(box(0.06, 0.7, 0.06, WOOD_D, 1.25, 0.35, 1.25)); add(box(0.4, 0.3, 0.04, CROPS[ck].color, 1.25, 0.75, 1.25)); }
+      break;
+    }
+    case 'ricemill': {
+      // เครื่องสีข้าว: ฐานไม้ + ถังกรวยใส่ข้าวเปลือก + มอเตอร์ + ล้อสายพาน + รางข้าวสาร
+      const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;
+      g.add(box(1.6, 0.7, 1.1, WOOD_D, 0, 0.35, 0), box(1.5, 0.08, 1.0, WOOD, 0, 0.74, 0));
+      const hop = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.14, 0.6, 4), mat('#8d99ae')); hop.position.set(-0.3, 1.2, 0); hop.rotation.y = Math.PI / 4; hop.castShadow = true; g.add(hop);
+      g.add(box(0.5, 0.4, 0.45, '#495057', 0.4, 0.98, 0));
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 14), mat('#adb5bd')); wh.rotation.x = Math.PI / 2; wh.position.set(0.4, 1.0, 0.3); g.add(wh); root.userData.spin = wh;
+      g.add(box(0.2, 0.12, 0.5, '#ced4da', -0.3, 0.8, 0.7), box(0.36, 0.2, 0.36, '#e9d8a6', -0.3, 0.1, 0.85));
       break;
     }
     case 'pot': {

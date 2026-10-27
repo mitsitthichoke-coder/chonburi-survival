@@ -476,7 +476,8 @@ export class World {
     Object.assign(s, patch);
     const m = this.structureMeshes.get(id);
     if (m && ('x' in patch || 'z' in patch)) { m.position.x = s.x; m.position.z = s.z; m.rotation.y = s.type === 'vehicle' ? s.ry || 0 : m.rotation.y; }
-    if ('open' in patch || 'x' in patch) this.rebuildColliders();
+    if ('tier' in patch && m) { this.scene.remove(m); const nm = makeStructureMesh(s); this.scene.add(nm); this.structureMeshes.set(id, nm); if (TINTABLE.has(s.type)) this.retint(s); }
+    if ('open' in patch || 'x' in patch || 'tier' in patch) this.rebuildColliders();
     if (s.type === 'basecore' && ('col' in patch || 'ok' in patch || 'name' in patch || 'box' in patch)) this.retintAll();
     return s;
   }

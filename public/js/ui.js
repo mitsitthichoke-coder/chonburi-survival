@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
-import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX } from './building-core.js';
+import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
 import { pieceInfo } from './homestead.js';
 import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
@@ -17,6 +17,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const CATS = [['all', '📦 ทั้งหมด'], ['surv', '🏕️ อุปกรณ์ดำรงชีพ'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี/อุปกรณ์'], ['pet', '🐾 สัตว์เลี้ยง'], ['farm', '🌱 เมล็ด/ดอกไม้'], ['quest', '📜 ภารกิจ']];
 // อุปกรณ์ดำรงชีพ: เครื่องมือหาอยู่หากิน ก่อไฟ ที่พัก ภาชนะ (ไม่ใช่อาวุธต่อสู้หลัก)
 const SURVIVAL = new Set(['pickaxe', 'iron_pickaxe', 'stone_axe', 'steel_axe', 'stone_hammer', 'wood_hammer', 'hammer', 'hoe', 'sickle', 'rod', 'rod_pro', 'net', 'watering_can', 'torch', 'bottle', 'campfire', 'shelter', 'watchtower', 'cage', 'flower_pot', 'raft']);
+// สถานีประดิษฐ์: 🔥 กองไฟ · ⚙️ เครื่องสีข้าว
+const STATION_TXT = { fire: '🔥 ใกล้กองไฟ', mill: '⚙️ ใกล้เครื่องสีข้าว' };
+const stationOk = (g, r, fire) => !r.station || (r.station === 'fire' ? fire : !!g.world.nearStructure(g.player.pos.x, g.player.pos.z, 'ricemill', 4.5));
 const catOf = (k) => { const it = ITEMS[k]; return SURVIVAL.has(String(k).split('~')[0]) ? 'surv' : k.startsWith('seeds_') || it.flower ? 'farm' : it.coin ? 'mat' : it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
 const pct = (v) => Math.round(v * 100);
 // สเตตัสของไอเท็ม (อาวุธ เสื้อผ้า อาหาร ยา อุปกรณ์สัตว์)
@@ -133,7 +136,7 @@ export class UI {
       else if (drag && t.length === 1) { pan(t[0].clientX - drag.x, t[0].clientY - drag.y); drag = { x: t[0].clientX, y: t[0].clientY }; }
     }, { passive: false });
     P.addEventListener('touchend', () => { pinch = null; drag = null; });
-    $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else return; this.refreshPanels(); });
+    $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else if (id === 'pf-n') this.pfN = +ev.target.value; else return; this.refreshPanels(); });
     sp.addEventListener('change', (ev) => { if (ev.target.id === 'sp-mute') { sfx.setMuted(ev.target.checked); syncMute(); } });
     sp.addEventListener('click', (ev) => { ev.stopPropagation(); if (ev.target.dataset.sclose) sp.hidden = true; });
     ['keydown', 'pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach((t) => sp.addEventListener(t, (ev) => ev.stopPropagation()));
@@ -381,6 +384,11 @@ export class UI {
         ประตูเข้าออก <select id="ring-g">${[1, 2, 3, 4].map((k) => `<option value="${k}" ${k === (this.ringG || 1) ? 'selected' : ''}>${k} ทาง</option>`).join('')}</select>
         <b class="${coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? 'have' : 'miss'}">🪙 ${fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS)}</b>
         <button data-ring="1" ${hammer && coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? '' : 'disabled'}>ล้อมรั้วตรงนี้</button></div>
+      <h4>🏠 บ้านน็อคดาวน์สำเร็จรูป <small>(ตั้งทั้งหลังทันที: ฐานราก ผนัง ประตู หน้าต่าง หลังคา · ประตูหันมาทางคุณ)</small></h4>
+      <div class="ringbox">ขนาด <select id="pf-n">${[1, 2, 3].map((n) => `<option value="${n}" ${n === (this.pfN || 1) ? 'selected' : ''}>${n}×${n} ช่อง (${n * n} ห้อง)</option>`).join('')}</select>
+        <b class="${coins >= prefabPrice(this.pfN || 1, ITEMS) ? 'have' : 'miss'}">🪙 ${prefabPrice(this.pfN || 1, ITEMS)}</b>
+        <button data-prefab="1" ${coins >= prefabPrice(this.pfN || 1, ITEMS) ? '' : 'disabled'}>ตั้งบ้านตรงหน้า</button></div>
+      <p class="hint">หันหน้าไปยังที่โล่งแล้วกด — บ้านจะตั้งห่างไปข้างหน้า · ไม่ต้องมีค้อน · รื้อแล้วได้เงินจิคืน · ต่อเติมผนัง/ชั้นบน/ระเบียงเองได้ภายหลัง</p>
       <p class="hint">ราคาเพิ่มตามขนาดพื้นที่และจำนวนประตู · ยืนตรงกลางพื้นที่ที่ต้องการแล้วกด · รั้วล้อมครบทุกด้าน = ซอมบี้ไม่เกิดในรั้ว · รื้อแล้วได้เงินจิคืน</p>
       ${colors || '<p class="hint">🎨 เปลี่ยนสี/ชื่อฐานได้หลังประกาศฐานแล้ว (วาง 🏦 หลักบ้าน → ประกาศเป็นฐาน)</p>'}
       <p class="hint">หาเงินจิได้จาก: กำจัดผู้ติดเชื้อ/สัตว์ร้าย · ภารกิจหลัก · กล่องเสบียง/กล่องภารกิจ/กล่องหายาก · ขายของให้ NPC · แผงขายของหน้าบ้าน · แลกกับผู้เล่น</p>`;
@@ -389,8 +397,8 @@ export class UI {
   buildCraftHTML() {
     const g = this.g, fire = g.nearFire, used = new Set(Object.values(PIECES).flatMap((p) => Object.keys(p.cost)));
     const rows = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => (ITEMS[r.out].builds || ITEMS[r.out].place || used.has(r.out)) && (!r.job || hasPerk(g.ch, r.job, 0)) && (!(this.craftQ || '').trim() || [r.label, ITEMS[r.out].name, ...Object.keys(r.need).map((k) => ITEMS[k].name)].some((t) => String(t || '').toLowerCase().includes(this.craftQ.trim().toLowerCase())))).map(({ r, i }) => {
-      const lock = skillLevel(g.skills[r.skill]) < r.lvl, noSt = r.station === 'fire' && !fire, miss = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q), ok = !lock && !noSt && !miss.length;
-      return `<button class="piece ${ok ? '' : 'dis'}" data-craft="${i}" title="${lock ? `ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}` : noSt ? 'ต้องอยู่ใกล้กองไฟ' : ''}"><span class="ic">${ITEMS[r.out].icon}</span><b>${esc(r.label || ITEMS[r.out].name)}${r.qty > 1 ? ' ×' + r.qty : ''}</b><small>${Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${g.inv[k] || 0}/${q}</span>`).join(' ')}</small></button>`;
+      const lock = skillLevel(g.skills[r.skill]) < r.lvl, noSt = !stationOk(g, r, fire), miss = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q), ok = !lock && !noSt && !miss.length;
+      return `<button class="piece ${ok ? '' : 'dis'}" data-craft="${i}" title="${lock ? `ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}` : noSt ? 'ต้องอยู่' + STATION_TXT[r.station] : ''}"><span class="ic">${ITEMS[r.out].icon}</span><b>${esc(r.label || ITEMS[r.out].name)}${r.qty > 1 ? ' ×' + r.qty : ''}</b><small>${Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${g.inv[k] || 0}/${q}</span>`).join(' ')}</small></button>`;
     }).join('');
     return `<h4>🧰 ประดิษฐ์ค้อน วัสดุ และของใช้ก่อสร้าง (ไม่ต้องสลับแท็บ)</h4><input id="craft-q" class="craft-q" type="search" placeholder="🔍 ค้นหาสูตร เช่น ค้อน, รั้ว, ไม้" value="${esc(this.craftQ || '')}" autocomplete="off"><div class="pieces">${rows}</div>`;
   }
@@ -458,7 +466,7 @@ export class UI {
     const all = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => !r.job || hasPerk(g.ch, r.job, 0)).map(({ r, i }) => {
       const lvl = skillLevel(g.skills[r.skill]);
       const missing = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q);
-      const lock = lvl < r.lvl || (r.learn && !g.boxes?.['learn_' + r.learn]), noSt = r.station === 'fire' && !fire;
+      const lock = lvl < r.lvl || (r.learn && !g.boxes?.['learn_' + r.learn]), noSt = !stationOk(g, r, fire);
       return { r, i, missing, lock, noSt, ok: !lock && !missing.length && !noSt };
     });
     const rc = this.rcat || 'all', inCat = all.filter((x) => rc === 'all' || catOf(x.r.out) === rc);
@@ -469,7 +477,7 @@ export class UI {
     const fbar = `<div class="rfilter">${[['all', `📋 ทั้งหมด ${inCat.length}`], ['ready', `✅ พร้อมคราฟท์ ${nReady}`], ['miss', `⏳ ยังไม่ครบ ${inCat.length - nReady}`]].map(([k, n]) => `<button data-rfilter="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div><input id="craft-q" class="craft-q" type="search" placeholder="🔍 ค้นหาสูตร เช่น ลูกธนู, ดาบ, ไม้" value="${esc(this.craftQ || '')}" autocomplete="off">`;
     const rec = (shown.length ? '' : `<p class="hint">${q ? `ไม่พบสูตรที่ตรงกับ "${esc(q)}"` : f === 'ready' ? 'ยังไม่มีสูตรที่วัตถุดิบครบ — ลองเก็บของเพิ่ม' : 'คราฟท์ได้ครบทุกสูตรแล้ว!'}</p>`) + shown.map(({ r, i, missing, lock, noSt, ok }) => {
       const need = Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${ITEMS[k].name} ${g.inv[k] || 0}/${q}</span>`).join(' ');
-      return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ok ? '✅' : '⏳'} ${ITEMS[r.out].icon} ${r.label || ITEMS[r.out].name}</b>${r.job ? ` <span class="chip jobchip">${JOBS[r.job].icon} ขั้นสูง</span>` : ''} <small>${SKILLS[r.skill]} Lv${r.lvl}${r.station ? ' · 🔥 ใกล้กองไฟ' : ''}</small>${statText(r.out) ? `<small class="st">${statText(r.out)}</small>` : ''}<div class="need">${need}</div>${lock && r.learn && !g.boxes?.['learn_' + r.learn] ? '<small class="miss">🔒 ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) หรืออ่านคู่มือหัตถกรรมจักสาน</small>' : lock ? `<small class="miss">🔒 ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}</small>` : noSt ? '<small class="miss">ต้องอยู่ใกล้กองไฟ</small>' : ''}</div><button data-craft="${i}" ${ok ? '' : 'disabled'}>ประดิษฐ์</button></div>`;
+      return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ok ? '✅' : '⏳'} ${ITEMS[r.out].icon} ${r.label || ITEMS[r.out].name}</b>${r.job ? ` <span class="chip jobchip">${JOBS[r.job].icon} ขั้นสูง</span>` : ''} <small>${SKILLS[r.skill]} Lv${r.lvl}${r.station ? ' · ' + STATION_TXT[r.station] : ''}</small>${statText(r.out) ? `<small class="st">${statText(r.out)}</small>` : ''}<div class="need">${need}</div>${lock && r.learn && !g.boxes?.['learn_' + r.learn] ? '<small class="miss">🔒 ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) หรืออ่านคู่มือหัตถกรรมจักสาน</small>' : lock ? `<small class="miss">🔒 ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}</small>` : noSt ? `<small class="miss">ต้องอยู่${STATION_TXT[r.station]}</small>` : ''}</div><button data-craft="${i}" ${ok ? '' : 'disabled'}>ประดิษฐ์</button></div>`;
     }).join('');
     return `<div class="cols"><div><h3>กระเป๋า <small class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()} ช่อง${g.wear.back ? ` · ${ITEMS[g.wear.back].name}` : ' · ยังไม่มีกระเป๋า'}</small> <button data-dropmode="1" class="${this.dropMode ? 'on' : ''}">${this.dropMode ? '✋ เลิกทิ้งของ' : '🗑️ ทิ้งของ'}</button> <button data-salvmode="1" class="${this.salvMode ? 'on' : ''}">${this.salvMode ? '✋ เลิกย่อย' : '♻️ ย่อยของ'}</button></h3>${catBar(ic, icount, 'icat')}<div class="inv ${this.dropMode ? 'dropping' : ''}">${inv}</div><p class="hint">${this.dropMode ? '<b class="miss">โหมดทิ้งของ: คลิกที่ไอเท็มเพื่อทิ้งทั้งกอง</b>' : this.salvMode ? '<b class="miss">♻️ โหมดย่อย: คลิกที่ไอเท็มเพื่อย่อยเป็นวัตถุดิบ</b>' : 'คลิกเพื่อใช้/ถือ/สวม · ลากไปวางที่ช่องลัด 1–6 · คลิกขวา = เมนู (ปักช่องลัด / ♻️ ย่อยเป็นวัตถุดิบ)'} · ของชนิดเดียวกันซ้อนได้ 30 ชิ้น/ช่อง (อาหาร/ยา 10, เครื่องมือและเสื้อผ้า 1)</p></div><div><h3>ประดิษฐ์ ${fire ? '<span class="chip orange">🔥 ใกล้กองไฟ</span>' : ''}</h3>${catBar(rc, rcount, 'rcat')}${fbar}<div class="recipes">${rec}</div></div></div>`;
   }
@@ -811,6 +819,13 @@ export class UI {
     if (d.petunequip) { const [i, sl] = d.petunequip.split(':'); unequipPet(g, g.pets[+i], sl); return this.refreshPanels(); }
     if (d.bcol) { const b = g.world.structures.find((x) => x.id === d.bcol); if (b) g.home.op(b, { o: 'color', c: d.c }); return this.refreshPanels(); }
     if (d.mz !== undefined) { const k = +d.mz; if (!k) { this.mapZoom = 1; this.mapCenter = null; } else { const cv = $('#bigmap'), r = cv.getBoundingClientRect(); zoomBtn(this, k > 0 ? 1.6 : 1 / 1.6, r); } return this.refreshPanels(); }
+    if (d.prefab) {
+      // ตั้งบ้านข้างหน้าผู้เล่น: ช่องมุมบนซ้าย + ประตูหันกลับมาหาผู้เล่น
+      const P = g.player.pos, n = this.pfN || 1, a = g.camYaw + Math.PI, vx = Math.sin(a), vz = Math.cos(a), dist = n * 1.5 + 3;
+      const [cx, cz] = cellOf(P.x + vx * dist, P.z + vz * dist), cx0 = cx - Math.floor((n - 1) / 2), cz0 = cz - Math.floor((n - 1) / 2);
+      const door = Math.abs(vx) > Math.abs(vz) ? (vx > 0 ? 3 : 1) : (vz > 0 ? 0 : 2);
+      g.auth.do('prefab', { n, cx: cx0, cz: cz0, door }); setTimeout(() => this.refreshPanels(), 400); return;
+    }
     if (d.ring) { const P = g.player.pos; g.auth.do('fencering', { n: this.ringN || 6, gates: this.ringG || 1, x: P.x, z: P.z }); setTimeout(() => this.refreshPanels(), 400); return; }
     if (d.bname) { const b = g.world.structures.find((x) => x.id === d.bname); const n = b && prompt('ชื่อฐานใหม่', b.name); if (n) g.home.op(b, { o: 'rename', name: n }); return this.refreshPanels(); }
     if (d.cbuild) { if (!canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน', 'warn'); return g.builder.start(d.cbuild, true); }

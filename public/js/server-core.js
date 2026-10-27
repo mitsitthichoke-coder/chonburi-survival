@@ -233,7 +233,7 @@ export class WorldCore {
       case 'res': db.res[m.id] = m.until; this.broadcast({ t: 'res', id: m.id, until: m.until }, id); this.dirty(); break;
       case 'loot': db.loot[m.id] = m.until; this.broadcast({ t: 'loot', id: m.id, until: m.until }, id); this.dirty(); break;
       case 'place': {
-        const s = { ...m.s, owner: id, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999) };
+        const s = { ...m.s, owner: id, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999) + '_' + (this.sid = (this.sid || 0) + 1).toString(36) };
         db.structures.push(s); this.rebuildWalls(); this.broadcast({ t: 'place', s }); this.dirty(); break;
       }
       case 'sop': this.structureOp(me, m); break;

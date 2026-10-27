@@ -1,11 +1,11 @@
 // บ้าน ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ บ้านสัตว์เลี้ยง และยานพาหนะ (ฝั่งผู้เล่น)
-import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, CAGE_FARM, CAGE_FOOD, CAGE_NAME, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX } from './building-core.js';
+import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, CAGE_FARM, CAGE_FOOD, CAGE_NAME, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX, FENCE_TIERS, baseAt } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'bed', 'chair', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -54,6 +54,8 @@ export class Homestead {
       case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
+      case 'fence': return mine ? { text: `🛠️ ${FENCE_TIERS[s.tier || 0].name}${FENCE_TIERS[(s.tier || 0) + 1] ? ' — อัปเกรดรั้ว' : ' (ระดับสูงสุด)'}`, act: () => this.fenceMenu(s) } : null;
+      case 'ricemill': return { text: `⚙️ สีข้าวเปลือก (มี 🌾 ${g.inv.paddy || 0})`, act: () => { g.ui.craftQ = 'สีข้าว'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
       case 'storage': return { text: '🧰 เปิดหีบเก็บของ', act: () => g.ui.openStructure(s) };
       case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': case 'hive': case 'stall': case 'basecore': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
       case 'plot': case 'pot': return this.plotTarget(s, now);
@@ -112,6 +114,18 @@ export class Homestead {
     }
     const left = (1 - p) * C.grow;
     return { text: `${C.name} โตแล้ว ${Math.floor(p * 100)}% · อีก ~${mmss(left)}`, act: () => {} };
+  }
+  // 🛠️ อัปเกรดรั้ว: ไม้ → ไม้เสริม (+ไม้ 3) → เหล็ก (+เศษเหล็ก 4 หิน 1) · อัปเกรดทีละชิ้น หรือทั้งแนวรั้วของฐาน
+  fenceMenu(s) {
+    const g = this.g, t = s.tier || 0, N = FENCE_TIERS[t + 1], cost = (T) => Object.entries(T.cost).map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ');
+    if (!N) return g.ui.toast('🛡️ รั้วนี้เป็นรั้วเหล็กแล้ว (ระดับสูงสุด)');
+    const B = baseAt(g.world.structures, s.x, s.z), mineF = (o) => (o.type === 'fence' || o.type === 'gate') && (!o.owner || o.owner === g.id) && (o.tier || 0) === t;
+    const all = g.world.structures.filter((o) => mineF(o) && (B ? baseAt(g.world.structures, o.x, o.z) === B : Math.hypot(o.x - s.x, o.z - s.z) < 40));
+    const need = Object.entries(N.cost).map(([k, q]) => [k, q * all.length]), can = need.every(([k, q]) => (g.inv[k] || 0) >= q);
+    g.ui.choice(`🛠️ ${FENCE_TIERS[t].name} → ${N.name} (สูงขึ้น แข็งแรงขึ้น)`, [
+      { label: `อัปเกรดชิ้นนี้ (${cost(N)})`, dis: !Object.entries(N.cost).every(([k, q]) => (g.inv[k] || 0) >= q) && 'วัสดุไม่พอ', run: () => this.op(s, { o: 'upfence' }) },
+      { label: `อัปเกรดรั้ว+ประตูรั้ว${B ? 'ทั้งฐาน' : 'แถวนี้'} ${all.length} ชิ้น (${need.map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')})`, dis: !can && 'วัสดุไม่พอสำหรับทั้งแนว', run: () => { all.forEach((o, i) => setTimeout(() => this.op(o, { o: 'upfence', silent: i < all.length - 1 }), i * 70)); g.ui.toast(`🛠️ กำลังอัปเกรดรั้ว ${all.length} ชิ้น...`); } },
+    ]);
   }
   sleep(s) {
     const g = this.g;

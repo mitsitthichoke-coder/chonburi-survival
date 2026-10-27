@@ -8,6 +8,7 @@ import { heightAt, waterAt, hash2 } from './terrain.js';
 import { ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
 import { relLevel, canDo, applyAction, ACTIONS, giftValue } from './social-core.js';
 import { petStats } from './pets.js';
+let SID = 0; // ลำดับรหัสสิ่งก่อสร้าง (กันรหัสซ้ำตอนวางหลายชิ้นพร้อมกัน)
 
 const BAD = ['ควย', 'เหี้ย', 'สัส', 'เย็ด', 'หี', 'แตด', 'fuck', 'shit', 'bitch', 'cunt', 'nigger'];
 export const cleanText = (t) => { let s = String(t || '').replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e]/g, '').slice(0, 200); for (const w of BAD) s = s.split(w).join('*'.repeat(w.length)); return s; };
@@ -51,7 +52,7 @@ export function installEconomy(core) {
       tamed: (mid) => self.fauna.delete(mid),
       giveTo: (to, items) => { const tc = self.chars.get(to); if (!tc) return false; applyResult(tc, { give: items }); self.sendEcon(to, { give: items, quietGive: false }); return true; },
       place: (ch, s) => {
-        const st = { ...s, owner: id, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999) };
+        const st = { ...s, owner: id, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999) + '_' + (++SID).toString(36) };
         if (st.y === undefined) delete st.y;
         self.db.structures.push(st); self.rebuildWalls(); self.broadcast({ t: 'place', s: st }); self.dirty();
         return st;

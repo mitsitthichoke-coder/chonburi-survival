@@ -183,7 +183,9 @@ const RAW_ITEMS = {
   seeds_potato: { name: 'หัวพันธุ์มันฝรั่ง', icon: '🥔', value: 3 }, seeds_cabbage: { name: 'เมล็ดกะหล่ำปลี', icon: '🫘', value: 2 },
   seeds_carrot: { name: 'เมล็ดแครอท', icon: '🫘', value: 2 }, seeds_eggplant: { name: 'เมล็ดมะเขือยาว', icon: '🫘', value: 2 },
   seeds_pumpkin: { name: 'เมล็ดฟักทอง', icon: '🫘', value: 3 }, seeds_watermelon: { name: 'เมล็ดแตงโม', icon: '🫘', value: 3 },
-  seeds_rice: { name: 'เมล็ดข้าวเปลือก', icon: '🌾', value: 2 },
+  seeds_rice: { name: 'เมล็ดพันธุ์ข้าว', icon: '🌾', value: 2, desc: 'ปลูกในนาข้าว (หมวดแปลงผัก)' },
+  paddy: { name: 'ข้าวเปลือก', icon: '🌾', value: 2, desc: 'ได้จากการเกี่ยวข้าว · ต้องสีที่เครื่องสีข้าวก่อนจึงเป็นข้าวสาร' },
+  rice_bran: { name: 'รำข้าว', icon: '🟫', value: 1, desc: 'ผลพลอยได้จากการสีข้าว ใช้เลี้ยงไก่ เป็ด หมู' },
   seeds_sunflower: { name: 'เมล็ดทานตะวัน', icon: '🌻', value: 3 }, seeds_marigold: { name: 'เมล็ดดาวเรือง', icon: '🌼', value: 3 },
   seeds_rose: { name: 'กิ่งพันธุ์กุหลาบ', icon: '🌹', value: 5 }, seeds_orchid: { name: 'หน่อกล้วยไม้', icon: '🪻', value: 6 },
   seeds_jasmine: { name: 'กิ่งพันธุ์มะลิ', icon: '🤍', value: 4 }, seeds_tulip: { name: 'หัวพันธุ์ทิวลิป', icon: '🌷', value: 6 },
@@ -375,7 +377,8 @@ export const RECIPES = [
   { out: 'seeds_pumpkin', need: { pumpkin: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดฟักทอง' },
   { out: 'seeds_watermelon', need: { watermelon: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดแตงโม' },
   { out: 'seeds_sunflower', need: { sunflower: 1 }, skill: 'farming', lvl: 1, qty: 2, label: 'เก็บเมล็ดทานตะวัน' },
-  { out: 'seeds_rice', need: { rice: 2 }, skill: 'farming', lvl: 2, qty: 1, label: 'คัดข้าวเปลือกไว้ทำพันธุ์' },
+  { out: 'seeds_rice', need: { paddy: 2 }, skill: 'farming', lvl: 1, qty: 2, label: 'คัดข้าวเปลือกไว้ทำพันธุ์ ×2' },
+  { out: 'rice', need: { paddy: 3 }, skill: 'farming', lvl: 1, qty: 2, station: 'mill', label: 'สีข้าวเปลือกเป็นข้าวสาร ×2 (+รำข้าว) · ที่เครื่องสีข้าว' },
   { out: 'bandage', need: { cloth: 2 }, skill: 'medicine', lvl: 1 },
   { out: 'bandage', need: { fiber: 6 }, skill: 'medicine', lvl: 2, label: 'ผ้าพันแผล (ใยพืช)' },
   { out: 'clean_water', need: { dirty_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
@@ -633,6 +636,8 @@ export const JOBS = {
     perks: [[1, 'พลังชีวิต +20 · สตามิน่า +30 · กระเป๋า +8 ช่อง · ปลดล็อก เกลือแร่ / อกไก่ต้ม'], [4, 'วิ่งเร็วขึ้น 10% · กระโดดสูงขึ้น · สตามิน่าฟื้นเร็วขึ้น 30%'], [8, 'ดาเมจ +15% · ตกจากที่สูงไม่บาดเจ็บ']] },
   livestock: { name: 'ปศุสัตว์', icon: '🐄', skill: 'farming', xp: { farming: 1.3, survival: 1.2 }, kit: { corn: 4, live_chicken: 1 }, desc: 'เลี้ยงสัตว์เก่ง ค้นพบสกิลพิเศษของสัตว์',
     perks: [[1, 'เก็บผลผลิตจากคอกสัตว์ได้เพิ่ม +1 ทุกครั้ง · ทำให้สัตว์เชื่องเร็วขึ้น 50%'], [4, 'สัตว์เลี้ยงที่ได้มีโอกาสเป็นระดับหายาก/ตำนานสูงขึ้นมาก (สกิลพิเศษมากขึ้น) · ชำแหละได้เนื้อเพิ่ม'], [8, 'สัตว์เลี้ยงตัวใหม่ได้สกิลพิเศษเพิ่มอีก 1 อย่าง · ทำให้เชื่องเร็วขึ้น ×2']] },
+  ricefarmer: { name: 'ชาวนา', icon: '🧑‍🌾', skill: 'farming', xp: { farming: 1.5, survival: 1.1 }, kit: { seeds_rice: 4, hoe: 1 }, desc: 'ทำนาเก่ง ปลูกข้าวได้ผลผลิตมาก สีข้าวได้ข้าวสารเพิ่ม',
+    perks: [[1, 'ข้าวในนาโตเร็วขึ้น 35% · เกี่ยวข้าวได้ข้าวเปลือกเพิ่ม +2'], [4, 'สีข้าวได้ข้าวสารเพิ่ม +1 และรำข้าว ×2 ทุกครั้ง'], [8, 'ปลูกข้าวแล้วไม่ต้องรดน้ำ (นามีน้ำในตัว) · เกี่ยวข้าวได้ผลผลิต ×2']] },
   chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
     perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
 };
@@ -707,7 +712,7 @@ export const QUEST_SPOTS = {
 export const LOOT_TABLE = [
   ['canned', 18], ['bottle', 14], ['clean_water', 12], ['cloth', 16], ['scrap', 16],
   ['bandage', 9], ['antibiotic', 3], ['herb', 6], ['raw_fish', 4], ['coconut', 4],
-  ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 3], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
+  ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 4], ['rice', 6], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
 ];
 
 // กล่องเสบียงในสถานที่พิเศษ: ห้างร้าง โรงงานร้าง มหาวิทยาลัยร้าง ฐานทัพเรือ
@@ -739,6 +744,7 @@ export const NPCS = [
   { id: 'npc_winai', name: 'พี่วินัย', sex: 'm', town: 'nongyai', likes: 'fuel', job: 'mechanic', bio: 'นายท่าสถานีขนส่งจังหวัดชลบุรี' },
   { id: 'npc_prasit', name: 'อาจารย์ประสิทธิ์', sex: 'm', town: 'banbueng', likes: 'scrap', job: 'engineer', bio: 'อาจารย์แผนกช่างกลโรงเรียนเทคนิคชลบุรี' },
   { id: 'npc_waew', name: 'ยายแวว', sex: 'f', town: 'phanat', likes: 'bamboo', job: 'weaver', teach: 'wicker', bio: 'ช่างจักสานฝีมือดีแห่งตลาดจักสานพนัสนิคม สอนสานตะกร้า ชะลอม พัด และผนังไม้ไผ่' },
+  { id: 'npc_kham', name: 'ลุงคำ', sex: 'm', town: 'banbueng', likes: 'cooked_rice', job: 'ricefarmer', bio: 'ชาวนาเก่าแก่แห่งบ้านบึง รู้เรื่องการทำนาทุกขั้นตอน' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];
 // ร้านแลกของของ NPC ตามอาชีพ: [ไอเท็ม, ราคา(แต้มมูลค่า), จำนวนต่อวัน]
@@ -757,6 +763,7 @@ export const SHOPS = {
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
   electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],
   weaver: [['bamboo', 1, 20], ['wicker_basket', 14, 1], ['chalom', 9, 2], ['hand_fan', 6, 3], ['book_wicker', 60, 1]],
+  ricefarmer: [['seeds_rice', 3, 10], ['paddy', 3, 10], ['rice', 4, 8], ['rice_bran', 2, 10], ['hoe', 6, 2], ['cooked_rice', 7, 4]],
   monk: [['respec_potion', 250, 1], ['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
 };
 

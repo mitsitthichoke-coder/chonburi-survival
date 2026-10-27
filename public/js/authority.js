@@ -5,6 +5,7 @@ import { runAction, applyResult, sopCost, killReward, refundReward } from './eco
 import { applyOp, flowersNear, accessFor, canDemolish } from './building-core.js';
 import { waterAt } from './terrain.js';
 import { Net } from './net.js';
+let SID = 0; // ลำดับรหัสสิ่งก่อสร้าง (กันรหัสซ้ำตอนวางหลายชิ้นพร้อมกัน)
 
 const ring = (P, r) => { const out = [[P.x, P.z]]; for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; out.push([P.x + Math.cos(a) * r, P.z + Math.sin(a) * r]); } return out; };
 
@@ -54,7 +55,7 @@ export class Authority {
       giveTo: () => true, // เล่นกับเพื่อนผ่านลิงก์: โฮสต์ส่งของให้ผู้รับเอง
       place: (ch, s) => {
         if (this.room) { g.net.send({ t: 'place', s }); return s; }
-        const st = { ...s, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999), owner: g.id };
+        const st = { ...s, id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999) + '_' + (++SID).toString(36), owner: g.id };
         if (st.y === undefined) delete st.y;
         W.addStructure(st); g.home.onPlaced(st); return st;
       },

@@ -36,7 +36,7 @@ export class Builder {
     for (const s of W.structures) {
       if (Math.abs(s.x - x) > 0.1 || Math.abs(s.z - z) > 0.1) continue;
       if (s.type === 'foundation') out.push({ y: baseY(s) + 0.5, kind: 'floor' });
-      if (s.type === 'roof') out.push({ y: baseY(s) + 0.2, kind: 'floor' });
+      if (s.type === 'roof' || s.type === 'balcony') out.push({ y: baseY(s) + 0.2, kind: 'floor' });
     }
     return out.sort((a, b) => a.y - b.y);
   }
@@ -59,14 +59,27 @@ export class Builder {
     if (type === 'roof') y = level.y + WALL_H - (level.kind === 'floor' ? 0 : 0);
     if ((GROUND_ONLY.has(type) || type.startsWith('plot_')) && level.kind !== 'ground') why = 'ต้องวางบนพื้นดิน';
     if (def.snap === 'edge' && level.kind === 'ground') y = Math.min(heightAt(pos.x - (rot & 1 ? 0 : 1.4), pos.z - (rot & 1 ? 1.4 : 0)), heightAt(pos.x + (rot & 1 ? 0 : 1.4), pos.z + (rot & 1 ? 1.4 : 0)));
-    const s = { type, x: pos.x, z: pos.z, y: +y.toFixed(2), rot, drop: type === 'foundation' ? +(level.drop + 0.3).toFixed(2) : undefined };
     const W = g.world;
+    let sd;
+    if (type === 'walllamp') {
+      // โคมติดผนัง: ต้องเล็งที่ผนัง/หน้าต่าง/ประตูที่มีอยู่ · ติดฝั่งที่ผู้เล่นยืนอยู่
+      const wl = W.structures.filter((o) => ['wall', 'window', 'door', 'bamboo_wall'].includes(o.type) && Math.abs(o.x - pos.x) < 0.1 && Math.abs(o.z - pos.z) < 0.1).sort((a, b) => Math.abs(baseY(a) - P.y) - Math.abs(baseY(b) - P.y))[0];
+      if (wl) { y = baseY(wl); rot = wl.rot; sd = (rot & 1 ? P.x - pos.x : P.z - pos.z) >= 0 ? 1 : -1; } else why = 'ต้องเล็งไปที่ผนังบ้าน (ติดได้ทั้งด้านในและด้านนอก)';
+    }
+    if (type === 'balcony') {
+      // ระเบียง: ต่อจากหลังคา/พื้นชั้นบนที่อยู่ติดกัน ระดับเดียวกับพื้นชั้นบน · ด้านที่ติดบ้านไม่มีราว
+      const [bx, bz] = cellCenter(cx, cz), DD = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+      let hit = null; for (let r = 0; r < 4 && !hit; r++) { const nx = bx + DD[r][0] * G, nz = bz + DD[r][1] * G, o = W.structures.find((q) => (q.type === 'roof' || q.type === 'balcony') && Math.abs(q.x - nx) < 0.1 && Math.abs(q.z - nz) < 0.1); if (o) hit = { o, r }; }
+      if (hit) { y = baseY(hit.o); rot = hit.r; } else why = 'ระเบียงต้องต่อจากหลังคา/พื้นชั้นบนที่อยู่ช่องติดกัน';
+      if (!why && W.structures.some((q) => (q.type === 'roof' || q.type === 'balcony') && Math.abs(q.x - bx) < 0.1 && Math.abs(q.z - bz) < 0.1)) why = 'มีพื้นชั้นบนอยู่ตรงนี้แล้ว';
+    }
+    const s = { type, x: pos.x, z: pos.z, y: +y.toFixed(2), rot, drop: type === 'foundation' ? +(level.drop + 0.3).toFixed(2) : undefined, sd };
     if (!why && (heightAt(pos.x, pos.z) < 0.4 || waterAt(pos.x, pos.z)) && level.kind === 'ground') why = 'วางในน้ำไม่ได้';
     if (!why && W.baseBuildings.some((b) => Math.abs(b.x - pos.x) < b.w / 2 + 0.6 && Math.abs(b.z - pos.z) < b.d / 2 + 0.6)) why = 'ติดอาคารเดิม';
     const key = slotKey(s);
     if (!why && W.structures.some((o) => PIECES[o.type] && slotKey(o) === key)) why = 'มีชิ้นส่วนอยู่ตรงนี้แล้ว';
     if (!why && type === 'roof' && level.kind === 'ground' && !W.structures.some((o) => ['wall', 'window', 'door'].includes(o.type) && Math.hypot(o.x - pos.x, o.z - pos.z) < 1.7)) why = 'หลังคาต้องมีผนังรองรับอย่างน้อย 1 ด้าน';
-    if (!why && Math.abs(y - P.y) > 4.5) why = 'อยู่สูง/ต่ำเกินไป';
+    if (!why && Math.abs(y - P.y) > (type === 'balcony' ? 5.5 : 4.5)) why = 'อยู่สูง/ต่ำเกินไป';
     // ซื้อด้วยเงินจิ = ไม่ต้องมีวัสดุ ใช้แค่เงินจิ
     const cost = this.coin || def.cost.jicoin ? { jicoin: coinCost(def, ITEMS) } : buildCost(g.auth.ch, def.cost);
     const missing = Object.entries(cost).filter(([k, q]) => !g.hasItem(k, q));

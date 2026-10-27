@@ -90,6 +90,8 @@ export class Game {
     Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 300 });
     sun.shadow.bias = -0.0008; this.scene.add(sun, sun.target);
     this.fireLight = new THREE.PointLight('#ff9b3d', 0, 18, 1.6); this.scene.add(this.fireLight);
+    // 🏮 แสงโคมไฟติดผนัง: ใช้ไฟชุดเดียว 3 ดวง ย้ายไปที่โคมที่ใกล้ที่สุด (ประหยัดเครื่อง)
+    this.lampLights = [0, 1, 2].map(() => { const L = new THREE.PointLight('#ffb347', 0, 11, 1.8); this.scene.add(L); return L; });
     // ฝน
     const N = 2500, pos = new Float32Array(N * 3);
     for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - 0.5) * 60;
@@ -1159,6 +1161,17 @@ export class Game {
     this.nearFire = nearest && nd < 16;
     if (nearest && nd < 60 * 60) { this.fireLight.position.set(nearest.x, heightAt(nearest.x, nearest.z) + 1.2, nearest.z); this.fireLight.intensity = (2 + Math.random() * 0.6) * (1.2 - day * 0.8); }
     else this.fireLight.intensity = 0;
+    this.lampT = (this.lampT || 0) - dt;
+    if (this.lampT <= 0) {
+      this.lampT = 0.4;
+      const lamps = this.world.structures.filter((s) => s.type === 'walllamp').map((s) => [s, (s.x - P.x) ** 2 + (s.z - P.z) ** 2]).filter(([, d]) => d < 45 * 45).sort((a, b) => a[1] - b[1]).slice(0, 3);
+      this.lampLights.forEach((L, i) => {
+        const e = lamps[i]; if (!e) { L.intensity = 0; return; }
+        const s = e[0], a = (s.rot & 1) ? 0 : 1, off = 0.55 * (s.sd > 0 ? 1 : -1);
+        L.position.set(s.x + (a ? 0 : off), baseY(s) + 2.05, s.z + (a ? off : 0)); L.intensity = 1.6 * (1.25 - day * 0.9);
+      });
+    }
+    for (const s of this.world.structures) if (s.type === 'walllamp') { const m = this.world.structureMeshes.get(s.id); if (m?.userData.flame) m.userData.flame.scale.set(1, 0.8 + Math.random() * 0.45, 1); }
     this.inCampNow = this.quest.done && inCampOf(this.quest.camp.key, P.x, P.z);
     this.sfx.ambience({ night: this.isNight(), rain: this.weather.rain, coast: clamp(1 - Math.abs(distToCoast(P.x, P.z)) / 90, 0, 1), fire: this.nearFire });
     // สภาพอากาศ

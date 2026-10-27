@@ -33,9 +33,11 @@ export const PIECES = {
   door: { name: 'ผนังประตู', icon: '🚪', cost: { wood: 5, scrap: 1 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1 },
   roof: { name: 'หลังคา / พื้นชั้นบน', icon: '🏠', cost: { wood: 3, fiber: 2 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 1 },
   stairs: { name: 'บันไดขึ้นชั้นบน', icon: '🪜', cost: { wood: 4 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 2 },
+  balcony: { name: 'ระเบียงชั้นบน (ต่อจากหลังคา/พื้นชั้นบน)', icon: '🌅', cost: { wood: 5, fiber: 1 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 2 },
   fence: { name: 'รั้วไม้', icon: '🪵', cost: { wood: 2, fiber: 1 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   gate: { name: 'ประตูรั้ว', icon: '⛩️', cost: { wood: 3 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   bed: { name: 'เตียงนอน (จุดเกิด)', icon: '🛏️', cost: { wood: 3, cloth: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
+  walllamp: { name: 'โคมไฟฟืนติดผนัง (เล็งที่ผนัง)', icon: '🏮', cost: { wood: 2, stone: 1, scrap: 1 }, snap: 'edge', cat: 'ของในบ้าน', lvl: 1 },
   chair: { name: 'เก้าอี้ไม้ (นั่งพักผ่อน)', icon: '🪑', cost: { wood: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   storage: { name: 'หีบเก็บของ (ใช้ร่วมกันได้)', icon: '🧰', cost: { wood: 6 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   pethouse: { name: 'บ้านสัตว์เลี้ยง', icon: '🏡', cost: { wood: 6, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
@@ -47,6 +49,7 @@ export const PIECES = {
   buffalopen: { name: 'คอกควาย (จับควายจากหนองใหญ่/บ้านบึงมาปล่อย · รีดนมควาย)', icon: '🐃', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   sheeppen: { name: 'คอกแกะ (จับแกะจากสวนแกะบางละมุงมาปล่อย · ตัดขนแกะ)', icon: '🐑', cost: { wood: 10, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
   bamboo_wall: { name: 'ผนังไม้ไผ่ (บ้านแบบง่าย · ต้องเรียนจักสาน)', icon: '🎋', cost: { bamboo: 6 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1, learn: 'wicker' },
+  ricemill: { name: 'เครื่องสีข้าว (สีข้าวเปลือกเป็นข้าวสาร)', icon: '⚙️', cost: { wood: 8, stone: 6, scrap: 3 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
   pond: { name: 'บ่อเลี้ยงปลา', icon: '🐟', cost: { stone: 6, wood: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   hive: { name: 'กล่องเลี้ยงผึ้ง (ปลูกดอกไม้ใกล้ ๆ เพื่อล่อผึ้ง)', icon: '🐝', cost: { wood: 6, fiber: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   stall: { name: 'แผงขายของหน้าบ้าน (ขายเป็นเงินจิ)', icon: '🏪', cost: { wood: 8, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
@@ -72,7 +75,7 @@ export const CROPS = {
   eggplant: { name: 'มะเขือยาว', seed: 'seeds_eggplant', grow: 5 * 60000, out: ['eggplant', 3], seedBack: [1, 2], color: '#7209b7' },
   pumpkin: { name: 'ฟักทอง', seed: 'seeds_pumpkin', grow: 8 * 60000, out: ['pumpkin', 2], seedBack: [1, 3], color: '#e76f51', low: true },
   watermelon: { name: 'แตงโม', seed: 'seeds_watermelon', grow: 8 * 60000, out: ['watermelon', 2], seedBack: [1, 3], color: '#2d6a4f', low: true },
-  rice: { name: 'ข้าว', seed: 'seeds_rice', grow: 7 * 60000, out: ['rice', 4], seedBack: [1, 2], color: '#e9d8a6' },
+  rice: { name: 'ข้าว', seed: 'seeds_rice', grow: 7 * 60000, out: ['paddy', 4], seedBack: [0, 1], color: '#e9d8a6' }, // ได้ข้าวเปลือก ต้องสีก่อน
   // ดอกไม้: ปลูกในแปลงหรือกระถางเพื่อล่อผึ้ง · ดอกไม้สวยงาม (pot) ปลูกได้เฉพาะในกระถาง เก็บไปให้เพื่อนได้
   sunflower: { name: 'ทานตะวัน', seed: 'seeds_sunflower', grow: 5 * 60000, out: ['sunflower', 2], seedBack: [1, 2], color: '#ffd60a', flower: true },
   marigold: { name: 'ดาวเรือง', seed: 'seeds_marigold', grow: 4 * 60000, out: ['marigold', 3], seedBack: [1, 2], color: '#ff9f1c', flower: true },
@@ -82,7 +85,7 @@ export const CROPS = {
   tulip: { name: 'ทิวลิป', seed: 'seeds_tulip', grow: 6 * 60000, out: ['tulip', 1], seedBack: [1, 1], color: '#ff5d8f', flower: true, pot: true },
 };
 // แปลงผักแยกชนิด: 1 แปลง = 1 พืช (สร้างจากเมนูก่อสร้าง หมวด "แปลงผัก")
-for (const [k, C] of Object.entries(CROPS)) if (!C.pot) PIECES['plot_' + k] = { name: `แปลง${C.name}`, icon: C.flower ? '🌼' : '🌱', cost: { wood: 2, fiber: 2 }, snap: 'cell', cat: C.flower ? 'แปลงดอกไม้' : 'แปลงผัก', lvl: 1, crop: k };
+for (const [k, C] of Object.entries(CROPS)) if (!C.pot) PIECES['plot_' + k] = { name: k === 'rice' ? 'นาข้าว (ปลูกข้าว · ได้ข้าวเปลือก)' : `แปลง${C.name}`, icon: C.flower ? '🌼' : '🌱', cost: { wood: 2, fiber: 2 }, snap: 'cell', cat: C.flower ? 'แปลงดอกไม้' : 'แปลงผัก', lvl: 1, crop: k };
 export const isPlot = (t) => t === 'plot' || String(t).startsWith('plot_');
 export const isGrow = (t) => isPlot(t) || t === 'pot';
 export const plotCrop = (t) => PIECES[t]?.crop || null; // null = ปลูกได้หลายอย่าง
@@ -94,9 +97,9 @@ export const needsTill = (s) => isPlot(s.type) && s.type !== 'plot';
 // ให้ผลผลิตเฉพาะตอนที่ "อิ่ม" และ "มีน้ำ" พร้อมกัน (ปลาในบ่อแค่ให้อาหาร)
 const M = 60000;
 export const PENS = {
-  coop: { animal: 'chicken', name: 'ไก่', foods: ['corn', 'seeds_corn', 'seeds_veg', 'seeds_rice', 'rice', 'veg', 'berry'], prod: ['egg', 1], period: 3 * M, cap: 8, adult: 8 * M, old: 120 * M, life: 180 * M, max: 4, meat: ['raw_meat', 1], start: 2, startAdult: true, egg: 'egg' },
-  duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], meat2: ['duck_feather', 3], start: 2, egg: 'duck_egg', extra: ['duck_feather', 1] },
-  pigpen: { animal: 'pig', name: 'หมู', foods: ['veg', 'corn', 'potato', 'cabbage', 'pumpkin', 'carrot', 'berry', 'watermelon'], prod: ['manure', 1], period: 5 * M, cap: 6, adult: 15 * M, old: 150 * M, life: 220 * M, max: 3, meat: ['pork', 4], start: 2 },
+  coop: { animal: 'chicken', name: 'ไก่', foods: ['corn', 'seeds_corn', 'seeds_veg', 'seeds_rice', 'rice', 'rice_bran', 'paddy', 'veg', 'berry'], prod: ['egg', 1], period: 3 * M, cap: 8, adult: 8 * M, old: 120 * M, life: 180 * M, max: 4, meat: ['raw_meat', 1], start: 2, startAdult: true, egg: 'egg' },
+  duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'rice_bran', 'paddy', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], meat2: ['duck_feather', 3], start: 2, egg: 'duck_egg', extra: ['duck_feather', 1] },
+  pigpen: { animal: 'pig', name: 'หมู', foods: ['veg', 'corn', 'potato', 'cabbage', 'pumpkin', 'carrot', 'berry', 'watermelon', 'rice_bran'], prod: ['manure', 1], period: 5 * M, cap: 6, adult: 15 * M, old: 150 * M, life: 220 * M, max: 3, meat: ['pork', 4], start: 2 },
   cowpen: { animal: 'cow', name: 'วัว', foods: ['fiber', 'raw_fiber', 'corn', 'cabbage', 'veg', 'rice', 'carrot'], prod: ['milk', 1], period: 5 * M, cap: 6, adult: 20 * M, old: 180 * M, life: 260 * M, max: 2, meat: ['beef', 5], start: 1, extra: ['manure', 1] },
   buffalopen: { animal: 'buffalo', name: 'ควาย', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'rice', 'cabbage'], prod: ['buffalo_milk', 1], period: 5 * M, cap: 6, adult: 18 * M, old: 200 * M, life: 280 * M, max: 2, meat: ['raw_meat', 5], start: 0, extra: ['manure', 1] },
   sheeppen: { animal: 'sheep', name: 'แกะ', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'cabbage', 'carrot'], prod: ['wool', 2], period: 6 * M, cap: 8, adult: 12 * M, old: 160 * M, life: 230 * M, max: 4, meat: ['raw_meat', 2], start: 0 },
@@ -140,6 +143,35 @@ export const cellOf = (x, z) => [Math.floor(x / G), Math.floor(z / G)];
 export const cellCenter = (cx, cz) => [(cx + 0.5) * G, (cz + 0.5) * G];
 // 🪵 ล้อมรั้วสำเร็จรูปด้วยเงินจิ: สี่เหลี่ยม n×n ช่อง (2–20) มีประตูรั้ว 1–4 ทาง (กลางด้านเหนือ ใต้ ตะวันออก ตะวันตก)
 export const RING_MIN = 2, RING_MAX = 20;
+// 🛠️ ระดับรั้ว: เพิ่มวัสดุเพื่อให้รั้วสูงและแข็งแรงขึ้น
+export const FENCE_TIERS = [
+  { name: 'รั้วไม้', h: FENCE_H, cost: {} },
+  { name: 'รั้วไม้เสริมแข็งแรง', h: 2.2, cost: { wood: 3 } },
+  { name: 'รั้วเหล็ก', h: 2.6, cost: { scrap: 4, stone: 1 } },
+];
+export const fenceH = (s) => FENCE_TIERS[s.tier || 0]?.h || FENCE_H;
+// 🏠 บ้านน็อคดาวน์ (ซื้อด้วยเงินจิ): ฐานราก + ผนังรอบ (ประตู 1 · หน้าต่างด้านอื่น) + หลังคา ขนาด n×n ช่อง
+// door = ทิศของประตู (0=เหนือ 1=ตะวันออก 2=ใต้ 3=ตะวันตก) · ทุกช่องใช้ระดับพื้นเดียวกัน
+export const PREFAB_MIN = 1, PREFAB_MAX = 3;
+export function prefabHouse(cx0, cz0, n, door) {
+  let top = -1e9; const lows = {};
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const [x, z] = cellCenter(cx0 + i, cz0 + j), hs = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]].map(([dx, dz]) => heightAt(x + dx * G / 2, z + dz * G / 2));
+    top = Math.max(top, ...hs); lows[i + ':' + j] = Math.min(...hs);
+  }
+  const floor = +(top + 0.5).toFixed(2), out = [], mid = Math.floor((n - 1) / 2);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const [x, z] = cellCenter(cx0 + i, cz0 + j);
+    out.push({ type: 'foundation', x, z, y: +top.toFixed(2), rot: 0, drop: +(top - lows[i + ':' + j] + 0.3).toFixed(2) });
+    out.push({ type: 'roof', x, z, y: +(floor + WALL_H).toFixed(2), rot: 0 });
+  }
+  for (let k = 0; k < n; k++) for (const [rot, cx, cz] of [[0, cx0 + k, cz0], [2, cx0 + k, cz0 + n - 1], [1, cx0 + n - 1, cz0 + k], [3, cx0, cz0 + k]]) {
+    const p = slotPos('wall', cx, cz, rot), type = rot === door && k === mid ? 'door' : k === mid ? 'window' : 'wall';
+    out.push({ type, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: floor, rot });
+  }
+  return out;
+}
+export const prefabPrice = (n, ITEMS) => Math.round(prefabHouse(0, 0, n, 2).reduce((t, s) => t + coinCost(PIECES[s.type], ITEMS), 0) * 1 + 40 * n);
 export function fenceRingPrice(n, gates, ITEMS) {
   const f = coinCost(PIECES.fence, ITEMS), gt = coinCost(PIECES.gate, ITEMS);
   return (4 * n - gates) * f + gates * (gt + 15) + n * n * 2; // ค่ารั้วรอบ + ประตู + ค่าปรับพื้นที่ตามขนาด
@@ -161,7 +193,7 @@ export function slotPos(type, cx, cz, rot) {
   const [dx, dz] = DIRS[rot & 3];
   return { x: x + dx * G / 2, z: z + dz * G / 2 };
 }
-export const slotKey = (s) => `${PIECES[s.type]?.snap === 'edge' ? 'e' : s.type === 'roof' ? 'r' : s.type === 'foundation' ? 'f' : 'c'}:${Math.round(s.x * 10)}:${Math.round(s.z * 10)}:${Math.round(s.y || 0)}`;
+export const slotKey = (s) => `${s.type === 'walllamp' ? 'l' + (s.sd > 0 ? '+' : '-') : PIECES[s.type]?.snap === 'edge' ? 'e' : s.type === 'roof' ? 'r' : s.type === 'foundation' ? 'f' : 'c'}:${Math.round(s.x * 10)}:${Math.round(s.z * 10)}:${Math.round(s.y || 0)}`;
 export const baseY = (s) => (s.y !== undefined ? s.y : heightAt(s.x, s.z));
 
 // กล่องชนของสิ่งก่อสร้าง: {x,z,w,d,top,bottom?,step?,ramp?,noCollide?}  (top - 1 = ระดับพื้นผิวด้านบน)
@@ -176,8 +208,14 @@ export function collidersFor(s) {
     case 'foundation': out.push({ x: s.x, z: s.z, w: G, d: G, top: y + 0.5 + 1, step: true, sid }); break;
     case 'wall': case 'window': case 'bamboo_wall': edge(G, 0.3, WALL_H, 0, y); break;
     case 'door': edge(0.9, 0.3, WALL_H, -1.05, y); edge(0.9, 0.3, WALL_H, 1.05, y); edge(1.2, 0.3, WALL_H, 0, y + 2.3); if (!s.open) edge(1.2, 0.3, 2.3, 0, y); break;
-    case 'fence': edge(G, 0.2, FENCE_H, 0, y); break;
-    case 'gate': edge(0.3, 0.2, FENCE_H, -1.35, y); edge(0.3, 0.2, FENCE_H, 1.35, y); if (!s.open) edge(2.4, 0.2, FENCE_H, 0, y); break;
+    case 'fence': edge(G, 0.2, fenceH(s), 0, y); break;
+    case 'gate': { const h = fenceH(s); edge(0.3, 0.2, h, -1.35, y); edge(0.3, 0.2, h, 1.35, y); if (!s.open) edge(2.4, 0.2, h, 0, y); break; }
+    case 'balcony': {
+      // พื้นระเบียง + ราวกันตก 3 ด้าน (ด้านที่ติดบ้านเปิดโล่ง)
+      out.push({ x: s.x, z: s.z, w: G, d: G, top: y + 0.2 + 1, bottom: y, sid });
+      for (let r = 0; r < 4; r++) if (r !== (s.rot & 3)) { const [dx, dz] = DIRS[r]; out.push({ x: s.x + dx * (G / 2 - 0.05), z: s.z + dz * (G / 2 - 0.05), w: dx ? 0.12 : G, d: dx ? G : 0.12, top: y + 0.2 + 1.1 + 1, bottom: y, sid }); }
+      break;
+    }
     case 'roof': out.push({ x: s.x, z: s.z, w: G, d: G, top: y + 0.2 + 1, bottom: y, sid }); break;
     case 'stairs': out.push({ x: s.x, z: s.z, w: G, d: G, ramp: true, noCollide: true, base: y, rise: WALL_H, dir: s.rot & 3, top: y + WALL_H + 1, sid }); break;
     case 'storage': out.push({ x: s.x, z: s.z, w: 1.2, d: 0.8, top: y + 0.9 + 1, sid }); break;
@@ -187,6 +225,7 @@ export function collidersFor(s) {
     case 'hive': out.push({ x: s.x, z: s.z, w: 0.8, d: 0.8, top: y + 1.1 + 1, sid }); break;
     case 'stall': out.push({ x: s.x, z: s.z, w: 2.2, d: 1, top: y + 1 + 1, sid }); break;
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
+    case 'ricemill': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.2, top: y + 1.6 + 1, sid }); break;
     case 'watchtower': out.push({ x: s.x, z: s.z, w: 2.6, d: 2.6, top: y + 4.5 + 1, tower: true, sid }); break;
   }
   return out;
@@ -209,7 +248,7 @@ export function cropProgress(s, now) {
   if (!s.crop) return 0;
   const C = CROPS[s.crop]; if (!C) return 0;
   const dry = s.wt ? s.wt - s.pt : now - s.pt, wet = s.wt ? now - s.wt : 0;
-  return Math.min(1, (dry * DRY_RATE + wet + (s.fb || 0)) / C.grow);
+  return Math.min(1, (dry * DRY_RATE + wet + (s.fb || 0) + (s.hs || 0) * C.grow) / C.grow); // hs = โตไวจากฝีมือชาวนา
 }
 const overlap = (a0, a1, b1) => Math.max(0, Math.min(a1, b1) - a0);
 function settle(s, now, period, cap, key) {
@@ -247,6 +286,13 @@ export function applyOp(s, op, ctx) {
     case 'door':
       if (s.lock && !ctx.canAccess) return { err: '🔒 ประตูนี้ล็อกไว้ (เปิดได้เฉพาะเจ้าของและเพื่อนของเจ้าของ)' };
       return { patch: { open: !s.open } };
+    case 'upfence': {
+      // อัปเกรดรั้ว/ประตูรั้ว: ไม้ → ไม้เสริม → เหล็ก (สูงขึ้น แข็งแรงขึ้น)
+      if (s.type !== 'fence' && s.type !== 'gate') return { err: 'อัปเกรดได้เฉพาะรั้วและประตูรั้ว' };
+      if (s.owner && s.owner !== ctx.by && !['owner', 'deputy'].includes(ctx.role)) return { err: '🔒 อัปเกรดได้เฉพาะเจ้าของ/รองเจ้าบ้าน' };
+      const t = (s.tier || 0) + 1; if (!FENCE_TIERS[t]) return { err: 'รั้วนี้เป็นรั้วเหล็กแล้ว (ระดับสูงสุด)' };
+      return { patch: { tier: t }, msg: `🛠️ อัปเกรดเป็น${FENCE_TIERS[t].name}แล้ว` };
+    }
     case 'lock':
       if (s.owner && s.owner !== ctx.by) return { err: 'ล็อก/ปลดล็อกได้เฉพาะเจ้าของ' };
       return { patch: { lock: !s.lock }, msg: !s.lock ? '🔒 ล็อกแล้ว — เข้าได้เฉพาะคุณและเพื่อนระดับ "เพื่อน" ขึ้นไป' : '🔓 ปลดล็อกแล้ว' };
@@ -263,7 +309,7 @@ export function applyOp(s, op, ctx) {
       if (!CROPS[op.crop]) return { err: 'ไม่รู้จักพืชนี้' };
       if (!cropsFor(s.type).includes(op.crop)) return { err: s.type === 'pot' ? 'กระถางปลูกได้เฉพาะดอกไม้' : `แปลงนี้ปลูกได้เฉพาะ${cropsFor(s.type).map((k) => CROPS[k].name).join('/')}` };
       if (needsTill(s) && !s.tl) return { err: '⛏️ ต้องพรวนดินด้วยจอบก่อนปลูก' };
-      return { patch: { crop: op.crop, pt: now, wt: null, fb: 0, lo: 0 }, msg: `🌱 ปลูก${CROPS[op.crop].name}แล้ว รดน้ำเพื่อให้โตเร็วขึ้น` };
+      return { patch: { crop: op.crop, pt: now, wt: op.wet ? now : null, fb: 0, lo: 0, hs: Math.min(0.5, +op.hs || 0) }, msg: `🌱 ปลูก${CROPS[op.crop].name}แล้ว รดน้ำเพื่อให้โตเร็วขึ้น` };
     case 'water':
       if (!s.crop || s.wt) return { err: 'ไม่ต้องรดน้ำตอนนี้' };
       return { patch: { wt: now }, msg: '💧 รดน้ำแล้ว' };
@@ -409,6 +455,7 @@ export function refundFor(s) {
   const give = {};
   if (s.paid) give.jicoin = s.paid; // ซื้อด้วยเงินจิ = ได้เงินคืน
   else for (const [k, q] of Object.entries(PIECES[s.type]?.cost || {})) give[k] = q; // รื้อแล้วได้วัสดุคืนครบ
+  for (let t = 1; t <= (s.tier || 0); t++) for (const [k, q] of Object.entries(FENCE_TIERS[t].cost)) give[k] = (give[k] || 0) + q; // วัสดุที่ใช้อัปเกรดรั้ว
   for (const [k, q] of Object.entries(s.items || {})) give[k] = (give[k] || 0) + q;
   if (s.type === 'vehicle') give[s.vt] = 1;
   for (const r of s.goods || []) give[r.k] = (give[r.k] || 0) + r.q;

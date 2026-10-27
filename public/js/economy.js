@@ -5,7 +5,7 @@
 import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
-import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { routeOf, campOf, campGate, pickRoute } from './quest-core.js';
@@ -19,7 +19,7 @@ const FISH = {
   pond: [['raw_fish', 80], ['prawn', 10], ['big_fish', 8], ['golden_fish', 2]],
 };
 export const DROPS = {
-  zombie: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1], ['copper_wire', 0.08], ['spark_plug', 0.04], ['moto_wheel', 0.02]],
+  zombie: [['rice', 0.07], ['seeds_rice', 0.04], ['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1], ['copper_wire', 0.08], ['spark_plug', 0.04], ['moto_wheel', 0.02]],
   boar: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]],
   deer: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]],
   chicken: [['raw_meat', 1], ['egg', 0.4]],
@@ -295,9 +295,11 @@ const A = {
     if (lvl(ch, r.skill) < r.lvl) return { err: 'ทักษะยังไม่ถึง' };
     if (r.learn && !learned(ch, r.learn)) { const n = NPCS.find((x) => x.id === LEARN[r.learn].npc); return { err: `🔒 ต้องเรียน${LEARN[r.learn].name}ก่อน — คุยกับ${n?.name || 'ครู'} ที่${TOWNS.find((t) => t.key === n?.town)?.name || ''}` }; }
     if (r.station === 'fire' && !env.near('campfire', env.pos(ch), 4.5)) return { err: 'ต้องอยู่ใกล้กองไฟ' };
+    if (r.station === 'mill' && !env.near('ricemill', env.pos(ch), 4.5)) return { err: '⚙️ ต้องอยู่ใกล้เครื่องสีข้าว (สร้างได้ในหมวดฟาร์ม)' };
     for (const [k, q] of Object.entries(r.need)) if (!has(ch, k, q)) return { err: 'วัตถุดิบไม่พอ' };
     const take = { ...r.need }, give = rollVariants({ [r.out]: (r.qty || 1) + (r.skill === 'cooking' && ITEMS[r.out].food && hasPerk(ch, 'chef', 1) ? 1 : 0) }, env.rand, Math.min(0.3, (lvl(ch, r.skill) - r.lvl) * 0.03));
     for (const [k, q] of Object.entries(r.need)) if (ITEMS[k].returns && !r.keepBottle) give[ITEMS[k].returns] = (give[ITEMS[k].returns] || 0) + q;
+    if (r.station === 'mill') { give.rice_bran = hasPerk(ch, 'ricefarmer', 1) ? 2 : 1; if (hasPerk(ch, 'ricefarmer', 1)) give.rice = (give.rice || 0) + 1; } // สีข้าว: ได้รำข้าว · ชาวนาได้ข้าวสารเพิ่ม
     if (hasPerk(ch, 'engineer', 2) && env.rand() < 0.25) return { give, xp: { [r.skill]: 8 + r.lvl * 4 }, sfx: 'craft', msg: '🔧 ฝีมือช่าง! ไม่เสียวัตถุดิบเลย' };
     return { take, give, xp: { [r.skill]: 8 + r.lvl * 4 }, sfx: 'craft' };
   },
@@ -372,11 +374,31 @@ const A = {
     return { take: { jicoin: cost }, xp: { building: Math.min(60, list.length) }, sfx: 'place', msg: `🪵 ล้อมรั้ว ${n}×${n} ช่อง (${list.length - g} รั้ว · ${g} ประตู) แล้ว — จ่าย 🪙 ${cost}` };
   },
 
+  // 🏠 ซื้อบ้านน็อคดาวน์ด้วยเงินจิ: ตั้งบ้านทั้งหลังตรงหน้า (ฐานราก ผนัง ประตู หน้าต่าง หลังคา) · รื้อแล้วได้เงินจิคืน
+  prefab(ch, p, env) {
+    const n = Math.min(PREFAB_MAX, Math.max(PREFAB_MIN, p.n | 0)), door = (p.door | 0) & 3, cx0 = p.cx | 0, cz0 = p.cz | 0;
+    const list = prefabHouse(cx0, cz0, n, door), P = env.pos(ch), cx = (cx0 + n / 2) * 3, cz = (cz0 + n / 2) * 3;
+    if (Math.hypot(cx - P.x, cz - P.z) > 6 + n * 3) return { err: 'ตั้งบ้านไกลเกินไป' };
+    const ST = env.structs?.() || [], me = env.myId, walls = env.walls?.() || [];
+    const B = baseAt(ST, cx, cz); if (B && B.owner !== me && !roleIn(B, me)) return { err: '🔒 ตั้งบ้านในฐานของผู้เล่นอื่นไม่ได้' };
+    const x0 = cx0 * 3, z0 = cz0 * 3, x1 = x0 + n * 3, z1 = z0 + n * 3, inside = (o, pad = 0) => o.x > x0 - pad && o.x < x1 + pad && o.z > z0 - pad && o.z < z1 + pad;
+    if (ST.some((o) => o.type !== 'vehicle' && inside(o, 0.2))) return { err: '🏗️ พื้นที่ไม่ว่าง — มีสิ่งก่อสร้างอยู่แล้ว ย้ายไปที่โล่งก่อน' };
+    for (const s of list) if (s.type === 'foundation' && (heightAt(s.x, s.z) < 0.4 || waterAt(s.x, s.z))) return { err: 'ตั้งบ้านในน้ำไม่ได้' };
+    if (walls.some((b) => b.x + b.w / 2 > x0 - 0.5 && b.x - b.w / 2 < x1 + 0.5 && b.z + b.d / 2 > z0 - 0.5 && b.z - b.d / 2 < z1 + 0.5)) return { err: 'ติดอาคารเดิม — หาที่โล่งกว่านี้' };
+    if (list.some((s) => s.type === 'foundation' && s.drop > 2.6)) return { err: 'พื้นลาดชันเกินไป หาที่ราบกว่านี้' };
+    if (ST.some((o) => o.owner && o.owner !== me && PIECES[o.type] && !env.isFriend?.(o.owner) && inside(o, 6))) return { err: '🔒 ติดกับบ้านของผู้เล่นอื่น — ต้องแอดเพื่อนกับเจ้าของก่อน' };
+    const cost = prefabPrice(n, ITEMS);
+    if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (บ้าน ${n}×${n} ราคา ${cost})` };
+    const per = Math.floor(cost / list.length);
+    for (const s of list) env.place(ch, { ...s, paid: per });
+    return { take: { jicoin: cost }, xp: { building: 10 * n }, sfx: 'place', msg: `🏠 ตั้งบ้านน็อคดาวน์ ${n}×${n} ช่องแล้ว — จ่าย 🪙 ${cost} (รื้อแล้วได้เงินจิคืน)` };
+  },
+
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)
   place(ch, p, env) {
     const s = p.s || {}; if (typeof s.x !== 'number' || typeof s.z !== 'number') return { err: 'ตำแหน่งไม่ถูกต้อง' };
     if (dist(env, ch, s.x, s.z) > 9) return { err: 'วางไกลเกินไป' };
-    const clean = { x: +s.x.toFixed(2), z: +s.z.toFixed(2), y: typeof s.y === 'number' ? +s.y.toFixed(2) : undefined, rot: (s.rot | 0) & 3, ry: +(+s.ry || 0).toFixed(2), drop: s.drop };
+    const clean = { x: +s.x.toFixed(2), z: +s.z.toFixed(2), y: typeof s.y === 'number' ? +s.y.toFixed(2) : undefined, rot: (s.rot | 0) & 3, ry: +(+s.ry || 0).toFixed(2), drop: s.drop, sd: s.sd ? (s.sd > 0 ? 1 : -1) : undefined };
     // คอก/แปลง/กระถาง/กล่องผึ้ง ต้องอยู่ในรั้วของฐานที่เรามีหน้าที่
     const ptype = PIECES[s.type] ? s.type : ITEMS[p.item]?.place;
     if (ptype && needsBase(ptype) && env.structs) {
@@ -543,7 +565,12 @@ const A = {
 // ---------- ค่าใช้จ่ายของคำสั่งกับสิ่งก่อสร้าง (ปลูก รดน้ำ ให้อาหาร ฝาก/ถอนหีบ เติมน้ำมัน) ----------
 export function sopCost(ch, s, op, env) {
   switch (op.o) {
-    case 'plant': { const C = CROPS[op.crop]; if (!C) return { err: 'ไม่รู้จักพืช' }; if (!has(ch, C.seed)) return { err: `ต้องมี${ITEMS[C.seed].name}` }; return { take: { [C.seed]: 1 }, xp: { farming: 3 } }; }
+    case 'plant': {
+      const C = CROPS[op.crop]; if (!C) return { err: 'ไม่รู้จักพืช' }; if (!has(ch, C.seed)) return { err: `ต้องมี${ITEMS[C.seed].name}` };
+      // ชาวนา: ข้าวโตเร็วขึ้น 35% · ขั้นสูงสุดนาไม่ต้องรดน้ำ
+      const rf = op.crop === 'rice' && hasPerk(ch, 'ricefarmer', 0);
+      return { take: { [C.seed]: 1 }, xp: { farming: 3 }, opx: rf ? { hs: 0.35, wet: hasPerk(ch, 'ricefarmer', 2) ? 1 : 0 } : { hs: 0, wet: 0 } };
+    }
     case 'water': {
       if (op.silent || env.raining()) return {};
       if (ch.equipped && ITEMS[ch.equipped]?.tool?.water && has(ch, ch.equipped)) return { xp: { farming: 3 } }; // ถือบัวรดน้ำ = ไม่ต้องใช้น้ำขวด
@@ -551,6 +578,7 @@ export function sopCost(ch, s, op, env) {
       return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
     }
     case 'feed': { const P = PENS[s.type] && (s.type !== 'coop' || s.herd) ? PENS[s.type] : null; if (!(P ? P.foods : FEEDS).includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีอาหาร' }; return { take: { [op.item]: 1 }, xp: { farming: 2 } }; }
+    case 'upfence': { const T = FENCE_TIERS[(s.tier || 0) + 1]; if (!T) return { err: 'เป็นรั้วเหล็กแล้ว' }; for (const [k, q] of Object.entries(T.cost)) if (!has(ch, k, q)) return { err: `อัปเกรดเป็น${T.name}ต้องใช้ ${Object.entries(T.cost).map(([i, n]) => `${ITEMS[i].icon}${ITEMS[i].name} ${n}`).join(' + ')}` }; return { take: { ...T.cost }, xp: { building: 3 } }; }
     case 'till': if (!has(ch, 'hoe')) return { err: '⛏️ ต้องมีจอบ (ประดิษฐ์: ไม้ 2 + หิน 2)' }; return { xp: { farming: 2 } };
     case 'fert': if (!has(ch, 'manure')) return { err: 'ต้องมีปุ๋ยคอก (ได้จากคอกหมู/วัว)' }; return { take: { manure: 1 }, xp: { farming: 2 } };
     case 'drink': {
@@ -604,6 +632,7 @@ export function sopCost(ch, s, op, env) {
       // เกษตรกร: ผลผลิต ×2 (Lv8 ×3) และได้เมล็ดคืน
       const C = CROPS[s.crop], give = {};
       if (C && hasPerk(ch, 'farmer', 0)) { give[C.out[0]] = C.out[1] * (hasPerk(ch, 'farmer', 2) ? 2 : 1); if (hasPerk(ch, 'farmer', 1)) give[C.seed] = 1; }
+      if (C && s.crop === 'rice' && hasPerk(ch, 'ricefarmer', 0)) give[C.out[0]] = (give[C.out[0]] || 0) + 2 + (hasPerk(ch, 'ricefarmer', 2) ? C.out[1] : 0);
       return { xp: { farming: 8 }, give };
     }
     case 'move': {

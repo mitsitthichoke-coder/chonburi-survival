@@ -284,8 +284,9 @@ export class Entities {
     const nx = e.pos.x + dx * dt, nz = e.pos.z + dz * dt;
     const h = heightAt(nx, nz);
     if (e.kind !== 'zombie' && waterAt(nx, nz, h) && e.type !== 'bird') { e.wander = null; return false; }
+    const from = { x: e.pos.x, z: e.pos.z };
     e.pos.x = nx; e.pos.z = nz;
-    if (e.type !== 'bird') this.g.world.collide(e.pos, 0.35);
+    if (e.type !== 'bird') this.g.world.collide(e.pos, 0.35, from);
     const w = waterAt(e.pos.x, e.pos.z);
     const gy = heightAt(e.pos.x, e.pos.z);
     e.pos.y = e.type === 'bird' ? Math.max(gy, w ? w.level : gy) + 1.2 + Math.sin(e.t * 2) * 0.3 : w ? Math.max(gy, w.level - 1.2) : gy;

@@ -168,7 +168,7 @@ export class Game {
     this.auth.do('unequip', { slot });
   }
   maxSlots() { return BASE_SLOTS + wearStats(this.wear).carry + extraSlots(this.auth.ch); }
-  usedSlots() { let n = 0; for (const [k, q] of Object.entries(this.inv)) if (q > 0 && !ITEMS[k]?.quest) n += Math.ceil(q / stackOf(k)); return n; }
+  usedSlots() { let n = 0; for (const [k, q] of Object.entries(this.inv)) if (q > 0 && !ITEMS[k]?.quest && k !== 'jicoin') n += Math.ceil(q / stackOf(k)); return n; } // เงินจิไม่กินช่องกระเป๋า
   overloaded() { return this.usedSlots() > this.maxSlots(); }
   dropItem(k, q) { if (this.hasItem(k, q)) this.auth.do('drop', { k, q }); }
 

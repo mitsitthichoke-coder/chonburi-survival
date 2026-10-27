@@ -436,8 +436,8 @@ export class World {
   nearSearchedCar(x, z, rad) { const now = Date.now(); return this.near(this.lootGrid, x, z, rad, (l) => l.kind === 'car' && l.until > now && l.until < now + 864e5)[0] || null; }
 
   // ชนกับอาคาร ต้นไม้ หิน
-  collide(pos, radius = 0.4) {
-    const hit = collideBoxes(this.buildings, pos, radius);
+  collide(pos, radius = 0.4, from = null) {
+    const hit = collideBoxes(this.buildings, pos, radius, from);
     for (const r of this.near(this.resGrid, pos.x, pos.z, 3, (o) => !o.until && RES_TYPES[o.type].r)) {
       const rr = RES_TYPES[r.type].r * r.s + radius;
       const dx = pos.x - r.x, dz = pos.z - r.z, L = Math.hypot(dx, dz);

@@ -2819,5 +2819,13 @@ export default {
 "เก้าอี้ไม้": "Wooden chair",
 "🪑 เก้าอี้ไม้ (ไม้ 3) — กดใช้เพื่อนั่งพักบนเก้าอี้ ฟื้นตัวดีกว่านั่งพื้น": "🪑 Wooden chair (3 wood) — use it to sit and rest, recovers better than sitting on the ground",
 "🛏️ นอนบนเตียงได้นานจนกว่าจะขยับ ฟื้นพลัง/ลดความเครียดได้ดีที่สุด": "🛏️ Sleep in bed until you move — the best recovery and stress relief",
-"ท่านั่งพื้น นอนพื้น นั่งเก้าอี้ นอนเตียง เห็นได้ทั้งตัวเองและผู้เล่นอื่น": "Sitting/lying on the ground, sitting on a chair and lying in bed are visible to you and other players"
+"ท่านั่งพื้น นอนพื้น นั่งเก้าอี้ นอนเตียง เห็นได้ทั้งตัวเองและผู้เล่นอื่น": "Sitting/lying on the ground, sitting on a chair and lying in bed are visible to you and other players",
+"📌 วางที่ช่องลัดหมายเลข:": "📌 Put in hotbar slot:",
+"✖️ เอาออกจากช่องลัด": "✖️ Remove from hotbar",
+"คลิกอีกครั้งเพื่อปิด (ปิดเองใน 10 วินาที)": "Click again to close (closes by itself in 10 s)",
+"คลิกขวาที่ไอเท็ม → เลือกได้ว่าจะวางที่ช่องลัดหมายเลข 1–6": "Right-click an item → choose hotbar slot 1–6",
+"ซอมบี้และสัตว์ร้ายเดินทะลุรั้ว/ผนังฐานไม่ได้แล้ว (เดิมก้าวข้ามรั้วบาง ๆ ได้ตอนวิ่งเร็ว)": "Zombies and predators can no longer walk through base fences/walls (fast movers used to slip through thin fences)",
+"เงินจิไม่กินช่องกระเป๋าแล้ว (เดิมเงินจิเยอะทำให้กระเป๋าเกินช่อง)": "Ji-Coins no longer take bag slots (lots of coins used to overflow the bag)",
+"ไอเท็มที่หมดแล้วหายออกจากช่องลัดอัตโนมัติ": "Used-up items are removed from the hotbar automatically",
+"กล่องภารกิจไม่ซ้อนทับแผงสถานะ · คำอธิบายค่าสถานะย้ายไปอยู่ใต้ป้ายสถานะและปิดเองใน 10 วินาที": "The quest box no longer overlaps the status panel · stat help moved below the status chips and closes by itself after 10 s"
 };

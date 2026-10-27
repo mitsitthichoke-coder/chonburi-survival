@@ -124,7 +124,8 @@ function buildLayout() {
 // ดันวัตถุออกจากกล่องชน (อาคาร/รั้ว)
 // คืนค่ากล่องที่ชน (ใช้ตรวจว่ากำลังชิดกำแพงที่ปีนได้หรือไม่)
 // b.top - 1 = ระดับหลังคา: ถ้ายืนอยู่บนหลังคาแล้วจะไม่ถูกดันออก
-export function collideBoxes(list, pos, radius = 0.4) {
+// from = ตำแหน่งก่อนขยับ: ดันกลับไปฝั่งที่มา (กันทะลุรั้ว/ผนังบาง ๆ เมื่อก้าวเลยกึ่งกลาง)
+export function collideBoxes(list, pos, radius = 0.4, from = null) {
   let hit = null;
   for (const b of list) {
     if (b.noCollide) continue;
@@ -136,7 +137,10 @@ export function collideBoxes(list, pos, radius = 0.4) {
     const hx = b.w / 2 + radius, hz = b.d / 2 + radius;
     const dx = pos.x - b.x, dz = pos.z - b.z;
     if (Math.abs(dx) < hx && Math.abs(dz) < hz) {
-      if (hx - Math.abs(dx) < hz - Math.abs(dz)) pos.x = b.x + Math.sign(dx || 1) * hx; else pos.z = b.z + Math.sign(dz || 1) * hz;
+      const fx = from ? from.x - b.x : 0, fz = from ? from.z - b.z : 0;
+      if (from && Math.abs(fx) >= hx - 0.02) pos.x = b.x + Math.sign(fx) * hx;
+      else if (from && Math.abs(fz) >= hz - 0.02) pos.z = b.z + Math.sign(fz) * hz;
+      else if (hx - Math.abs(dx) < hz - Math.abs(dz)) pos.x = b.x + Math.sign(dx || 1) * hx; else pos.z = b.z + Math.sign(dz || 1) * hz;
       hit = b;
     }
   }

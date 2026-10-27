@@ -367,17 +367,23 @@ export class WorldCore {
     if (WILD[f.k]?.angryHit || WILD[f.k]?.hostile) { f.angry = 12; f.angryId = by; }
     if (f.hp <= 0) { this.fauna.delete(fid); this.broadcast({ t: 'mdie', id: fid, by, k: f.k }); }
   }
+  // เลื่อนตัวไปตามทิศ (ux,uz) ระยะ d ทีละก้าวสั้น ๆ พร้อมชนผนัง/รั้ว
+  slide(m, ux, uz, d, r = 0.35) {
+    const n = Math.max(1, Math.ceil(d / 0.2));
+    for (let i = 0; i < n; i++) { const pos = { x: m.x + ux * d / n, z: m.z + uz * d / n }; pos.y = heightAt(pos.x, pos.z); collideBoxes(this.walls, pos, r, m); m.x = pos.x; m.z = pos.z; }
+  }
   moveMob(m, tx, tz, spd, dt, away = false, canSwim = false) {
     let dx = tx - m.x, dz = tz - m.z; const L = Math.hypot(dx, dz) || 1;
     if (away) { dx = -dx; dz = -dz; }
     const want = Math.atan2(dx, dz); let dr = want - m.ry;
     while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2;
     m.ry += dr * Math.min(1, dt * 8);
-    const nx = m.x + (dx / L) * spd * dt, nz = m.z + (dz / L) * spd * dt;
-    const h = heightAt(nx, nz);
-    if (!canSwim && (h < 0.6 || waterAt(nx, nz, h))) { m.wander = null; m.spd = 0; return L; }
-    const pos = { x: nx, z: nz, y: h }; collideBoxes(this.walls, pos, 0.35);
-    m.x = pos.x; m.z = pos.z; m.spd = spd;
+    const step = spd * dt, n = Math.max(1, Math.ceil(step / 0.2)); m.spd = spd;
+    for (let i = 0; i < n; i++) {
+      const nx = m.x + (dx / L) * step / n, nz = m.z + (dz / L) * step / n, h = heightAt(nx, nz);
+      if (!canSwim && (h < 0.6 || waterAt(nx, nz, h))) { m.wander = null; m.spd = 0; return L; }
+      const pos = { x: nx, z: nz, y: h }; collideBoxes(this.walls, pos, 0.35, m); m.x = pos.x; m.z = pos.z;
+    }
     return L;
   }
   wander(m, cx, cz, rad, spd, dt, canSwim) {
@@ -525,7 +531,7 @@ export class WorldCore {
       zb.t += dt; zb.cd -= dt;
       // กลัวกองไฟ: ถ้าอยู่ใกล้กองไฟให้ถอยออกไป ไม่ไล่ใคร
       const fire = nearFireOf(fires, zb.x, zb.z, FIRE_SAFE + 2);
-      if (fire && !ZTIERS[zb.tier | 0].boss) { const dx = zb.x - fire.f.x, dz = zb.z - fire.f.z, L = Math.hypot(dx, dz) || 1; zb.x += (dx / L) * 2.5 * dt; zb.z += (dz / L) * 2.5 * dt; zb.ry = Math.atan2(dx, dz); zb.spd = 2.5; continue; }
+      if (fire && !ZTIERS[zb.tier | 0].boss) { const dx = zb.x - fire.f.x, dz = zb.z - fire.f.z, L = Math.hypot(dx, dz) || 1; this.slide(zb, dx / L, dz / L, 2.5 * dt, 0.35 * ZTIERS[zb.tier | 0].scale); zb.ry = Math.atan2(dx, dz); zb.spd = 2.5; continue; }
       const T = ZTIERS[zb.tier | 0], see = (night ? 40 : 24) * (T.boss ? 1.5 : 1);
       let tgt = null, td = see;
       zb.ignore ||= {};
@@ -547,10 +553,13 @@ export class WorldCore {
         const want = Math.atan2(dx, dz); let dr = want - zb.ry;
         while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2;
         zb.ry += dr * Math.min(1, dt * 8);
-        const nx = zb.x + (dx / L) * spd * dt, nz = zb.z + (dz / L) * spd * dt;
-        const hz = heightAt(nx, nz);
-        if (hz > -1.5) { const pos = { x: nx, z: nz, y: hz }; collideBoxes(this.walls, pos, 0.35 * T.scale); zb.x = pos.x; zb.z = pos.z; zb.spd = spd; }
-        else { zb.wander = null; zb.spd = 0; }
+        // ก้าวทีละไม่เกิน 0.2 ม. และดันกลับฝั่งเดิม → ผู้ติดเชื้อเดินทะลุรั้ว/ผนังไม่ได้
+        const step = spd * dt, n = Math.max(1, Math.ceil(step / 0.2)); zb.spd = spd;
+        for (let i = 0; i < n; i++) {
+          const nx = zb.x + (dx / L) * step / n, nz = zb.z + (dz / L) * step / n, hz = heightAt(nx, nz);
+          if (hz <= -1.5) { zb.wander = null; zb.spd = 0; break; }
+          const pos = { x: nx, z: nz, y: hz }; collideBoxes(this.walls, pos, 0.35 * T.scale, zb); zb.x = pos.x; zb.z = pos.z;
+        }
       } else zb.spd = 0;
       // ผู้ติดเชื้อปีนไม่ได้: ผู้เล่นที่อยู่บนที่สูงโจมตีไม่ถึง ถ้าวนอยู่ข้างล่างนาน 15 วินาทีจะเลิกสนใจ 25 วินาที
       const reach = tgt && (tgt.p[1] ?? 0) - heightAt(zb.x, zb.z) < 2.2;

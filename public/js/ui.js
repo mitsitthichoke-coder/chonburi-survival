@@ -176,14 +176,21 @@ export class UI {
       stress: ['😰 ความเครียด/ตื่นตระหนก', `${Math.floor(s.stress || 0)}/100`, 'เพิ่มเมื่อมีผู้ติดเชื้อใกล้ กลางคืน หิว เจ็บ · 60+ สตามิน่าฟื้นช้า · 85+ ดาเมจลด · ลดได้ด้วยการพักในที่พัก/ใกล้กองไฟ อยู่กับเพื่อนหรือสัตว์เลี้ยง ฟังดนตรี สวดมนต์ หรือกินของอร่อย'],
     }[k];
     if (!H) return;
-    h.innerHTML = `<b>${H[0]}</b> — ${H[1]}<br><small>${H[2]}</small><br><small class="hint">คลิกอีกครั้งเพื่อปิด</small>`; h.style.display = 'block';
+    h.innerHTML = `<b>${H[0]}</b> — ${H[1]}<br><small>${H[2]}</small><br><small class="hint">คลิกอีกครั้งเพื่อปิด (ปิดเองใน 10 วินาที)</small>`; h.style.display = 'block'; this.layoutHud(); clearTimeout(this.helpT); this.helpT = setTimeout(() => { h.style.display = 'none'; }, 10000);
   }
   flashHurt() { const v = $('#vignette'); v.style.opacity = 0.7; setTimeout(() => (v.style.opacity = 0), 180); }
   setPrompt(t) { const p = $('#prompt'); if (p._t !== t) { p._t = t; p.innerHTML = t || ''; p.style.display = t ? 'block' : 'none'; } }
 
   // ---------- HUD ----------
+  // จัดกล่องด้านซ้ายไม่ให้ซ้อนกัน: ภารกิจอยู่ใต้แผงสถานะเสมอ · คำอธิบายค่าสถานะอยู่ใต้ป้ายสถานะ
+  layoutHud() {
+    const hud = $('#hud').getBoundingClientRect(), lc = $('#leftcol'), st = $('#status').getBoundingClientRect(), h = $('#stat-help');
+    const top = Math.round(hud.bottom + 8); if (lc._top !== top) { lc._top = top; lc.style.top = top + 'px'; }
+    if (h.style.display === 'block') { h.style.left = Math.round(st.left) + 'px'; h.style.top = Math.round((st.height ? st.bottom : hud.top) + 6) + 'px'; }
+  }
   update(dt) {
     this.hudT -= dt; if (this.hudT > 0) return; this.hudT = 0.15;
+    this.layoutHud();
     const g = this.g, s = g.stats;
     // ⚠️ ใกล้ตาย: พลังชีวิตต่ำกว่า 25% → ขอบจอกระพริบแดง + เตือนครั้งเดียว
     const low = !g.dead && s.hp > 0 && s.hp < Math.max(15, g.maxHp() * 0.25);
@@ -226,7 +233,8 @@ export class UI {
     if (qel._h !== qh2) { qel._h = qh2; qel.innerHTML = qh2; qel.hidden = !qh; }
     const tod = g.timeOfDay(), hh = Math.floor(tod * 24), mm = Math.floor((tod * 24 - hh) * 60);
     $('#clock').innerHTML = `วันที่ <b>${g.dayNum()}</b> ของการล่มสลาย · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${g.isNight() ? '🌙' : '☀️'}<br><small>เลเวล ${g.charLevel()} · ${esc(g.areaName())} · 🎒 <span class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()}</span> · ${g.net.online ? '🟢 ออนไลน์ ' + (g.ents.remotes.size + 1) + ' คน' : '⚪ ออฟไลน์'}</small>`;
-    // hotbar
+    // hotbar (ของที่หมดแล้วเอาออกจากช่องลัดอัตโนมัติ)
+    for (let i = 0; i < g.hotbar.length; i++) { const k = g.hotbar[i]; if (k && !(g.inv[k] > 0) && g.equipped !== k) g.hotbar[i] = null; }
     $('#hotbar').innerHTML = g.hotbar.map((k, i) => {
       const it = k && ITEMS[k], q = k ? g.inv[k] || 0 : 0;
       return `<div class="slot ${k && g.equipped === k ? 'eq' : ''} ${k && !q ? 'empty' : ''}" data-slot="${i}" data-drop="hb:${i}"><span class="n">${i + 1}</span>${it ? `${it.icon}<span class="q">${q}</span>` : ''}</div>`;
@@ -580,10 +588,11 @@ export class UI {
   // เมนูคลิกขวาที่ไอเท็มในกระเป๋า
   itemMenu(k, x, y) {
     const g = this.g, it = ITEMS[k], m = $('#ctx-menu'), sv = salvageOf(k), pinned = g.hotbar.includes(k);
-    m.innerHTML = `<b>${it.icon} ${esc(it.name)}</b><button data-cm="use">▶️ ใช้ / ถือ / สวม</button>${it.tool && it.wear?.slot === 'off' ? '<button data-cm="off">🫲 ถือมือรอง (คู่กับอาวุธมือหลัก)</button>' : ''}<button data-cm="pin">${pinned ? '📌 เอาออกจากช่องลัด' : '📌 ปักไว้ที่ช่องลัด'}</button>${sv ? `<button data-cm="salvage">♻️ ย่อย → ${Object.entries(sv).map(([i, n]) => `${ITEMS[i].icon}${n}`).join(' ')}</button>` : '<button disabled>♻️ ย่อยไม่ได้</button>'}${it.quest ? '' : '<button data-cm="drop">🗑️ ทิ้ง 1 ชิ้น</button>'}`;
-    m.hidden = false; m.style.left = Math.min(x, innerWidth - 230) + 'px'; m.style.top = Math.min(y, innerHeight - 190) + 'px';
+    m.innerHTML = `<b>${it.icon} ${esc(it.name)}</b><button data-cm="use">▶️ ใช้ / ถือ / สวม</button>${it.tool && it.wear?.slot === 'off' ? '<button data-cm="off">🫲 ถือมือรอง (คู่กับอาวุธมือหลัก)</button>' : ''}<small class="hint">📌 วางที่ช่องลัดหมายเลข:</small><div class="hbpick">${g.hotbar.map((h, i) => `<button data-cm="hb" data-i="${i}" class="${h === k ? 'on' : ''}" title="${h ? esc(ITEMS[h]?.name || '') : 'ว่าง'}"><b>${i + 1}</b>${h && h !== k ? `<small>${ITEMS[h]?.icon || ''}</small>` : ''}</button>`).join('')}</div>${pinned ? '<button data-cm="pin">✖️ เอาออกจากช่องลัด</button>' : ''}${sv ? `<button data-cm="salvage">♻️ ย่อย → ${Object.entries(sv).map(([i, n]) => `${ITEMS[i].icon}${n}`).join(' ')}</button>` : '<button disabled>♻️ ย่อยไม่ได้</button>'}${it.quest ? '' : '<button data-cm="drop">🗑️ ทิ้ง 1 ชิ้น</button>'}`;
+    m.hidden = false; m.style.left = Math.min(x, innerWidth - 230) + 'px'; m.style.top = Math.max(4, Math.min(y, innerHeight - m.offsetHeight - 8)) + 'px';
     m.onclick = (ev) => {
-      ev.stopPropagation(); const a = ev.target.dataset.cm; if (!a) return; m.hidden = true;
+      ev.stopPropagation(); const bt = ev.target.closest('[data-cm]'), a = bt?.dataset.cm; if (!a) return; m.hidden = true;
+      if (a === 'hb') { this.onDrop('item:' + k, 'hb:' + bt.dataset.i); return this.refreshPanels(); }
       if (a === 'use') g.useItem(k); else if (a === 'off') g.equip(k); else if (a === 'pin') g.pinHotbar(k); else if (a === 'salvage') g.auth.do('salvage', { k }); else if (a === 'drop') g.dropItem(k, 1);
       this.refreshPanels();
     };

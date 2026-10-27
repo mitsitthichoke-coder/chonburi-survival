@@ -3,6 +3,7 @@
 import { heightAt, waterAt, coastX, latToZ, mulberry32 } from './terrain.js';
 import { TOWNS, QUEST_SPOTS } from './data.js';
 import { rampHeight } from './building-core.js';
+import { buildLandmarks } from './landmarks.js';
 
 let cached = null;
 export function getLayout() { return (cached ||= buildLayout()); }
@@ -47,6 +48,10 @@ function buildLayout() {
 
   const rng = mulberry32(1234);
   const boxes = [], buildings = [], loot = [], cars = [];
+  // สถานที่สำคัญวางก่อน อาคารในเมืองจะเลี่ยงไม่ทับ
+  const LM = buildLandmarks((x, z, w, d) => !blocked(x, z, w, d));
+  for (const b of LM.boxes) { boxes.push(b); buildings.push({ x: b.x, z: b.z, w: b.w, d: b.d, top: b.y0 + b.h + 1 }); }
+  loot.push(...LM.loot);
   for (const t of TOWNS) {
     let placed = 0, tries = 0;
     while (placed < t.n && tries++ < t.n * 30) {
@@ -88,7 +93,7 @@ function buildLayout() {
   }
 
   // ศาลาที่พัก (เข้าไปหลบฝน/หิมะ อุ่นกว่าข้างนอก) — หลังคาสูง เดินลอดได้
-  const pavilions = [];
+  const pavilions = [...LM.pavilions];
   for (const t of TOWNS) {
     for (let k = 0, tries = 0; k < Math.max(2, Math.round(t.n / 8)) && tries < 80; tries++) {
       const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * t.r * 0.9, x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r, w = 6, d = 5;
@@ -110,7 +115,7 @@ function buildLayout() {
     { x: c.x + (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ขวาประตู
   ].map((f) => ({ ...f, top: top + 6, fence: true }));
   const gate = { x: c.x, z: c.z - half, w: gateW, d: th, top: top + 6, gate: true };
-  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate, pavilions };
+  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate, pavilions, labels: LM.labels };
 }
 
 // ดันวัตถุออกจากกล่องชน (อาคาร/รั้ว)

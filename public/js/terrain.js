@@ -84,6 +84,7 @@ export const LAKES = [
   { name: 'หนองน้ำพนัสนิคม', p: P(13.43, 101.15), rx: 14, rz: 10, level: 7 },
   { name: 'อ่างเก็บน้ำบ้านบึง', p: P(13.285, 101.15), rx: 18, rz: 12, level: 7.5 },
   { name: 'อ่างเก็บน้ำหนองกลางดง', p: P(13.17, 101.30), rx: 20, rz: 14, level: 9 },
+  { name: 'อ่างเก็บน้ำเขื่อนเกาะจันทร์', p: P(13.418, 101.378), rx: 38, rz: 18, level: 9 }, // = DAM_LAKE ใน landmarks.js
 ];
 
 function baseHeight(x, z) {

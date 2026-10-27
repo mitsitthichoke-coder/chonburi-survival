@@ -4,7 +4,7 @@ import { makeGhost } from './structures3d.js';
 import { heightAt, waterAt } from './terrain.js';
 import { skillLevel, ITEMS, buildCost, canBuild } from './data.js';
 
-const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'pond']);
+const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond']);
 
 export class Builder {
   constructor(game) { this.g = game; this.type = null; this.rot = 0; this.ghost = null; this.ghostKey = ''; this.demolish = false; this.cand = null; this.target = null; }
@@ -14,6 +14,7 @@ export class Builder {
     const g = this.g; this.coin = coin;
     if (!canBuild(g.inv)) return g.ui.toast('ต้องมีค้อนก่อน — 🪵 ค้อนไม้ (ไม้ 3 + เส้นใย 1) หรือ 🔨 ค้อนช่างไม้', 'warn');
     if (skillLevel(g.skills.building) < PIECES[type].lvl) return g.ui.toast(`ต้องมีทักษะก่อสร้าง Lv${PIECES[type].lvl}`, 'warn');
+    if (PIECES[type].learn && !g.boxes?.['learn_' + PIECES[type].learn]) return g.ui.toast('🔒 ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) ก่อน', 'warn');
     this.stop(); this.type = type; g.ui.closeAll();
     g.ui.toast(`🔨 ${PIECES[type].name}: ${g.touch ? '✅ วาง · ↻ หมุน · ✖ ออก' : 'คลิกซ้าย = วาง · Q = หมุน · X = โหมดรื้อ · Esc = ออก'}`);
   }

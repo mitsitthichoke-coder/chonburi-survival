@@ -19,6 +19,7 @@ const ANIMALS = {
   deer: { hp: 25, speed: 1.2, flee: 6.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]] },
   chicken: { hp: 8, speed: 0.8, flee: 3.5, drops: [['raw_meat', 1]] },
   raptor: { hp: 70, speed: 2.2, flee: 0, drops: [] }, tiger: { hp: 90, speed: 1.8, flee: 0, drops: [] }, trike: { hp: 170, speed: 1.0, flee: 0, drops: [] },
+  elephant: { hp: 400, speed: 0.9, flee: 0, drops: [] }, buffalo: { hp: 90, speed: 0.9, flee: 0, drops: [] }, sheep: { hp: 20, speed: 0.9, flee: 4, drops: [] },
   dog: { hp: 30, speed: 1.4, stray: true }, cat: { hp: 20, speed: 1.0, stray: true }, bird: { hp: 10, speed: 1.8, stray: true, fly: true },
 };
 const tmp = new THREE.Vector3();
@@ -28,7 +29,13 @@ function zombieMesh(T) {
   setPumpkin(m, isHalloween() && !T.boss);
   m.scale.setScalar(T.scale);
   if (T.key === 'toxic') m.userData.inner.add(new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), new THREE.MeshBasicMaterial({ color: '#70e000', transparent: true, opacity: 0.18, depthWrite: false })).translateY(1.2));
-  if (T.boss) {
+  if (T.mil) {
+    // หมวกเหล็กทหาร (ผู้บัญชาการมีหมวกแก๊ปสีขาว)
+    const hm = T.boss ? new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.12, 12), new THREE.MeshLambertMaterial({ color: '#f8f9fa' })) : new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#3a4a2a' }));
+    hm.position.y = T.boss ? 0.3 : 0.18; m.userData.head.add(hm);
+    if (T.boss) { const v = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, 0.14), new THREE.MeshLambertMaterial({ color: '#111' })); v.position.set(0, 0.25, 0.22); m.userData.head.add(v); }
+  }
+  if (T.boss && !T.mil) {
     const crown = new THREE.Group(), gold = new THREE.MeshLambertMaterial({ color: '#ffd60a' });
     crown.add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.1, 10), gold));
     for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 4), gold); const a = (i / 5) * Math.PI * 2; sp.position.set(Math.cos(a) * 0.2, 0.12, Math.sin(a) * 0.2); crown.add(sp); }
@@ -467,6 +474,7 @@ export class Entities {
           e.mesh.rotation.z = p.down > 0 ? 1.4 : 0; e.mesh.rotation.x = 0;
           const home = p.home && g.world.structures.find((s) => s.id === p.home);
           if (p.home && !home) p.home = null;
+          if (e.mounted) { e.speed = g.player.speedNow; animateAnimal(e.mesh, dt, e.speed); break; } // ถูกขี่อยู่: ตำแหน่งตามผู้เล่น
           if (home && !(p.down > 0)) {
             // อยู่บ้าน: เดินเล่นรอบบ้านสัตว์เลี้ยง และช่วยไล่ผู้ติดเชื้อที่เข้ามาใกล้
             const z = fights(p) && this.nearestOf(e.pos, 'zombie', 10);

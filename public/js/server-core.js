@@ -1,12 +1,14 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS } from './data.js';
+import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
-import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
+import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
+import { NAVY, inNavy, landmark } from './landmarks.js';
+const SHEEP_FARM = landmark('sheep');
 
 export const emptyState = () => ({ startTime: Date.now(), res: {}, loot: {}, structures: [], rels: {}, preg: {}, children: [], profiles: {}, friends: {}, freq: {} });
 
@@ -434,7 +436,16 @@ export class WorldCore {
       const spot = (a0, a1) => { for (let i = 0; i < 6; i++) { const a = Math.random() * Math.PI * 2, r = a0 + Math.random() * (a1 - a0), x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r; if (this.validSpot(x, z)) return [x, z]; } return null; };
       if (an < (town ? 2 : 7)) {
         const s = spot(35, 100);
-        if (s) { const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random(); this.spawnFauna(pickWild(zoo, r, inTownAt(s[0], s[1], 1.4)), ...s); }
+        if (s) {
+          const zoo = (kk.x - s[0]) ** 2 + (kk.z - s[1]) ** 2 < 150 * 150, r = Math.random();
+          // สัตว์เฉพาะถิ่น: ช้างป่าบ่อทอง · ควายหนองใหญ่/บ้านบึง · แกะบางละมุง (ในสวนแกะเกิดถี่กว่า)
+          const reg = REGION_FAUNA.find((f) => { const t = TOWNS.find((x) => x.key === f.town); return (t.x - s[0]) ** 2 + (t.z - s[1]) ** 2 < (t.r * f.r) ** 2; });
+          const k = reg && Math.random() < reg.p ? reg.k : pickWild(zoo, r, inTownAt(s[0], s[1], 1.4));
+          if (!(WILD[k].noTown && inTownAt(s[0], s[1], 1.4))) this.spawnFauna(k, ...s);
+        }
+      }
+      const sf = SHEEP_FARM; if (Math.hypot(sf.x - px, sf.z - pz) < 120 && [...this.fauna.values()].filter((m) => m.k === 'sheep' && Math.hypot(m.x - sf.x, m.z - sf.z) < 30).length < 5) {
+        const a = Math.random() * 6.28, rr = Math.random() * 15, x = sf.x + Math.cos(a) * rr, z = sf.z + Math.sin(a) * rr; if (this.validSpot(x, z)) this.spawnFauna('sheep', x, z);
       }
       if (town && st < 3) { const s = spot(20, 50); if (s) this.spawnFauna(['dog', 'cat', 'bird'][Math.floor(Math.random() * 3)], ...s); }
     }
@@ -551,7 +562,16 @@ export class WorldCore {
       for (let i = 0; i < 6; i++) {
         const a = Math.random() * Math.PI * 2, r = 45 + Math.random() * 45;
         const x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
-        if (this.validSpot(x, z)) { this.spawnZombie(x, z); break; }
+        if (this.validSpot(x, z)) { this.spawnZombie(x, z, null, inNavy(x, z, 1.4) && Math.random() < 0.8 ? SOLDIER : undefined); break; }
+      }
+    }
+    // ฐานทัพเรือสัตหีบ: มีทหารผู้ติดเชื้อเฝ้าตลอด + ผู้บัญชาการ (บอส) เมื่อมีผู้เล่นบุกเข้าไป
+    const inBase = alive.filter((p) => inNavy(p.p[0], p.p[2], 1.6));
+    if (inBase.length) {
+      let sold = 0, adm = null; for (const zb of this.zombies.values()) { if (zb.tier === SOLDIER && inNavy(zb.x, zb.z, 1.5)) sold++; if (zb.tier === ADMIRAL) adm = zb; }
+      for (let i = 0; i < 2 && sold < 10; i++) { const a = Math.random() * 6.28, r = Math.random() * NAVY.r, x = NAVY.x + Math.cos(a) * r, z = NAVY.z + Math.sin(a) * r; if (this.validSpot(x, z) && !alive.some((p) => Math.hypot(p.p[0] - x, p.p[2] - z) < 14)) { this.spawnZombie(x, z, null, SOLDIER); sold++; } }
+      if (!adm && Date.now() - (this.admiralT || 0) > ADMIRAL_EVERY) {
+        for (let k = 0; k < 10; k++) { const x = NAVY.x + 10 + (Math.random() - 0.5) * 8, z = NAVY.z + 4 + (Math.random() - 0.5) * 6; if (this.validSpot(x, z)) { this.admiralT = Date.now(); this.spawnZombie(x, z, null, ADMIRAL); this.broadcast({ t: 'announce', kind: 'admiral', x, z }); break; } }
       }
     }
   }

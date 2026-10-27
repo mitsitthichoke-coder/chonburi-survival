@@ -1,4 +1,4 @@
-import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats } from './data.js';
+import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV } from './building-core.js';
 import { pieceInfo } from './homestead.js';
@@ -260,7 +260,7 @@ export class UI {
     c.font = '11px Sarabun, sans-serif'; c.textAlign = 'center';
     for (const l of g.world.labels) {
       const [x, y] = this.worldToMap(l.x, l.z, W, H);
-      c.fillStyle = { town: '#fff', island: '#caf0f8', lake: '#bde0fe', mountain: '#d8f3dc' }[l.kind];
+      c.fillStyle = { town: '#fff', island: '#caf0f8', lake: '#bde0fe', mountain: '#d8f3dc', poi: '#ffd166' }[l.kind];
       c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; c.strokeText(l.name, x, y - 4); c.fillText(l.name, x, y - 4);
       c.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
@@ -403,7 +403,7 @@ export class UI {
     const all = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => !r.job || hasPerk(g.ch, r.job, 0)).map(({ r, i }) => {
       const lvl = skillLevel(g.skills[r.skill]);
       const missing = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q);
-      const lock = lvl < r.lvl, noSt = r.station === 'fire' && !fire;
+      const lock = lvl < r.lvl || (r.learn && !g.boxes?.['learn_' + r.learn]), noSt = r.station === 'fire' && !fire;
       return { r, i, missing, lock, noSt, ok: !lock && !missing.length && !noSt };
     });
     const rc = this.rcat || 'all', inCat = all.filter((x) => rc === 'all' || catOf(x.r.out) === rc);
@@ -414,7 +414,7 @@ export class UI {
     const fbar = `<div class="rfilter">${[['all', `📋 ทั้งหมด ${inCat.length}`], ['ready', `✅ พร้อมคราฟท์ ${nReady}`], ['miss', `⏳ ยังไม่ครบ ${inCat.length - nReady}`]].map(([k, n]) => `<button data-rfilter="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div><input id="craft-q" class="craft-q" type="search" placeholder="🔍 ค้นหาสูตร เช่น ลูกธนู, ดาบ, ไม้" value="${esc(this.craftQ || '')}" autocomplete="off">`;
     const rec = (shown.length ? '' : `<p class="hint">${q ? `ไม่พบสูตรที่ตรงกับ "${esc(q)}"` : f === 'ready' ? 'ยังไม่มีสูตรที่วัตถุดิบครบ — ลองเก็บของเพิ่ม' : 'คราฟท์ได้ครบทุกสูตรแล้ว!'}</p>`) + shown.map(({ r, i, missing, lock, noSt, ok }) => {
       const need = Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${ITEMS[k].name} ${g.inv[k] || 0}/${q}</span>`).join(' ');
-      return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ok ? '✅' : '⏳'} ${ITEMS[r.out].icon} ${r.label || ITEMS[r.out].name}</b>${r.job ? ` <span class="chip jobchip">${JOBS[r.job].icon} ขั้นสูง</span>` : ''} <small>${SKILLS[r.skill]} Lv${r.lvl}${r.station ? ' · 🔥 ใกล้กองไฟ' : ''}</small>${statText(r.out) ? `<small class="st">${statText(r.out)}</small>` : ''}<div class="need">${need}</div>${lock ? `<small class="miss">🔒 ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}</small>` : noSt ? '<small class="miss">ต้องอยู่ใกล้กองไฟ</small>' : ''}</div><button data-craft="${i}" ${ok ? '' : 'disabled'}>ประดิษฐ์</button></div>`;
+      return `<div class="recipe ${ok ? 'ready' : 'dis'}"><div><b>${ok ? '✅' : '⏳'} ${ITEMS[r.out].icon} ${r.label || ITEMS[r.out].name}</b>${r.job ? ` <span class="chip jobchip">${JOBS[r.job].icon} ขั้นสูง</span>` : ''} <small>${SKILLS[r.skill]} Lv${r.lvl}${r.station ? ' · 🔥 ใกล้กองไฟ' : ''}</small>${statText(r.out) ? `<small class="st">${statText(r.out)}</small>` : ''}<div class="need">${need}</div>${lock && r.learn && !g.boxes?.['learn_' + r.learn] ? '<small class="miss">🔒 ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) หรืออ่านคู่มือหัตถกรรมจักสาน</small>' : lock ? `<small class="miss">🔒 ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}</small>` : noSt ? '<small class="miss">ต้องอยู่ใกล้กองไฟ</small>' : ''}</div><button data-craft="${i}" ${ok ? '' : 'disabled'}>ประดิษฐ์</button></div>`;
     }).join('');
     return `<div class="cols"><div><h3>กระเป๋า <small class="${g.overloaded() ? 'miss' : ''}">${g.usedSlots()}/${g.maxSlots()} ช่อง${g.wear.back ? ` · ${ITEMS[g.wear.back].name}` : ' · ยังไม่มีกระเป๋า'}</small> <button data-dropmode="1" class="${this.dropMode ? 'on' : ''}">${this.dropMode ? '✋ เลิกทิ้งของ' : '🗑️ ทิ้งของ'}</button> <button data-salvmode="1" class="${this.salvMode ? 'on' : ''}">${this.salvMode ? '✋ เลิกย่อย' : '♻️ ย่อยของ'}</button></h3>${catBar(ic, icount, 'icat')}<div class="inv ${this.dropMode ? 'dropping' : ''}">${inv}</div><p class="hint">${this.dropMode ? '<b class="miss">โหมดทิ้งของ: คลิกที่ไอเท็มเพื่อทิ้งทั้งกอง</b>' : this.salvMode ? '<b class="miss">♻️ โหมดย่อย: คลิกที่ไอเท็มเพื่อย่อยเป็นวัตถุดิบ</b>' : 'คลิกเพื่อใช้/ถือ/สวม · ลากไปวางที่ช่องลัด 1–6 · คลิกขวา = เมนู (ปักช่องลัด / ♻️ ย่อยเป็นวัตถุดิบ)'} · ของชนิดเดียวกันซ้อนได้ 30 ชิ้น/ช่อง (อาหาร/ยา 10, เครื่องมือและเสื้อผ้า 1)</p></div><div><h3>ประดิษฐ์ ${fire ? '<span class="chip orange">🔥 ใกล้กองไฟ</span>' : ''}</h3>${catBar(rc, rcount, 'rcat')}${fbar}<div class="recipes">${rec}</div></div></div>`;
   }
@@ -666,7 +666,9 @@ export class UI {
     }).join('');
     const mine = Object.entries(g.inv).filter(([k, q]) => q > 0 && ITEMS[k].value && !ITEMS[k].quest && k !== g.equipped).map(([k, q]) => `<span class="item small" data-tpay="${k}" title="${esc(ITEMS[k].name)} มูลค่า ${tradeValue(k).toFixed(1)} · มี ${q}">${ITEMS[k].icon}<b>${q - (B[k] || 0)}</b></span>`).join('');
     const bask = Object.entries(B).map(([k, q]) => `<span class="item small" data-tunpay="${k}" title="คลิกเพื่อเอาออก">${ITEMS[k].icon}<b>×${q}</b></span>`).join('');
-    return `<h4>🛒 แลกของกับ${esc(n.name)} <small>(ยิ่งสนิทยิ่งได้ส่วนลด สูงสุด 25%)</small></h4>
+    const T = n.teach && LEARN[n.teach], knows = T && g.boxes?.['learn_' + n.teach];
+    const teach = T ? `<h4>🎓 เรียน${T.name}กับ${esc(n.name)}</h4><p>${knows ? '✅ คุณเรียนวิชานี้แล้ว — เปิดหน้าประดิษฐ์ (ค้นหา "จักสาน" หรือ "ไผ่") และหน้าสร้าง (ผนังไม้ไผ่)' : `สอนสานตะกร้า ชะลอม พัด แพไม้ไผ่ และผนังไม้ไผ่ ค่าเรียน 🪙 ${T.cost} <button data-learn="${n.teach}" ${(g.inv.jicoin || 0) >= T.cost ? '' : 'disabled'}>เรียนเลย</button>`}</p>` : '';
+    return `${teach}<h4>🛒 แลกของกับ${esc(n.name)} <small>(ยิ่งสนิทยิ่งได้ส่วนลด สูงสุด 25%)</small></h4>
       <div class="recipes">${rows}</div>
       <p><b>ตะกร้าแลก:</b> มูลค่ารวม <b>${Math.floor(total)}</b> ${bask || '<span class="hint">คลิกของในกระเป๋าด้านล่างเพื่อใส่ตะกร้า</span>'} ${bask ? '<button data-tclear="1">ล้าง</button>' : ''}</p>
       <div class="gifts">${mine || '<span class="hint">ไม่มีของที่ใช้แลกได้</span>'}</div>
@@ -728,6 +730,7 @@ export class UI {
       if (qty > 0) g.home.op(s, { o: 'list', item: k, qty, price });
       return this.refreshPanels();
     }
+    if (d.learn) { g.auth.do('learn', { k: d.learn }); setTimeout(() => this.refreshPanels(), 300); return; }
     if (d.sell) { g.auth.do('npcsell', { npc: this.person.id, k: d.sell, q: 1 }); return this.refreshPanels(); }
     if (d.tbuy) { const r = g.auth.do('npctrade', { npc: this.person.id, buy: d.tbuy, pay: { ...this.basket } }); if (!g.auth.server && r && !r.err) this.basket = {}; else if (g.auth.server) this.basket = {}; return this.refreshPanels(); }
     if (d.statup) { g.auth.do('statup', { job: d.statup }); return this.refreshPanels(); }

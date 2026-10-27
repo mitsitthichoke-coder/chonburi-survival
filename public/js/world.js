@@ -3,7 +3,8 @@ import { WORLD, heightAt, waterAt, coastX, fbm, mulberry32, LAKES, ISLANDS, MOUN
 import { TOWNS, LOOT_TABLE, QUEST_SPOTS } from './data.js';
 import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
-import { mat, GFX } from './models.js';
+import { mat, GFX, makeLabel } from './models.js';
+import { LANDMARKS } from './landmarks.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
 import { isHalloween, onTheme } from './theme.js';
@@ -144,6 +145,8 @@ export class World {
     }
     this.buildQuestSites();
     this.buildPavilions();
+    // ป้ายชื่อสถานที่สำคัญลอยเหนือพื้นที่ (มองเห็นจากไกล)
+    for (const L of this.layout.labels || []) { const s = makeLabel(L.name, '#ffd166'); s.position.set(L.x, L.y, L.z); s.scale.set(14, 3.5, 1); this.scene.add(s); }
   }
   // ศาลาที่พัก: เสา 4 ต้น หลังคาจั่ว ม้านั่ง · ศาลาแรกของเมืองมีเตาผิงให้ความอบอุ่น
   buildPavilions() {
@@ -153,8 +156,11 @@ export class World {
       const add = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
       add(new THREE.BoxGeometry(p.w, 0.2, p.d), '#a68a64', 0, 0.1, 0);
       for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.BoxGeometry(0.25, H, 0.25), '#6f4518', sx * (p.w / 2 - 0.3), H / 2, sz * (p.d / 2 - 0.3));
-      const r1 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), '#9d0208', 0, H + 0.45, -p.d / 4); r1.rotation.x = 0.42;
-      const r2 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), '#9d0208', 0, H + 0.45, p.d / 4); r2.rotation.x = -0.42;
+      const roof = p.market !== undefined ? ['#e63946', '#2a9d8f', '#f4a261', '#e9c46a', '#9b5de5', '#4cc9f0'][p.market % 6] : '#9d0208';
+      const r1 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), roof, 0, H + 0.45, -p.d / 4); r1.rotation.x = 0.42;
+      const r2 = add(new THREE.BoxGeometry(p.w + 0.6, 0.15, p.d / 2 + 0.6), roof, 0, H + 0.45, p.d / 4); r2.rotation.x = -0.42;
+      // แผงตลาดจักสาน: ตะกร้า/ชะลอมวางขายบนโต๊ะ
+      if (p.market !== undefined) { add(new THREE.BoxGeometry(p.w - 1.6, 0.8, 1.0), '#8b5e34', 0, 0.4, 0); for (let i = 0; i < 4; i++) add(new THREE.CylinderGeometry(0.28, 0.2, 0.35, 8), i % 2 ? '#c8a165' : '#d4a373', -1.5 + i, 1.0, 0); }
       add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, -p.d / 2 + 0.7); add(new THREE.BoxGeometry(p.w - 1.2, 0.12, 0.5), '#8b5e34', 0, 0.55, p.d / 2 - 0.7);
       add(new THREE.BoxGeometry(1.6, 0.35, 0.05), '#ffd166', 0, H - 0.2, p.d / 2 - 0.1);
       // เตาผิง + ปล่องไฟทะลุหลังคา (ก่อไฟได้เลย ไม่ต้องคราฟท์กองไฟ)
@@ -280,7 +286,7 @@ export class World {
     }
   }
   addLoot(x, z, kind, src = {}) {
-    const l = { id: 'L' + this.loot.length, x, z, kind, until: 0, y: src.y, broken: src.broken, ry: src.ry };
+    const l = { id: 'L' + this.loot.length, x, z, kind, until: 0, y: src.y, broken: src.broken, ry: src.ry, tbl: src.tbl };
     this.loot.push(l);
     const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
     if (!this.lootGrid.has(k)) this.lootGrid.set(k, []);
@@ -336,6 +342,12 @@ export class World {
         ...[0.5, 0.64, 0.78].map((y, j) => [new THREE.TorusGeometry(0.2 - (j === 2 ? 0.05 : 0), 0.022, 4, 10).rotateX(Math.PI / 2).translate(0, y, 0), '#8a5a12']),
         ...[0, 1, 2, 3, 4].map((i) => [new THREE.ConeGeometry(0.05, 0.38, 4).translate(0, 0.19, 0).rotateZ(i ? 0.35 : 0).rotateY((i / 5) * Math.PI * 2).translate(0, 0.92, 0), '#52b788']),
       ],
+      // ต้นทุเรียน: ทรงพุ่มสูง ลูกทุเรียนหนามสีเขียว 1 ลูก (ตรงกับที่ได้)
+      durian_tree: [[new THREE.CylinderGeometry(0.22, 0.32, 3.4, 6).translate(0, 1.7, 0), '#5a4026'], [new THREE.IcosahedronGeometry(1.7, 0).scale(1, 1.25, 1).translate(0, 4.2, 0), '#386641'], [new THREE.IcosahedronGeometry(0.36, 0).translate(0.95, 3.0, 0.4), '#9ab03a'], [new THREE.ConeGeometry(0.08, 0.2, 4).translate(0.95, 3.38, 0.4), '#6a7d1f']],
+      // กอไผ่: ลำเขียวหลายลำ ใบเรียวด้านบน
+      bamboo: [...[[0, 0], [0.35, 0.2], [-0.3, 0.25], [0.15, -0.35], [-0.2, -0.25]].map(([x, z], i) => [new THREE.CylinderGeometry(0.07, 0.09, 6 - i * 0.5, 5).translate(x, 3 - i * 0.25, z), i % 2 ? '#7aa33a' : '#93b84a']), [new THREE.ConeGeometry(1.1, 2.4, 6).translate(0, 5.6, 0), '#6a994e']],
+      // ดอกไม้สวยงาม: ก้านเขียว ดอกสีชมพู/เหลือง/ม่วง
+      wildflower: [[new THREE.ConeGeometry(0.2, 0.5, 4).translate(0, 0.25, 0), '#52b788'], [new THREE.SphereGeometry(0.13, 6, 4).translate(0, 0.55, 0), '#ff8fab'], [new THREE.SphereGeometry(0.11, 6, 4).translate(0.18, 0.45, 0.1), '#ffd166'], [new THREE.SphereGeometry(0.1, 6, 4).translate(-0.15, 0.48, -0.08), '#c77dff']],
       pebble: [[new THREE.DodecahedronGeometry(0.22, 0).translate(0, 0.08, 0), '#9a9a92'], [new THREE.DodecahedronGeometry(0.14, 0).translate(0.3, 0.05, 0.15), '#7d7d76']],
     };
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
@@ -347,7 +359,7 @@ export class World {
       for (const [type, arr] of Object.entries(types)) {
         this.resMesh[ck][type] = parts[type].map(([g, c]) => {
           const im = new THREE.InstancedMesh(g, mat(c), arr.length);
-          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock' || type === 'orange_tree';
+          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock' || type === 'orange_tree' || type === 'durian_tree' || type === 'bamboo';
           arr.forEach((r, i) => {
             Q.setFromEuler(new THREE.Euler(0, r.ry, 0)); S.setScalar(r.s);
             M.compose(new THREE.Vector3(r.x, r.y - 0.1, r.z), Q, S); im.setMatrixAt(i, M);
@@ -483,6 +495,7 @@ export class World {
       ...ISLANDS.map((i) => ({ name: i.name, x: i.p[0], z: i.p[1], kind: 'island' })),
       ...LAKES.map((l) => ({ name: l.name, x: l.p[0], z: l.p[1], kind: 'lake' })),
       ...MOUNTAINS.slice(0, 1).map((m) => ({ name: m.name, x: m.p[0], z: m.p[1], kind: 'mountain' })),
+      ...LANDMARKS.map((l) => ({ name: l.name, x: l.x, z: l.z, kind: 'poi' })),
     ];
   }
 }

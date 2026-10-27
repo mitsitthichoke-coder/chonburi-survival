@@ -3,7 +3,7 @@ import { World, RES_TYPES } from './world.js';
 import { Entities } from './entities.js';
 import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
-import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, makeLabel } from './models.js';
+import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, ridePose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
 import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
@@ -265,10 +265,16 @@ export class Game {
       s.hp = clamp(s.hp + (f.hp || 0) * cm, 0, this.maxHp()); if (f.infection) s.infection = clamp(s.infection + f.infection * cm, 0, 100);
       if (f.stress) s.stress = clamp((s.stress || 0) + f.stress * cm, 0, 100);
       if (f.stamina) s.stamina = clamp(s.stamina + f.stamina, 0, this.maxStamina());
+      if (f.happy) s.happy = clamp((s.happy ?? 50) + f.happy, 0, 100);
       if (hasPerk(this.ch, 'chef', 2) && (f.hunger || 0) >= 30) { this.wellFed = 120; this.ui.toast('😋 อิ่มเอม! ฟื้นพลังชีวิตต่อเนื่อง 2 นาที'); }
       this.sfx.play((f.thirst || 0) > (f.hunger || 0) ? 'drink' : 'eat');
       if (f.sick && Math.random() < f.sick * (hasPerk(this.ch, 'chef', 0) ? 0.5 : 1)) { s.sick = 60; this.ui.toast('🤢 ท้องไส้ปั่นป่วน... อาหารเป็นพิษ! (กินยาสมุนไพรหรือรอให้หาย)', 'warn'); }
       else this.ui.toast(`กิน ${it.name} แล้ว`);
+    }
+    if (fx.fan) {
+      // พัดสาน: ลดอุณหภูมิร่างกาย (ถ้าร้อน) และคลายร้อน
+      const was = s.temp ?? 37; s.temp = Math.max(36.8, was - (was > 37.4 ? 0.9 : 0.3)); s.stress = Math.max(0, (s.stress || 0) - 2);
+      this.ui.toast(was > 37.4 ? `🪭 โบกพัดคลายร้อน 🌡️ ${was.toFixed(1)} → ${s.temp.toFixed(1)}°C` : '🪭 โบกพัดเย็นสบาย');
     }
     if (fx.med) {
       const m = fx.med, medMul = (1 + (skillLevel(this.skills.medicine) - 1) * 0.1) * (hasPerk(this.ch, 'doctor', 0) ? 1.5 : 1);
@@ -433,7 +439,7 @@ export class Game {
     const e0 = this.ents.nearestInteractable(P, 3), e = e0 && e0.kind === 'pet' ? null : e0; // สัตว์เลี้ยงสำคัญน้อยสุด
     if (e) {
       if (e.kind === 'stray') return { type: 'stray', e, text: `ป้อนอาหาร${PET_TYPES[e.type].name} (${e.tame}%)` };
-      if (e.kind === 'pet') return { type: 'pet', e, text: `ลูบหัว ${e.pet.name}` };
+      if (e.kind === 'pet') return PET_TYPES[e.type]?.ride ? { type: 'ride', e, text: `🐃 ขี่${e.pet.name}` } : { type: 'pet', e, text: `ลูบหัว ${e.pet.name}` };
       if (e.kind === 'child') return { type: 'child', e, text: `กอด ${e.name}` };
       return { type: 'person', e, text: `คุยกับ ${e.name}` };
     }
@@ -454,7 +460,7 @@ export class Game {
     if (w) return { type: 'water', w, text: w.fresh ? (this.hasItem('bottle') ? 'ตักน้ำใส่ขวด (น้ำดิบ)' : 'ดื่มน้ำจากอ่าง (เสี่ยง)') : ITEMS[this.equipped]?.tool?.fish ? 'แทงปลา' : 'น้ำทะเลดื่มไม่ได้' };
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
-    if (e0?.kind === 'pet') return { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
+    if (e0?.kind === 'pet') return PET_TYPES[e0.type]?.ride && !(e0.pet.down > 0) ? { type: 'ride', e: e0, text: `🐃 ขี่${e0.pet.name} (ลูบหัวด้วย)` } : { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
     const hp = (this.world.pavilions || []).find((p) => p.hearth && Math.hypot(p.x + p.w / 2 - 0.9 - P.x, p.z - P.z) < 2.4);
     if (hp) return (hp.lit || 0) > this.now() ? { type: 'none', text: `🔥 เตาผิงกำลังลุก (อีก ${Math.ceil((hp.lit - this.now()) / 1000)} วิ) — อุ่นและตากตัวให้แห้ง` } : { type: 'hearth', p: hp, text: `🔥 ก่อไฟในเตาผิง (ไม้ ${this.inv.wood || 0}/2)` };
     const dm = this.myPiece(); if (dm) return { type: 'demo', text: `${PIECES[dm.type].icon} ${PIECES[dm.type].name} · ${this.touch ? 'แตะ ✋' : 'กด E หรือ <kbd>X</kbd>'} = 🗑️ รื้อชิ้นนี้ (ได้วัสดุคืนครบ)` };
@@ -526,6 +532,18 @@ export class Game {
     if (R.ht >= every && (s.happy ?? 50) < 100) { R.ht -= every; s.happy = Math.min(100, (s.happy ?? 50) + 1); this.ui.toast(`😊 พักผ่อนสบายใจ ความสุข +1 (${s.happy})`, 'level'); }
     return true;
   }
+  // 🐃 ขี่ควายเลี้ยง: วิ่งเร็วโดยไม่เสียสตามิน่า · กด E อีกครั้ง/ลงน้ำ/ขึ้นรถ = ลง
+  mountPet(e) {
+    if (this.mount) return this.dismount();
+    if (this.vehicle || this.dead || this.player.swim) return;
+    this.stopRest(); this.mount = e; e.mounted = true; e.pet.loyal = Math.min(100, e.pet.loyal + 1);
+    this.ui.toast(`🐃 ขึ้นขี่${e.pet.name}แล้ว — เดินเร็วขึ้น ไม่เหนื่อย (กด E เพื่อลง)`);
+  }
+  dismount(msg) {
+    const e = this.mount; if (!e) return; this.mount = null; e.mounted = false;
+    const u = this.player.mesh.userData; u.inner.position.y = 0; u.inner.rotation.x = 0;
+    e.pos.x += 1.2; this.ui.toast(msg || `ลงจากหลัง${e.pet.name}แล้ว`);
+  }
   // ลูกศรนำทาง 3 มิติ: ลอยเหนือหัว หมุนชี้ไปยังเป้าหมายภารกิจ (เปิดโดยแตะกล่องภารกิจ)
   navTarget() { return this.sq?.type === 'visit' ? { x: this.sq.x, z: this.sq.z, name: this.sq.name } : this.quest.target(); }
   updateNav(dt) {
@@ -569,6 +587,7 @@ export class Game {
       case 'person': this.quest.onMeet(t.e.id); return this.ui.openPerson(t.e);
       case 'child': this.stats.stamina = this.maxStamina(); return this.ui.toast(`${t.e.name} ยิ้มให้คุณ 💕 (สตามิน่าเต็ม)`);
       case 'pet': t.e.pet.loyal = Math.min(100, t.e.pet.loyal + 1); this.sfx.play({ dog: 'bark', cat: 'meow', bird: 'chirp' }[t.e.type]); return this.ui.toast(`${t.e.pet.name} ดีใจกระดิกหาง`);
+      case 'ride': return this.mountPet(t.e);
       case 'stray': return this.tameStray(t.e);
       case 'loot': {
         return this.auth.do('loot', { id: t.l.id });
@@ -615,7 +634,7 @@ export class Game {
   // tool = ใช้เครื่องมือ (ได้วัตถุดิบพร้อมใช้) · มือเปล่า = ได้วัตถุดิบดิบที่ต้องแปรรูปก่อน
   // ตี/เก็บทรัพยากร: ผลจริง (ได้อะไร เท่าไร) ตัดสินโดยระบบเศรษฐกิจ
   harvest(r, hand = false) {
-    this.sfx.play(r.type === 'rock' ? 'stone' : r.type === 'tree' || r.type === 'palm' || r.type === 'orange_tree' ? 'chop' : 'pickup');
+    this.sfx.play(r.type === 'rock' ? 'stone' : r.type === 'tree' || r.type === 'palm' || r.type === 'orange_tree' || r.type === 'durian_tree' || r.type === 'bamboo' ? 'chop' : 'pickup');
     this.auth.do('hit', { id: r.id, hand });
   }
 
@@ -892,10 +911,12 @@ export class Game {
     const over = this.overloaded();
     const sprint = (k.ShiftLeft || k.ShiftRight || this.touch?.sprint) && s.stamina > 1 && moving && !p.swim && !over && !s.fracture; // ขาหักวิ่งไม่ได้
     if ((sprint || p.swim) && this.stance) this.setStance(0);
+    if (this.mount && (p.swim || this.mount.dead || this.mount.pet.down > 0 || this.vehicle)) this.dismount();
     let spd = p.swim ? 2.6 : sprint ? 7.8 : 4.6;
     spd *= [1, 0.55, 0.3][this.stance] * (hasPerk(this.ch, 'athlete', 1) ? 1.1 : 1);
     if (s.fracture) spd *= 0.5; else if (s.sprain > 0) spd *= sprint ? 0.55 : 0.75; if (s.infection > 70) spd *= 0.8; if (this.social.preg[this.id]) spd *= 0.85;
     spd *= 1 + wearStats(this.wear).spd; if (over) spd *= 0.6;
+    if (this.mount) spd = sprint ? 10.5 : 7; // ขี่ควาย: ขาหักก็ไปได้ ไม่เสียสตามิน่า
     if (p.climb && fz < 0 && p.climb.dir === 'up') { p.climb = null; this.ui.toast('ปล่อยมือจากกำแพง'); }
     if (moving && !p.climb) {
       const yaw = this.camYaw + Math.PI;
@@ -906,7 +927,7 @@ export class Game {
       if (this.atkT <= 0) p.ry += dr * Math.min(1, dt * 12);
       p.speedNow = spd;
     } else p.speedNow = 0;
-    if (sprint) s.stamina -= 14 * dt;
+    if (sprint && !this.mount) s.stamina -= 14 * dt;
     if (p.swim) s.stamina -= 4 * dt;
     p.pos.x = clamp(p.pos.x, WORLD.minX + 5, WORLD.maxX - 5); p.pos.z = clamp(p.pos.z, WORLD.minZ + 5, WORLD.maxZ - 5);
     const hit = p.climb ? null : this.world.collide(p.pos, 0.4);
@@ -915,7 +936,7 @@ export class Game {
     const gy = heightAt(p.pos.x, p.pos.z);
     const roof = this.world.roofAt(p.pos.x, p.pos.z, p.pos.y);
     if (p.climb) this.updateClimb(dt, w ? Math.max(gy, w.level - 1.25) : gy);
-    else if (jump && this.wall && !p.swim) this.startClimb();
+    else if (jump && this.wall && !p.swim && !this.mount) this.startClimb();
     else if (p.swim) { p.vy = 0; p.pos.y = Math.max(gy, w.level - 1.25); if (jump) p.pos.y = w.level - 0.9; }
     else {
       if (jump && this.stance) this.setStance(0);
@@ -940,6 +961,10 @@ export class Game {
     p.mesh.userData.belly.visible = !!this.social.preg[this.id];
     setInjury(p.mesh, injuryBits(this.stats)); tickInjury(p.mesh, dt);
     animateHuman(p.mesh, dt, p.speedNow, this.atkT, p.climb ? (p.climb.dir === 'up' ? 'climb' : 'down') : ['', 'crouch', 'crawl'][this.stance] || null);
+    if (this.mount) {
+      const M = this.mount; M.pos.set(p.pos.x, p.pos.y, p.pos.z); M.ry = p.ry; M.mesh.position.copy(M.pos); M.mesh.rotation.y = p.ry;
+      ridePose(p.mesh, dt, p.speedNow, 'animal'); p.mesh.userData.inner.position.y = 0.95;
+    }
     if (this.blockT > 0 && !p.climb) { this.blockT -= dt; p.mesh.userData[this.lefty ? 'rArm' : 'lArm'].rotation.x = -1.4; }
   }
 
@@ -1029,6 +1054,10 @@ export class Game {
       this.ui.toast(`👑 ราชาผู้ติดเชื้อปรากฏตัว! ห่างไป ${Math.round(d)} ม. — แข็งแกร่งมากแต่ดรอปของพิเศษ`, 'warn');
       this.ui.chat('', '👑 เสียงคำรามดังก้อง... ราชาผู้ติดเชื้อออกล่าแล้ว! รวมพลังกันล้มมันเพื่อชิงของพิเศษ', true);
       this.bossAt = { x: m.x, z: m.z, t: performance.now() };
+    } else if (m.kind === 'admiral') {
+      this.sfx.play('groan', { vol: 1 }); this.sfx.play('gate');
+      this.ui.toast('🎖️ ผู้บัญชาการผู้ติดเชื้อปรากฏตัวที่ฐานทัพเรือสัตหีบ! ล้มมันเพื่อชิงยุทธภัณฑ์และเหรียญกล้าหาญ', 'warn');
+      this.ui.chat('', '⚓ สัญญาณเตือนภัยดังทั่วฐานทัพเรือ... ผู้บัญชาการผู้ติดเชื้อนำทหารออกตรวจการณ์!', true);
     } else if (m.kind === 'bossdown') this.ui.chat('', `👑 ราชาผู้ติดเชื้อถูกล้มแล้ว!`, true);
   }
 

@@ -41,9 +41,10 @@ export function makeStructureMesh(s) {
       break;
     }
     case 'foundation': { const h = 0.5 + (s.drop || 0); add(box(G, h, G, '#8a7a66', 0, 0.5 - h / 2, 0)); } add(box(G - 0.1, 0.04, G - 0.1, PLANK, 0, 0.51, 0)); break;
-    case 'wall': case 'window': case 'door': {
+    case 'wall': case 'window': case 'door': case 'bamboo_wall': {
       const g = add(edgeGroup(s));
       if (s.type === 'wall') g.add(box(G, WALL_H, 0.3, WOOD, 0, WALL_H / 2, 0));
+      else if (s.type === 'bamboo_wall') { for (let i = 0; i < 10; i++) g.add(box(0.28, WALL_H, 0.26, i % 2 ? '#b5a35a' : '#c9b76c', -G / 2 + 0.15 + i * 0.3, WALL_H / 2, 0)); g.add(box(G, 0.1, 0.32, '#8a7a3a', 0, 0.6, 0), box(G, 0.1, 0.32, '#8a7a3a', 0, WALL_H - 0.5, 0)); }
       else if (s.type === 'window') {
         g.add(box(G, 1, 0.3, WOOD, 0, 0.5, 0), box(G, 0.7, 0.3, WOOD, 0, WALL_H - 0.35, 0));
         g.add(box(0.9, 1.3, 0.3, WOOD, -1.05, 1.65, 0), box(0.9, 1.3, 0.3, WOOD, 1.05, 1.65, 0));
@@ -105,8 +106,8 @@ export function makeStructureMesh(s) {
       root.userData.cropGroup = add(new THREE.Group()); root.userData.potted = true;
       break;
     }
-    case 'duckpen': case 'pigpen': case 'cowpen': {
-      const P = PENS[s.type], ground = { duckpen: '#a3b18a', pigpen: '#6f4e37', cowpen: '#8a9a5b' }[s.type];
+    case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': {
+      const P = PENS[s.type], ground = { duckpen: '#a3b18a', pigpen: '#6f4e37', cowpen: '#8a9a5b', buffalopen: '#5c4a32', sheeppen: '#95b46a' }[s.type];
       add(box(2.8, 0.1, 2.8, ground, 0, 0.05, 0));
       for (const [x, z, w, d] of [[0, -1.4, 2.8, 0.1], [0, 1.4, 2.8, 0.1], [-1.4, 0, 0.1, 2.8], [1.4, 0, 0.1, 2.8]]) { add(box(w, 0.08, d, WOOD, x, 0.85, z)); add(box(w, 0.08, d, WOOD, x, 0.45, z)); }
       for (const [x, z] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4], [0, -1.4], [0, 1.4]]) add(box(0.12, 1.05, 0.12, WOOD_D, x, 0.52, z));
@@ -202,7 +203,7 @@ export function updateStructureMesh(root, now, dt) {
   const s = root.userData.s, u = root.userData;
   if (u.cageGroup) {
     const caught = cageCatch(s, now);
-    if ((u.caught || null) !== caught) { if (u.caughtMesh) u.cageGroup.remove(u.caughtMesh); u.caught = caught; u.caughtMesh = null; if (caught) { const m = makeAnimal(caught); const big = caught === 'trike' ? 0.5 : caught === 'raptor' || caught === 'tiger' ? 0.7 : 1; m.scale.setScalar(big); u.cageGroup.add(m); u.caughtMesh = m; } }
+    if ((u.caught || null) !== caught) { if (u.caughtMesh) u.cageGroup.remove(u.caughtMesh); u.caught = caught; u.caughtMesh = null; if (caught) { const m = makeAnimal(caught); const big = caught === 'trike' ? 0.5 : caught === 'buffalo' ? 0.6 : caught === 'raptor' || caught === 'tiger' ? 0.7 : 1; m.scale.setScalar(big); u.cageGroup.add(m); u.caughtMesh = m; } }
     if (u.caughtMesh) animateAnimal(u.caughtMesh, dt, 0.5);
     if (u.baitDish) u.baitDish.material = mat(s.bait ? '#c1121f' : '#8d6e4a');
   }
@@ -241,7 +242,7 @@ export function updateStructureMesh(root, now, dt) {
     u.trough.visible = fed; u.waterBox.visible = wet;
     u.penGroup.children.forEach((m, i) => { m.userData.t += dt; m.position.x = -0.6 + (i % 2) * 1.1 + Math.sin(m.userData.t * 0.4) * 0.3; m.rotation.y = Math.sin(m.userData.t * 0.3) * 2.5; animateAnimal(m, dt, fed && wet ? 0.6 : 0.15); });
     const n = penGoods(s, now);
-    if (u.goodN !== n) { u.goodN = n; u.goods.clear(); const c = { egg: '#fff8e7', duck_egg: '#e8f0e8', milk: '#ffffff', manure: '#5c4033' }[P.prod[0]]; for (let i = 0; i < Math.min(n, 8); i++) { const e = P.prod[0] === 'milk' ? box(0.14, 0.22, 0.14, c) : new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 4), mat(c)); e.position.set(1.0 - (i % 4) * 0.18, 0.18, 1.0 - Math.floor(i / 4) * 0.2); u.goods.add(e); } }
+    if (u.goodN !== n) { u.goodN = n; u.goods.clear(); const c = { egg: '#fff8e7', duck_egg: '#e8f0e8', milk: '#ffffff', buffalo_milk: '#fdfcf5', wool: '#f5f0e6', manure: '#5c4033' }[P.prod[0]] || '#ddd'; for (let i = 0; i < Math.min(n, 8); i++) { const e = P.prod[0] === 'milk' || P.prod[0] === 'buffalo_milk' ? box(0.14, 0.22, 0.14, c) : new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 4), mat(c)); e.position.set(1.0 - (i % 4) * 0.18, 0.18, 1.0 - Math.floor(i / 4) * 0.2); u.goods.add(e); } }
   }
   if (u.bees) {
     u.bees.visible = !!s.bees;

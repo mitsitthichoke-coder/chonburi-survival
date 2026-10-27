@@ -8,13 +8,16 @@ export const TRAP_MS = 3 * 60000;
 export const BAIT_MEAT = ['raw_meat', 'cooked_meat', 'raw_fish', 'pork', 'beef'], BAIT_PLANT = ['veg', 'corn', 'berry', 'pineapple', 'orange', 'seeds_corn', 'carrot', 'cabbage', 'tomato', 'watermelon'];
 const ZOO = { x: (101.03 - 100.70) * 2160 - 648, z: (13.075 - 13.24) * 2212 }; // สวนสัตว์เปิดเขาเขียว
 // สัตว์ที่ติดกรง: เลือกได้ว่าจะ 🐾 เลี้ยงเป็นสัตว์เลี้ยง · 🏡 นำเข้าคอกในฟาร์ม (ต้องมีคอกชนิดนั้น) · 🍖 แปรรูปเป็นอาหาร · 🌿 ปล่อยคืนป่า
-export const CAGE_FARM = { chicken: 'coop', duck: 'duckpen', boar: 'pigpen' };
-export const CAGE_FOOD = { chicken: { raw_meat: 1 }, duck: { raw_meat: 2, duck_feather: 3 }, boar: { raw_meat: 3, hide: 1 }, deer: { raw_meat: 3, hide: 2 }, raptor: { raw_meat: 4, hide: 2 }, trike: { raw_meat: 6, hide: 3 }, tiger: { raw_meat: 4, hide: 3 } };
+export const CAGE_FARM = { chicken: 'coop', duck: 'duckpen', boar: 'pigpen', buffalo: 'buffalopen', sheep: 'sheeppen' };
+export const CAGE_FOOD = { chicken: { raw_meat: 1 }, duck: { raw_meat: 2, duck_feather: 3 }, boar: { raw_meat: 3, hide: 1 }, deer: { raw_meat: 3, hide: 2 }, raptor: { raw_meat: 4, hide: 2 }, trike: { raw_meat: 6, hide: 3 }, tiger: { raw_meat: 4, hide: 3 }, buffalo: { raw_meat: 5, hide: 2 }, sheep: { raw_meat: 2, wool: 2 } };
 export const CAGE_NAME = { duck: 'เป็ด' };
+// พื้นที่ที่กรงจับสัตว์เฉพาะถิ่นได้ (เหยื่อพืช): ควาย = หนองใหญ่/บ้านบึง · แกะ = บางละมุง
+const CAGE_REGION = [[101.371, 13.158, 'buffalo'], [101.109, 13.313, 'buffalo'], [100.935, 13.047, 'sheep']].map(([lo, la, k]) => ({ x: (lo - 100.70) * 2160 - 648, z: (13.075 - la) * 2212, k }));
 export function cageCatch(s, now) {
   if (!s.bait || !s.bt || now - s.bt < TRAP_MS) return null;
   const zoo = Math.hypot(s.x - ZOO.x, s.z - ZOO.z) < 150, meat = BAIT_MEAT.includes(s.bait);
-  const list = meat ? (zoo ? ['raptor', 'tiger', 'raptor', 'dog'] : ['dog', 'cat', 'boar', 'cat']) : (zoo ? ['trike', 'deer', 'trike', 'chicken'] : ['deer', 'chicken', 'boar', 'duck', 'chicken', 'duck']);
+  const reg = !meat && CAGE_REGION.find((r) => Math.hypot(s.x - r.x, s.z - r.z) < 110);
+  const list = meat ? (zoo ? ['raptor', 'tiger', 'raptor', 'dog'] : ['dog', 'cat', 'boar', 'cat']) : reg ? [reg.k, reg.k, 'chicken', reg.k, 'duck'] : (zoo ? ['trike', 'deer', 'trike', 'chicken'] : ['deer', 'chicken', 'boar', 'duck', 'chicken', 'duck']);
   return list[Math.floor(hash2(Math.floor(s.bt / 1000), s.id.length * 977) * list.length)];
 }
 
@@ -40,6 +43,9 @@ export const PIECES = {
   duckpen: { name: 'เล้าเป็ด + อ่างน้ำ (ลูกเป็ด 2 ตัว · ไข่เป็ด + ขนเป็ด)', icon: '🦆', cost: { wood: 8, fiber: 4, stone: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
   pigpen: { name: 'คอกหมู (ลูกหมู 2 ตัว)', icon: '🐷', cost: { wood: 10, stone: 4, veg: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   cowpen: { name: 'คอกวัว (ลูกวัว 1 ตัว)', icon: '🐄', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 3 },
+  buffalopen: { name: 'คอกควาย (จับควายจากหนองใหญ่/บ้านบึงมาปล่อย · รีดนมควาย)', icon: '🐃', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
+  sheeppen: { name: 'คอกแกะ (จับแกะจากสวนแกะบางละมุงมาปล่อย · ตัดขนแกะ)', icon: '🐑', cost: { wood: 10, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
+  bamboo_wall: { name: 'ผนังไม้ไผ่ (บ้านแบบง่าย · ต้องเรียนจักสาน)', icon: '🎋', cost: { bamboo: 6 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1, learn: 'wicker' },
   pond: { name: 'บ่อเลี้ยงปลา', icon: '🐟', cost: { stone: 6, wood: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   hive: { name: 'กล่องเลี้ยงผึ้ง (ปลูกดอกไม้ใกล้ ๆ เพื่อล่อผึ้ง)', icon: '🐝', cost: { wood: 6, fiber: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   stall: { name: 'แผงขายของหน้าบ้าน (ขายเป็นเงินจิ)', icon: '🏪', cost: { wood: 8, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
@@ -51,7 +57,7 @@ export const isPiece = (type) => !!PIECES[type];
 export const coinCost = (P, ITEMS) => (P.cost.jicoin ? P.cost.jicoin : Math.max(5, Math.ceil(Object.entries(P.cost).reduce((t, [k, q]) => t + (ITEMS[k]?.value || 1) * q, 0) * 2)));
 export const BASE_COLORS = ['#a0764a', '#6c584c', '#e76f51', '#e9c46a', '#2a9d8f', '#264653', '#8ecae6', '#f1faee', '#9b5de5', '#d62828', '#588157', '#adb5bd'];
 export const COLOR_COST = 50;
-export const TINTABLE = new Set(['foundation', 'wall', 'window', 'door', 'roof', 'stairs', 'fence', 'gate', 'sign']);
+export const TINTABLE = new Set(['foundation', 'wall', 'bamboo_wall', 'window', 'door', 'roof', 'stairs', 'fence', 'gate', 'sign']);
 
 export const CROPS = {
   corn: { name: 'ข้าวโพด', seed: 'seeds_corn', grow: 6 * 60000, out: ['corn', 3], seedBack: [1, 2], color: '#e9c46a' },
@@ -91,6 +97,8 @@ export const PENS = {
   duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], meat2: ['duck_feather', 3], start: 2, egg: 'duck_egg', extra: ['duck_feather', 1] },
   pigpen: { animal: 'pig', name: 'หมู', foods: ['veg', 'corn', 'potato', 'cabbage', 'pumpkin', 'carrot', 'berry', 'watermelon'], prod: ['manure', 1], period: 5 * M, cap: 6, adult: 15 * M, old: 150 * M, life: 220 * M, max: 3, meat: ['pork', 4], start: 2 },
   cowpen: { animal: 'cow', name: 'วัว', foods: ['fiber', 'raw_fiber', 'corn', 'cabbage', 'veg', 'rice', 'carrot'], prod: ['milk', 1], period: 5 * M, cap: 6, adult: 20 * M, old: 180 * M, life: 260 * M, max: 2, meat: ['beef', 5], start: 1, extra: ['manure', 1] },
+  buffalopen: { animal: 'buffalo', name: 'ควาย', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'rice', 'cabbage'], prod: ['buffalo_milk', 1], period: 5 * M, cap: 6, adult: 18 * M, old: 200 * M, life: 280 * M, max: 2, meat: ['raw_meat', 5], start: 0, extra: ['manure', 1] },
+  sheeppen: { animal: 'sheep', name: 'แกะ', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'cabbage', 'carrot'], prod: ['wool', 2], period: 6 * M, cap: 8, adult: 12 * M, old: 160 * M, life: 230 * M, max: 4, meat: ['raw_meat', 2], start: 0 },
 };
 export const WATER_MS = 10 * M, WATER_MAX = 40 * M, BREED_CD = 10 * M;
 // ฝูงสัตว์ปัจจุบัน (ตัดตัวที่หมดอายุออก) · b = เวลาเกิด · b < 0 = เล้าไก่รุ่นเก่า (โตตลอด)
@@ -149,7 +157,7 @@ export function collidersFor(s) {
   };
   switch (s.type) {
     case 'foundation': out.push({ x: s.x, z: s.z, w: G, d: G, top: y + 0.5 + 1, step: true, sid }); break;
-    case 'wall': case 'window': edge(G, 0.3, WALL_H, 0, y); break;
+    case 'wall': case 'window': case 'bamboo_wall': edge(G, 0.3, WALL_H, 0, y); break;
     case 'door': edge(0.9, 0.3, WALL_H, -1.05, y); edge(0.9, 0.3, WALL_H, 1.05, y); edge(1.2, 0.3, WALL_H, 0, y + 2.3); if (!s.open) edge(1.2, 0.3, 2.3, 0, y); break;
     case 'fence': edge(G, 0.2, FENCE_H, 0, y); break;
     case 'gate': edge(0.3, 0.2, FENCE_H, -1.35, y); edge(0.3, 0.2, FENCE_H, 1.35, y); if (!s.open) edge(2.4, 0.2, FENCE_H, 0, y); break;
@@ -158,7 +166,7 @@ export function collidersFor(s) {
     case 'storage': out.push({ x: s.x, z: s.z, w: 1.2, d: 0.8, top: y + 0.9 + 1, sid }); break;
     case 'cage': out.push({ x: s.x, z: s.z, w: 2.2, d: 2.2, top: y + 1.8 + 1, sid }); break;
     case 'pethouse': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.6, top: y + 1.4 + 1, sid }); break;
-    case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': out.push({ x: s.x, z: s.z, w: 2.8, d: 2.8, top: y + 1.1 + 1, sid }); break;
+    case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': out.push({ x: s.x, z: s.z, w: 2.8, d: 2.8, top: y + 1.1 + 1, sid }); break;
     case 'hive': out.push({ x: s.x, z: s.z, w: 0.8, d: 0.8, top: y + 1.1 + 1, sid }); break;
     case 'stall': out.push({ x: s.x, z: s.z, w: 2.2, d: 1, top: y + 1 + 1, sid }); break;
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
@@ -408,7 +416,7 @@ export const HOUSE_UP = [null, null, { wood: 40, stone: 30, fiber: 20 }, { wood:
 export const REPAIR_BASE = (lv) => ({ wood: 10 * lv, stone: 8 * lv });
 export const PROTECT_DAYS = 60, GAME_DAY_MS = 36 * 60000;
 export const protectLeft = (b, now) => (b?.ok ? Math.max(0, (b.prot || 0) + PROTECT_DAYS * GAME_DAY_MS - now) : 0);
-const FARM_TYPES = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'pond', 'hive', 'pot']);
+const FARM_TYPES = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive', 'pot']);
 export const needsBase = (t) => FARM_TYPES.has(t) || String(t).startsWith('plot_');
 export const inBox = (b, x, z, pad = 0) => !!b && x > b[0] - pad && x < b[2] + pad && z > b[1] - pad && z < b[3] + pad;
 export const baseAt = (structs, x, z) => structs.find((s) => s.type === 'basecore' && s.ok && inBox(s.box, x, z));
@@ -417,7 +425,7 @@ export const basesOf = (structs, id) => structs.filter((s) => s.type === 'baseco
 // ตรวจองค์ประกอบของฐานรอบหลักบ้าน
 export function baseCheck(structs, core) {
   const mine = structs.filter((o) => o.owner === core.owner && Math.hypot(o.x - core.x, o.z - core.z) <= BASE_R);
-  const cnt = (t) => mine.filter((o) => o.type === t || (t === 'wall' && o.type === 'window')).length;
+  const cnt = (t) => mine.filter((o) => o.type === t || (t === 'wall' && (o.type === 'window' || o.type === 'bamboo_wall'))).length;
   const missing = Object.entries(BASE_NEED).filter(([t, [n]]) => cnt(t) < n).map(([t, [n, name]]) => `${name} ${cnt(t)}/${n}`);
   const fence = mine.filter((o) => o.type === 'fence' || o.type === 'gate');
   let box = null;
@@ -435,7 +443,7 @@ export function accessFor(structs, s, by, friendOk) {
   const b = baseAt(structs, s.x, s.z), r = b && b.owner === s.owner ? roleIn(b, by) : null;
   return r || (friendOk ? 'friend' : null);
 }
-const ANIMAL_T = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'pond', 'hive']);
+const ANIMAL_T = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive']);
 // คำสั่งที่ "เอาของออก" ต้องเป็นผู้มีหน้าที่
 export function roleAllows(role, s, o) {
   if (!['harvest', 'collect', 'butcher', 'breed', 'till', 'plant', 'fert', 'stock'].includes(o)) return true;

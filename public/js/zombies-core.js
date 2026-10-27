@@ -5,10 +5,15 @@ export const ZTIERS = [
   { key: 'runner', name: 'ผู้ติดเชื้อวิ่งเร็ว', hp: 0.7, spd: 1.45, dmg: 0.8, infect: 0.16, scale: 0.95, color: '#9d0208', w: 18, day: 0, xp: 15, drops: 1 },
   { key: 'toxic', name: 'ผู้ติดเชื้อพิษ', hp: 1.3, spd: 1, dmg: 1, infect: 0.45, scale: 1.05, color: '#6a994e', w: 10, day: 1, xp: 20, drops: 1.3 },
   { key: 'brute', name: 'ผู้ติดเชื้อร่างยักษ์', hp: 3.2, spd: 0.8, dmg: 1.9, infect: 0.2, scale: 1.4, color: '#3d405b', w: 8, day: 1, xp: 35, drops: 2 },
+  // ทหารผู้ติดเชื้อ: พบเฉพาะในฐานทัพเรือสัตหีบ (w = 0 ไม่สุ่มเกิดที่อื่น) · ใส่หมวกเหล็ก ทนกว่า ตีแรงกว่า
+  { key: 'soldier', name: 'ทหารผู้ติดเชื้อ', hp: 2.2, spd: 1.12, dmg: 1.5, infect: 0.2, scale: 1.08, color: '#4b5320', w: 0, day: 0, xp: 30, drops: 1.6, mil: true, loot: 'mil' },
+  { key: 'admiral', name: '🎖️ ผู้บัญชาการผู้ติดเชื้อ', hp: 22, spd: 1.1, dmg: 3.4, infect: 0.3, scale: 2.1, color: '#1d3557', w: 0, day: 0, xp: 400, drops: 4, boss: true, mil: true, loot: 'mil' },
   { key: 'boss', name: '👑 ราชาผู้ติดเชื้อ', hp: 16, spd: 1.08, dmg: 3, infect: 0.3, scale: 2.2, color: '#370617', w: 0, day: 0, xp: 300, drops: 4, boss: true },
 ];
 export const ZT = Object.fromEntries(ZTIERS.map((t, i) => [t.key, i]));
-export const BOSS = ZT.boss;
+export const BOSS = ZT.boss, SOLDIER = ZT.soldier, ADMIRAL = ZT.admiral;
+export const ADMIRAL_EVERY = 10 * 60000; // ผู้บัญชาการเกิดใหม่ได้ทุก ~10 นาที (เมื่อมีผู้เล่นอยู่ในฐานทัพ)
+export const ADMIRAL_DROPS = { admiral_medal: 1, navy_uniform: 1 };
 export const BOSS_EVERY = 15 * 60000;  // ทุก ~15 นาทีมีโอกาสเกิดบอส
 export const BOSS_CHANCE = 0.5;
 

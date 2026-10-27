@@ -256,6 +256,38 @@ const RAW_ITEMS = {
   campfire: { name: 'กองไฟ', icon: '🔥', value: 6, place: 'campfire' },
   watchtower: { name: 'หอสังเกตการณ์', icon: '🗼', value: 25, place: 'watchtower' },
   shelter: { name: 'เพิงพัก', icon: '⛺', value: 20, place: 'shelter' },
+  // ---------- ของประจำท้องถิ่น ----------
+  durian: { name: 'ลูกทุเรียน', icon: '🟢', value: 12, food: { hunger: 30, hp: 6, happy: 2 }, desc: 'ราชาผลไม้จากบ่อทอง/หนองใหญ่ กินสด หรือแปรรูปเป็นทุเรียนทอด/ข้าวเหนียวทุเรียน' },
+  durian_chips: { name: 'ทุเรียนทอดกรอบ', icon: '🍟', value: 16, food: { hunger: 28, hp: 8, happy: 3 } },
+  durian_sticky_rice: { name: 'ข้าวเหนียวทุเรียน', icon: '🍚', value: 24, food: { hunger: 55, hp: 14, happy: 5 } },
+  bamboo: { name: 'ลำไม้ไผ่', icon: '🎋', value: 1, desc: 'ตัดจากกอไผ่ (พนัสนิคม บ้านบึง พานทอง) ใช้จักสานและทำผนังไม้ไผ่' },
+  wildflower: { name: 'ดอกไม้สวยงาม', icon: '🌸', value: 3, flower: true, desc: 'เก็บจากสวนดอกไม้บางละมุง ใช้คราฟท์มงกุฎดอกไม้ พวงมาลัย น้ำหอม' },
+  flower_crown: { name: 'มงกุฎดอกไม้', icon: '👑', value: 14, wear: { slot: 'head', warm: 0.03, color: '#ff8fab' }, desc: 'สวมแล้วสดชื่น · มอบเป็นของขวัญได้' },
+  flower_garland: { name: 'พวงมาลัยดอกไม้', icon: '💮', value: 12, flower: true, desc: 'ของขวัญที่ทุกคนชอบ' },
+  perfume: { name: 'น้ำหอมดอกไม้', icon: '🧴', value: 18, food: { hunger: 0, happy: 6 }, desc: 'ฉีดแล้วอารมณ์ดี ความสุข +6' },
+  wool: { name: 'ขนแกะ', icon: '🧶', value: 3, desc: 'ตัดจากแกะในคอกแกะ ใช้ทอเสื้อไหมพรมอบอุ่น' },
+  wool_sweater: { name: 'เสื้อไหมพรมขนแกะ', icon: '🧥', value: 20, wear: { slot: 'body', warm: 0.5, def: 0.06, color: '#f1e3d3' } },
+  wool_hat: { name: 'หมวกไหมพรม', icon: '🧶', value: 8, wear: { slot: 'head', warm: 0.18, color: '#e5989b' } },
+  buffalo_milk: { name: 'นมควาย', icon: '🥛', value: 6, food: { hunger: 10, thirst: 18, hp: 4 } },
+  live_buffalo: { name: 'ควายมีชีวิต (เชือกจูง)', icon: '🐃', value: 30, live: 'buffalopen', desc: 'นำไปปล่อยที่คอกควาย' },
+  live_sheep: { name: 'แกะมีชีวิต (เชือกจูง)', icon: '🐑', value: 16, live: 'sheeppen', desc: 'นำไปปล่อยที่คอกแกะ' },
+  // งานจักสาน (เรียนจากยายแวว ตลาดจักสานพนัสนิคม)
+  wicker_basket: { name: 'ตะกร้าจักสาน', icon: '🧺', value: 12, wear: { slot: 'back', carry: 16, lvl: 1, color: '#c8a165' }, desc: 'สะพายหลัง ใส่ของได้เพิ่ม 16 ช่อง' },
+  chalom: { name: 'ชะลอมใส่ของ', icon: '🧺', value: 8, wear: { slot: 'off', carry: 8, color: '#d4a373' }, desc: 'หิ้วมือซ้าย ใส่ของได้เพิ่ม 8 ช่อง' },
+  hand_fan: { name: 'พัดสาน', icon: '🪭', value: 6, fan: true, desc: 'โบกลดความร้อนในร่างกาย (ใช้ได้เรื่อย ๆ ไม่หมด)' },
+  // ตำราจากมหาวิทยาลัยร้างศรีราชา: อ่านแล้วได้ความรู้ (ค่าประสบการณ์ทักษะ / ปลดล็อกสูตร)
+  book_med: { name: 'ตำราแพทยศาสตร์', icon: '📕', value: 20, book: { skill: 'medicine', xp: 220 }, desc: 'อ่านแล้วทักษะการแพทย์ +220 XP' },
+  book_eng: { name: 'ตำราวิศวกรรม', icon: '📘', value: 20, book: { skill: 'crafting', xp: 220 }, desc: 'อ่านแล้วทักษะประดิษฐ์ +220 XP' },
+  book_agri: { name: 'ตำราเกษตรศาสตร์', icon: '📗', value: 18, book: { skill: 'farming', xp: 220 }, desc: 'อ่านแล้วทักษะเพาะปลูก +220 XP' },
+  book_cs: { name: 'ตำราคอมพิวเตอร์', icon: '💻', value: 22, book: { skill: 'tech', xp: 220 }, desc: 'อ่านแล้วทักษะเทคโนโลยี +220 XP' },
+  book_elec: { name: 'ตำราวิศวกรรมไฟฟ้า', icon: '📙', value: 22, book: { skill: 'electric', xp: 220 }, desc: 'อ่านแล้วทักษะไฟฟ้า +220 XP' },
+  book_cook: { name: 'ตำราอาหารไทย', icon: '📒', value: 16, book: { skill: 'cooking', xp: 200 }, desc: 'อ่านแล้วทักษะทำอาหาร +200 XP' },
+  book_wicker: { name: 'คู่มือหัตถกรรมจักสาน', icon: '📜', value: 30, book: { skill: 'crafting', xp: 60, learn: 'wicker' }, desc: 'อ่านแล้วปลดล็อกสูตรจักสานทั้งหมด' },
+  lab_kit: { name: 'ชุดอุปกรณ์แล็บ', icon: '🧪', value: 14, desc: 'วัสดุจากห้องแล็บ ใช้ทำยาขั้นสูง' },
+  // ยุทธภัณฑ์ฐานทัพเรือ
+  navy_uniform: { name: 'ชุดทหารเรือ', icon: '🥋', value: 26, wear: { slot: 'body', warm: 0.15, def: 0.2, bite: 0.25, color: '#1d3557' } },
+  combat_boots: { name: 'รองเท้าคอมแบท', icon: '🥾', value: 18, wear: { slot: 'shoes', warm: 0.08, spd: 0.07, def: 0.07, bite: 0.12, color: '#212529' } },
+  admiral_medal: { name: 'เหรียญกล้าหาญผู้บัญชาการ', icon: '🎖️', value: 80, desc: 'ได้จากการปราบผู้บัญชาการผู้ติดเชื้อ ฐานทัพเรือสัตหีบ' },
 };
 
 // ---------- ของสุ่มสเตตัส (ความหายาก) ----------
@@ -489,7 +521,27 @@ export const RECIPES = [
   { out: 'raft', need: { wood: 12, fiber: 8 }, skill: 'crafting', lvl: 2, label: 'แพไม้ไผ่ (ล่องทะเลไปเกาะได้)' },
   { out: 'bicycle', need: { scrap: 6, wood: 2, cloth: 1 }, skill: 'crafting', lvl: 2, label: 'จักรยาน' },
   { out: 'antibiotic', need: { herb: 5, clean_water: 1, scrap: 1 }, skill: 'medicine', lvl: 4, station: 'fire', label: 'ยาปฏิชีวนะสกัด' },
+  { out: 'antibiotic', qty: 2, need: { herb: 3, lab_kit: 1, clean_water: 1 }, skill: 'medicine', lvl: 3, label: 'ยาปฏิชีวนะ ×2 (ใช้ชุดแล็บ)' },
+  // ทุเรียน
+  { out: 'durian_chips', need: { durian: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'durian_sticky_rice', need: { durian: 1, rice: 1, coconut: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
+  // ดอกไม้สวยงาม
+  { out: 'flower_crown', need: { wildflower: 6, fiber: 2 }, skill: 'crafting', lvl: 1 },
+  { out: 'flower_garland', need: { wildflower: 4, fiber: 1 }, skill: 'crafting', lvl: 1 },
+  { out: 'perfume', need: { wildflower: 5, clean_water: 1, bottle: 1 }, skill: 'crafting', lvl: 2, keepBottle: true },
+  // ขนแกะ
+  { out: 'wool_sweater', need: { wool: 6, fiber: 2 }, skill: 'tailoring', lvl: 2 },
+  { out: 'wool_hat', need: { wool: 3 }, skill: 'tailoring', lvl: 1 },
+  { out: 'socks_wool', need: { wool: 2 }, skill: 'tailoring', lvl: 1, label: 'ถุงเท้าหนา (จากขนแกะ)' },
+  // จักสาน (ต้องเรียนจากยายแวว ตลาดจักสานพนัสนิคม หรืออ่านคู่มือหัตถกรรม)
+  { out: 'wicker_basket', need: { bamboo: 8, fiber: 2 }, skill: 'crafting', lvl: 1, learn: 'wicker' },
+  { out: 'chalom', need: { bamboo: 5 }, skill: 'crafting', lvl: 1, learn: 'wicker' },
+  { out: 'hand_fan', need: { bamboo: 3, fiber: 1 }, skill: 'crafting', lvl: 1, learn: 'wicker' },
+  { out: 'raft', need: { bamboo: 16, fiber: 6 }, skill: 'crafting', lvl: 1, learn: 'wicker', label: 'แพไม้ไผ่ (จากลำไผ่)' },
 ];
+// สูตรที่ต้องเรียนก่อน: เรียนจาก NPC หรืออ่านตำรา → เก็บใน ch.boxes['learn_<ชื่อ>']
+export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 } };
+export const learned = (ch, k) => !!ch?.boxes?.['learn_' + k];
 
 export const SKILLS = {
   gathering: 'เก็บเกี่ยว', crafting: 'ประดิษฐ์', cooking: 'ทำอาหาร',
@@ -649,6 +701,13 @@ export const LOOT_TABLE = [
   ['seeds_corn', 7], ['seeds_veg', 7], ['seeds_tomato', 4], ['seeds_chili', 4], ['seeds_potato', 3], ['seeds_cabbage', 3], ['seeds_carrot', 3], ['seeds_eggplant', 3], ['seeds_pumpkin', 2], ['seeds_watermelon', 2], ['seeds_rice', 3], ['seeds_sunflower', 3], ['seeds_marigold', 3], ['seeds_rose', 1], ['seeds_jasmine', 1], ['flower_pot', 2], ['hoe', 2], ['jicoin', 10], ['fuel', 4], ['rag', 8], ['zipper', 5], ['sneakers', 1], ['jeans', 1], ['hat_cloth', 1], ['copper_wire', 4], ['spark_plug', 2], ['moto_wheel', 1], ['battery_pack', 1],
 ];
 
+// กล่องเสบียงในสถานที่พิเศษ: ห้างร้าง โรงงานร้าง มหาวิทยาลัยร้าง ฐานทัพเรือ
+export const SPECIAL_LOOT = {
+  mall: [['canned', 14], ['clean_water', 10], ['jeans', 6], ['sneakers', 6], ['hat_cloth', 5], ['bag_cloth', 5], ['bag_hiking', 2], ['jacket_leather', 2], ['phone', 2], ['battery_pack', 3], ['cloth', 10], ['zipper', 6], ['jicoin', 16], ['energy_drink', 4], ['guitar', 1], ['ring', 2]],
+  factory: [['scrap', 22], ['copper_wire', 14], ['spark_plug', 8], ['battery_pack', 6], ['fuel', 10], ['zipper', 4], ['engine', 1], ['moto_engine', 2], ['steering_wheel', 3], ['wheel', 4], ['pickaxe', 2], ['iron_pickaxe', 1], ['hammer', 2], ['solar_panel', 1], ['jicoin', 8]],
+  edu: [['book_med', 7], ['book_eng', 7], ['book_agri', 7], ['book_cs', 6], ['book_elec', 6], ['book_cook', 7], ['book_wicker', 2], ['lab_kit', 10], ['herbal_med', 6], ['bandage', 6], ['clean_water', 8], ['phone', 2], ['copper_wire', 6], ['jicoin', 10]],
+  mil: [['kevlar', 8], ['vest_kevlar', 3], ['helmet_mil', 5], ['pants_cargo', 5], ['navy_uniform', 4], ['combat_boots', 4], ['bag_military', 3], ['shield_riot', 3], ['bolt_steel', 8], ['bolt_heavy', 4], ['arrow_iron', 8], ['antibiotic', 6], ['first_aid', 4], ['canned', 10], ['clean_water', 8], ['fuel', 6], ['jicoin', 14]],
+};
 export const NPCS = [
   { id: 'npc_mali', name: 'มะลิ', sex: 'f', town: 'bangsaen', likes: 'herb', job: 'doctor', bio: 'พยาบาลจากโรงพยาบาลชลบุรี' },
   { id: 'npc_somchai', name: 'สุนทร', sex: 'm', town: 'chonburi', likes: 'scrap', job: 'mechanic', bio: 'ช่างซ่อมรถย่านตลาดหนองมน' },
@@ -662,6 +721,7 @@ export const NPCS = [
   { id: 'npc_daeng', name: 'แดง', sex: 'f', town: 'banglamung', likes: 'wood', job: 'builder', bio: 'ผู้รับเหมาก่อสร้างหญิงแกร่งแห่งบางละมุง' },
   { id: 'npc_noi', name: 'ป้าน้อย', sex: 'f', town: 'chonburi', likes: 'veg', job: 'chef', bio: 'แม่ครัวร้านข้าวหลามหนองมน' },
   { id: 'npc_chai', name: 'ช่างชัย', sex: 'm', town: 'sriracha', likes: 'copper_wire', job: 'electrician', bio: 'ช่างไฟฟ้านิคมอุตสาหกรรมศรีราชา ติดโซล่าเซลล์เป็นอาชีพ' },
+  { id: 'npc_waew', name: 'ยายแวว', sex: 'f', town: 'phanat', likes: 'bamboo', job: 'weaver', teach: 'wicker', bio: 'ช่างจักสานฝีมือดีแห่งตลาดจักสานพนัสนิคม สอนสานตะกร้า ชะลอม พัด และผนังไม้ไผ่' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];
 // ร้านแลกของของ NPC ตามอาชีพ: [ไอเท็ม, ราคา(แต้มมูลค่า), จำนวนต่อวัน]
@@ -679,6 +739,7 @@ export const SHOPS = {
   builder: [['wood', 2, 20], ['stone', 2, 20], ['wood_hammer', 5, 2], ['hammer', 10, 1]],
   chef: [['cooked_meat', 8, 4], ['clean_water', 6, 4], ['kaprao', 20, 2], ['tomyum_kung', 25, 2], ['big_meal', 26, 1]],
   electrician: [['copper_wire', 4, 8], ['battery_pack', 14, 2], ['spark_plug', 7, 3], ['solar_panel', 45, 1], ['ev_battery', 55, 1]],
+  weaver: [['bamboo', 1, 20], ['wicker_basket', 14, 1], ['chalom', 9, 2], ['hand_fan', 6, 3], ['book_wicker', 60, 1]],
   monk: [['respec_potion', 250, 1], ['calm_tea', 6, 4], ['herbal_med', 10, 3], ['amulet', 30, 1], ['prayer_beads', 25, 1]],
 };
 
@@ -693,6 +754,8 @@ export const PET_TYPES = {
   raptor: { name: 'แร็พเตอร์', foods: ['raw_meat', 'raw_fish', 'cooked_meat'], perk: 'นักล่าดึกดำบรรพ์: กัดแรงมาก', base: { hp: 70, atk: 18 }, wild: true, fight: true },
   trike: { name: 'ไทรเซอราทอปส์', foods: ['veg', 'corn', 'berry', 'pineapple'], perk: 'ร่างยักษ์กินพืช: ทนมาก ช่วยชนผู้ติดเชื้อ', base: { hp: 150, atk: 14 }, wild: true, fight: true, innate: 'guardian' },
   tiger: { name: 'เสือโคร่ง', foods: ['raw_meat', 'raw_fish'], perk: 'นักล่าเงียบ: กัดแรง ว่องไว', base: { hp: 80, atk: 16 }, wild: true, fight: true, innate: 'swift' },
+  buffalo: { name: 'ควาย', foods: ['fiber', 'raw_fiber', 'veg', 'corn', 'rice'], perk: 'ขี่ได้! (กด E ที่ควายของคุณ) วิ่งเร็วไม่เสียสตามิน่า', base: { hp: 120, atk: 8 }, wild: true, ride: true, innate: 'guardian' },
+  sheep: { name: 'แกะ', foods: ['fiber', 'raw_fiber', 'veg', 'corn'], perk: 'ขนนุ่ม: ปลอบใจเจ้าของ', base: { hp: 30, atk: 2 }, wild: true, innate: 'calm' },
 };
 // สัตว์ป่าในแผนที่ (ใช้ร่วมกันทั้งเครื่องผู้เล่นและเซิร์ฟเวอร์)
 // hostile = ไล่ทำร้ายผู้เล่นในระยะนี้ · angryHit = โกรธเมื่อโดนตี · net = จับด้วยแหได้
@@ -705,7 +768,18 @@ export const WILD = {
   tiger: { name: 'เสือโคร่ง', hp: 90, hostile: 18, chase: 6.5, dmg: 14, bleed: 0.3, diet: 'meat', leash: 55, noTown: true },
   raptor: { name: 'แร็พเตอร์', hp: 70, hostile: 22, chase: 6.2, dmg: 12, bleed: 0.3, dino: true, diet: 'meat', leash: 45, noTown: true },
   trike: { name: 'ไทรเซอราทอปส์', hp: 170, angryHit: true, chase: 4.2, dmg: 18, flee: 0, dino: true, diet: 'herb', leash: 45, noTown: true },
+  // สัตว์ประจำถิ่น (เกิดเฉพาะบางอำเภอ ดู REGION_FAUNA)
+  elephant: { name: 'ช้างป่า', hp: 400, angryHit: true, chase: 4.5, dmg: 22, flee: 0, diet: 'herb', leash: 60, noTown: true, big: true },
+  buffalo: { name: 'ควาย', hp: 90, angryHit: true, chase: 4, dmg: 10, flee: 0, diet: 'herb', leash: 45 },
+  sheep: { name: 'แกะ', hp: 20, flee: 9, fleeSpd: 4, diet: 'herb', leash: 30 },
 };
+// สัตว์ป่าเฉพาะถิ่น: อยู่ในรัศมี r (เท่าของรัศมีเมือง) ของอำเภอนั้น มีโอกาส p ที่สัตว์ที่เกิดจะเป็นชนิดนี้
+export const REGION_FAUNA = [
+  { town: 'bothong', k: 'elephant', p: 0.45, r: 2.6 },
+  { town: 'nongyai', k: 'buffalo', p: 0.45, r: 2.4 },
+  { town: 'banbueng', k: 'buffalo', p: 0.4, r: 2.2 },
+  { town: 'banglamung', k: 'sheep', p: 0.6, r: 2.2 },
+];
 
 // ความสามารถพิเศษของสัตว์เลี้ยง (สุ่มตอนทำให้เชื่อง แต่ละตัวได้ไม่เหมือนกัน)
 export const PET_TRAITS = {

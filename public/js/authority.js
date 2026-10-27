@@ -35,7 +35,7 @@ export class Authority {
       isFriend: (id) => (g.friends || []).some((f) => f.id === id) || (g.social.rels?.[id]?.pts || 0) >= 60,
       ownCount: (type) => W.structures.filter((s) => s.type === type && (!s.owner || s.owner === g.id)).length,
       pos: () => g.player.pos,
-      loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, broken: L.broken, until: L.until ? L.until + g.timeOffset : 0 }; },
+      loot: (id) => { const L = W.loot[+String(id).slice(1)]; return L && { x: L.x, z: L.z, kind: L.kind, broken: L.broken, tbl: L.tbl, until: L.until ? L.until + g.timeOffset : 0 }; },
       res: (id) => W.resources[id] || null,
       resUntil: (id) => (W.resources[id]?.until ? W.resources[id].until + g.timeOffset : 0),
       resHp: (id) => W.resources[id]?.hpLeft, setResHp: (id, v) => { const r = W.resources[id]; if (r) r.hpLeft = v === null ? undefined : v; },

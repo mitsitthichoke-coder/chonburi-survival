@@ -2,6 +2,7 @@
 import { WORLD, heightAt, waterAt, fbm, mulberry32, distToCoast, hash2 } from './terrain.js';
 import { TOWNS, QUEST_SPOTS } from './data.js';
 import { getLayout, inCamp } from './citygen.js';
+import { LANDMARKS } from './landmarks.js';
 
 export const RES_TYPES = {
   // ล้มต้นไม้ได้ไม้ 5 ชิ้น + ผลที่เห็นบนต้น (มะพร้าว 2 ลูก · ส้ม 4 ลูก)
@@ -15,7 +16,18 @@ export const RES_TYPES = {
   grass: { name: 'หญ้าคา', hp: 1, drops: [['fiber', 2, 3]], respawn: 3, r: 0 },
   pebble: { name: 'ก้อนหินบนพื้น', hp: 1, drops: [['stone', 1, 2]], respawn: 3, r: 0 },
   twig: { name: 'กิ่งไม้แห้งบนพื้น', hp: 1, drops: [['wood', 1, 2]], respawn: 3, r: 0 },
+  // พืชประจำถิ่น
+  durian_tree: { name: 'ต้นทุเรียน (ล้มได้ไม้ 5 + ทุเรียน 1)', hp: 6, drops: [['wood', 5, 5], ['durian', 1, 1]], respawn: 9, r: 0.6 },
+  bamboo: { name: 'กอไผ่ (ล้มได้ลำไผ่ 8)', hp: 3, drops: [['bamboo', 8, 8]], respawn: 6, r: 0.5 },
+  wildflower: { name: 'ดอกไม้สวยงาม', hp: 1, drops: [['wildflower', 2, 3]], respawn: 3, r: 0 },
 };
+// อำเภอที่มีพืชเฉพาะถิ่น: [ชนิดที่จะเปลี่ยน, เปลี่ยนเป็น, สัดส่วน, รัศมี (เท่าของรัศมีเมือง)]
+const REGION_FLORA = {
+  bothong: [['tree', 'durian_tree', 0.6, 3.2]], nongyai: [['tree', 'durian_tree', 0.6, 3.2]],
+  phanat: [['tree', 'bamboo', 0.55, 2.6], ['grass', 'bamboo', 0.2, 2.6]], banbueng: [['tree', 'bamboo', 0.35, 2.4], ['grass', 'bamboo', 0.15, 2.4]], phanthong: [['tree', 'bamboo', 0.55, 2.6], ['grass', 'bamboo', 0.2, 2.6]],
+  banglamung: [['grass', 'wildflower', 0.45, 2.2], ['bush', 'wildflower', 0.5, 2.2]],
+};
+const FLORA_T = Object.entries(REGION_FLORA).map(([k, rules]) => ({ t: TOWNS.find((x) => x.key === k), rules }));
 
 let cached = null;
 export function getResources() { return (cached ||= generate()); }
@@ -46,7 +58,20 @@ function generate() {
     const hh = hash2(Math.floor(px * 7), Math.floor(pz * 7));
     if (type === 'tree' && !town && h <= 28 && hh < 0.14) type = 'orange_tree';
     else if (type === 'grass' && d >= 30 && hh < 0.12) type = 'pineapple';
+    for (const F of FLORA_T) {
+      if ((px - F.t.x) ** 2 + (pz - F.t.z) ** 2 > (F.t.r * F.rules[0][3]) ** 2) continue;
+      const rule = F.rules.find(([from]) => from === type), h2 = hash2(Math.floor(px * 3) + 11, Math.floor(pz * 3) - 7);
+      if (rule && h2 < rule[2]) type = rule[1];
+      break;
+    }
     out.push({ id: out.length, type, x: px, z: pz, y: h, s: 0.75 + rng() * 0.6, ry: rng() * 6.28 });
+  }
+  // สวนดอกไม้สวยงามบางละมุง (แปลงดอกไม้หนาแน่นรอบสวนแกะ)
+  const G = LANDMARKS.find((l) => l.kind === 'sheepfarm');
+  if (G) for (let i = 0; i < 60; i++) {
+    const a = rng() * Math.PI * 2, r = 6 + Math.sqrt(rng()) * 26, px = G.x + Math.cos(a) * r, pz = G.z + Math.sin(a) * r, h = heightAt(px, pz);
+    if (h < 0.7 || waterAt(px, pz, h)) continue;
+    out.push({ id: out.length, type: 'wildflower', x: px, z: pz, y: h, s: 0.8 + rng() * 0.5, ry: rng() * 6.28 });
   }
   return out;
 }

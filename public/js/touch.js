@@ -1,4 +1,9 @@
 // ปุ่มควบคุมบนมือถือ/แท็บเล็ต: จอยสติ๊กซ้าย, ลากจอขวาเพื่อหมุนกล้อง, หยิกสองนิ้วเพื่อซูม
+// iOS Safari: กันการซูมด้วยสองนิ้ว/แตะสองครั้งระหว่างเล่น
+if (typeof document !== 'undefined') {
+  for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
+  let last = 0; document.addEventListener('touchend', (e) => { const now = Date.now(); if (now - last < 320 && !e.target.closest?.('input,textarea,select')) e.preventDefault(); last = now; }, { passive: false });
+}
 export const isTouchDevice = () => {
   try { if (new URLSearchParams(location.search).has('touch')) return true; } catch { /* ignore */ }
   return ('ontouchstart' in window || navigator.maxTouchPoints > 0) && matchMedia('(pointer: coarse)').matches;

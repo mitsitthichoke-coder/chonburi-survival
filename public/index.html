@@ -2,7 +2,8 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>ชลบุรี: วันล่มสลาย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;800&display=swap" rel="stylesheet">
@@ -181,6 +182,53 @@
   @media (max-width: 720px) {
     .cols { grid-template-columns: 1fr; } #hud { width: 190px; } #minimap { width: 120px; height: 120px; } #toasts { width: 220px; top: 140px; }
     #chat { width: calc(100% - 28px); bottom: 80px; } #chat-log { max-height: 90px; } .slot { width: 44px; height: 44px; font-size: 20px; }
+  }
+
+  /* ---------- มือถือ / iPhone: จอเตี้ย (แนวนอน) จัดวางให้ไม่ทับกัน + กันรอยบาก (safe area) ---------- */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body.touch { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  body.touch input, body.touch select, body.touch textarea { font-size: 16px; } /* iOS ไม่ซูมเข้าเมื่อพิมพ์ */
+  #menu { min-height: 100dvh; }
+  @media (pointer: coarse) and (max-height: 520px) {
+    #hud { left: max(8px, env(safe-area-inset-left)); top: max(6px, env(safe-area-inset-top)); width: 220px; transform: scale(.68); transform-origin: top left; }
+    #status { left: calc(max(8px, env(safe-area-inset-left)) + 158px); top: 6px; max-width: calc(100vw - 500px); }
+    #status .chip { font-size: 10px; padding: 1px 6px; }
+    #leftcol, body.touch #leftcol { left: max(8px, env(safe-area-inset-left)); top: 168px; width: 190px; gap: 4px; }
+    #quest { font-size: 10px; padding: 4px 7px; } #quest p, #quest .qtoggle { display: none; } #quest b { font-size: 11px; }
+    #sidequest { font-size: 10px; padding: 3px 7px; } #sidequest .sqb small { display: none; }
+    #minimap, body.touch #minimap { right: max(8px, env(safe-area-inset-right)); top: 6px; width: 104px; height: 104px; }
+    #mute-btn, body.touch #mute-btn { right: max(8px, env(safe-area-inset-right)); top: 116px; width: 34px; height: 34px; font-size: 15px; }
+    #theme-btn, body.touch #theme-btn { right: calc(max(8px, env(safe-area-inset-right)) + 40px); top: 116px; width: 34px; height: 34px; font-size: 15px; }
+    #hand-btn, body.touch #hand-btn { right: max(8px, env(safe-area-inset-right)); left: auto; top: 156px; bottom: auto; font-size: 11px; padding: 3px 8px; }
+    #toasts, body.touch #toasts { left: 50%; right: auto; transform: translateX(-50%); top: 58px; width: min(300px, 40vw); }
+    #toasts > :nth-child(n+3) { display: none; } #toasts > * { font-size: 11px; padding: 4px 8px; }
+    #chat, body.touch #chat { top: 4px; left: auto; right: calc(max(8px, env(safe-area-inset-right)) + 112px); transform: none; width: min(26%, 220px); } body.touch #chat-log { max-height: 34px; font-size: 10px; }
+    #chat .chatrow { display: none; } body.touch #chat-input.show { display: block; }
+    #party-hud, body.touch #party-hud { left: auto; right: max(8px, env(safe-area-inset-right)); top: 190px; bottom: auto; width: 130px; }
+    #t-actions { right: max(12px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); grid-template-columns: 52px 52px 72px; grid-template-rows: 52px 52px; gap: 8px; }
+    #t-actions button { width: 52px; height: 52px; font-size: 21px; }
+    #t-menu { bottom: 58px; gap: 4px; } #t-menu button { width: 38px; height: 38px; font-size: 18px; padding: 0; }
+    #hotbar, body.touch #hotbar { bottom: max(6px, env(safe-area-inset-bottom)); gap: 4px; } #hotbar .slot { width: 40px; height: 40px; font-size: 20px; }
+    #t-stick-zone { left: env(safe-area-inset-left); }
+    #prompt, body.touch #prompt { bottom: 104px; font-size: 12px; max-width: 60vw; white-space: normal; text-align: center; }
+    #panel { top: max(6px, env(safe-area-inset-top)); bottom: max(6px, env(safe-area-inset-bottom)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto; max-height: none; transform: none; font-size: 13px; }
+    #panel .tabs button { font-size: 11px; padding: 4px 7px; }
+  }
+
+  @media (pointer: coarse) and (max-height: 520px) and (max-width: 700px) {
+    #t-menu { top: 40px; bottom: auto; left: 50%; } #t-menu button { width: 32px; height: 32px; font-size: 15px; }
+    body.touch #chat-log { display: none; } #chat, body.touch #chat { width: 0; }
+    body.touch #chat-input.show { position: fixed; left: 50%; transform: translateX(-50%); top: 6px; width: 60vw; }
+    #status { max-width: calc(100vw - 300px); }
+    #toasts, body.touch #toasts { top: 80px; width: 46vw; }
+    #t-actions { grid-template-columns: 46px 46px 62px; grid-template-rows: 46px 46px; gap: 6px; } #t-actions button { width: 46px; height: 46px; font-size: 19px; }
+    #hotbar .slot { width: 34px; height: 34px; font-size: 17px; }
+    #hud { transform: scale(.56); }
+    #status { left: calc(max(8px, env(safe-area-inset-left)) + 132px); }
+    #leftcol, body.touch #leftcol { width: 150px; top: 148px; opacity: .92; }
+    #quest b { font-size: 10px; } #sidequest { padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #hotbar, body.touch #hotbar { left: 40%; } #hotbar .slot { width: 32px; height: 32px; }
+    #hand-btn, body.touch #hand-btn { top: 150px; }
   }
 </style>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>

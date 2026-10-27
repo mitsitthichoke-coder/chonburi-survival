@@ -87,7 +87,8 @@ const cleanJob = (j) => (JOBS[j] ? j : 'engineer');
 const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email ? u.email.replace(/^(.).*(@.*)$/, '$1***$2') : u.phone ? u.phone.slice(0, 3) + '*****' + u.phone.slice(-2) : null, char: u.char || null, admin: isAdmin(u), mustChange: !!u.mustChange });
 U.byEmail ||= {}; U.byChar ||= {}; U.byPhone ||= {};
 // เบอร์โทร: เก็บเฉพาะตัวเลข (+66 แปลงเป็น 0)
-const normPhone = (v) => { let d = String(v || '').replace(/[\s\-().]/g, ''); if (/^\+66\d{8,9}$/.test(d)) d = '0' + d.slice(3); return /^0\d{8,9}$/.test(d) || /^\+\d{8,15}$/.test(d) ? d : null; };
+// เบอร์โทร: รับเลขไทย (๐-๙) · ขีด/เว้นวรรค/วงเล็บ · +66 หรือ 66 นำหน้า → แปลงเป็น 0xxxxxxxxx
+const normPhone = (v) => { let d = String(v || '').replace(/[๐-๙]/g, (c) => String(c.charCodeAt(0) - 0x0e50)).replace(/[\s\-().]/g, ''); if (/^\+?66\d{8,9}$/.test(d)) d = '0' + d.replace(/^\+?66/, ''); return /^0\d{8,9}$/.test(d) || /^\+\d{8,15}$/.test(d) ? d : null; };
 // บัญชีเก่า (ก่อนมีระบบตัวละครแยก): ใช้ชื่อผู้ใช้เป็นชื่อตัวละครถ้ายังว่าง
 for (const u of Object.values(U.users)) if (!u.char && u.look) { const k = u.username.toLowerCase(); if (!U.byChar[k]) { u.char = { name: u.username, sex: u.sex, look: u.look, job: cleanJob(u.job) }; U.byChar[k] = u.id; } }
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
@@ -129,7 +130,7 @@ async function api(req, res, route) {
   }
   const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (route === '/api/register' && req.method === 'POST') {
-    if (limited('reg:' + ip, 5, 3600e3)) return json(429, { error: 'สมัครบ่อยเกินไป ลองใหม่ภายหลัง' });
+    if (limited('reg:' + ip, 15, 3600e3)) return json(429, { error: 'สมัครบ่อยเกินไป ลองใหม่ภายหลัง (สูงสุด 15 ครั้ง/ชั่วโมง)' });
     const username = String(body.username || '').trim(), password = String(body.password || ''), contact = String(body.email || '').trim().toLowerCase();
     // สมัครด้วยอีเมล หรือ เบอร์โทรศัพท์ก็ได้
     const email = EMAIL_RE.test(contact) && contact.length <= 254 ? contact : null, phone = email ? null : normPhone(contact);

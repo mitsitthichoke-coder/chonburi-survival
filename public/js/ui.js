@@ -40,6 +40,8 @@ function boxMark(c, a, b, k, s = 1) {
 }
 const catBar = (cur, counts, attr) => `<div class="rfilter cats">${CATS.filter(([k]) => k === 'all' || counts[k]).map(([k, n]) => `<button data-${attr}="${k}" class="${cur === k ? 'on' : ''}">${n} ${counts[k] || 0}</button>`).join('')}</div>`;
 
+// ซูมแผนที่จากปุ่ม (รอบจุดกึ่งกลางมุมมอง)
+const zoomBtn = (ui, f) => { const V = ui.mapView, z0 = ui.mapZoom || 1, z1 = Math.min(12, Math.max(1, z0 * f)); if (V) ui.mapCenter = { x: V.vx + V.vw / 2, z: V.vz + V.vh / 2 }; ui.mapZoom = z1; if (z1 === 1) ui.mapCenter = null; };
 export class UI {
   constructor(game) {
     this.g = game; this.tab = 'inv'; this.open = null; this.person = null; this.hudT = 0;
@@ -106,6 +108,30 @@ export class UI {
       <p class="hint">ตั้งค่าจำไว้ในเครื่องนี้</p>`; };
     mute.onclick = (ev) => { ev.stopPropagation(); sfx.unlock(); sp.hidden = !sp.hidden; if (!sp.hidden) drawSound(); };
     sp.addEventListener('input', (ev) => { const k = ev.target.dataset.vol; if (k) { sfx.setVol(k, ev.target.value / 100); ev.target.nextElementSibling.textContent = ev.target.value + '%'; } });
+    // 🗺️ ซูม/เลื่อนแผนที่ใหญ่: ล้อเมาส์ · ลากเมาส์/นิ้ว · หยิกสองนิ้ว
+    const P = $('#panel'), mapEv = (ev) => ev.target?.id === 'bigmap';
+    const zoomAt = (f, cx, cy) => {
+      const V = this.mapView; if (!V) return; const cv = $('#bigmap'), r = cv.getBoundingClientRect();
+      const wx = V.vx + ((cx - r.left) / r.width) * V.vw, wz = V.vz + ((cy - r.top) / r.height) * V.vh;
+      const z0 = this.mapZoom || 1, z1 = Math.min(12, Math.max(1, z0 * f)); if (z1 === z0) return;
+      const C = this.mapCenter || { x: this.g.player.pos.x, z: this.g.player.pos.z };
+      this.mapZoom = z1; this.mapCenter = { x: wx + (C.x - wx) * (z0 / z1), z: wz + (C.z - wz) * (z0 / z1) };
+      const h = P.querySelector('.mapbar .hint'); if (h) h.textContent = `ซูม ×${z1.toFixed(1)} · หมุนล้อเมาส์/หยิกสองนิ้วเพื่อซูม · ลากเพื่อเลื่อน`;
+      this.drawBigMap();
+    };
+    P.addEventListener('wheel', (ev) => { if (!mapEv(ev)) return; ev.preventDefault(); zoomAt(ev.deltaY < 0 ? 1.25 : 0.8, ev.clientX, ev.clientY); }, { passive: false });
+    let drag = null, pinch = null;
+    const pan = (dx, dy) => { const V = this.mapView, cv = $('#bigmap'); if (!V || !cv) return; const r = cv.getBoundingClientRect(), C = this.mapCenter || { x: V.vx + V.vw / 2, z: V.vz + V.vh / 2 }; this.mapCenter = { x: C.x - (dx / r.width) * V.vw, z: C.z - (dy / r.height) * V.vh }; this.drawBigMap(); };
+    P.addEventListener('mousedown', (ev) => { if (mapEv(ev)) { drag = { x: ev.clientX, y: ev.clientY }; ev.preventDefault(); } });
+    addEventListener('mousemove', (ev) => { if (!drag) return; pan(ev.clientX - drag.x, ev.clientY - drag.y); drag = { x: ev.clientX, y: ev.clientY }; });
+    addEventListener('mouseup', () => { drag = null; });
+    P.addEventListener('touchstart', (ev) => { if (!mapEv(ev)) return; const t = ev.touches; if (t.length === 2) { pinch = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); drag = null; } else drag = { x: t[0].clientX, y: t[0].clientY }; }, { passive: true });
+    P.addEventListener('touchmove', (ev) => {
+      if (!mapEv(ev)) return; const t = ev.touches; ev.preventDefault();
+      if (t.length === 2 && pinch) { const d = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); zoomAt(d / pinch, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2); pinch = d; }
+      else if (drag && t.length === 1) { pan(t[0].clientX - drag.x, t[0].clientY - drag.y); drag = { x: t[0].clientX, y: t[0].clientY }; }
+    }, { passive: false });
+    P.addEventListener('touchend', () => { pinch = null; drag = null; });
     $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else return; this.refreshPanels(); });
     sp.addEventListener('change', (ev) => { if (ev.target.id === 'sp-mute') { sfx.setMuted(ev.target.checked); syncMute(); } });
     sp.addEventListener('click', (ev) => { ev.stopPropagation(); if (ev.target.dataset.sclose) sp.hidden = true; });
@@ -158,6 +184,12 @@ export class UI {
   update(dt) {
     this.hudT -= dt; if (this.hudT > 0) return; this.hudT = 0.15;
     const g = this.g, s = g.stats;
+    // ⚠️ ใกล้ตาย: พลังชีวิตต่ำกว่า 25% → ขอบจอกระพริบแดง + เตือนครั้งเดียว
+    const low = !g.dead && s.hp > 0 && s.hp < Math.max(15, g.maxHp() * 0.25);
+    if (low !== this.lowHp) {
+      this.lowHp = low; $('#vignette').classList.toggle('danger', low);
+      if (low) { this.toast('⚠️ พลังชีวิตใกล้หมด! รีบหนี รักษาแผล กินอาหาร หรือหาที่ปลอดภัย', 'warn'); g.sfx?.play('hurt'); }
+    }
     const bar = (id, v, max = 100) => { const el = $(id); el.style.width = Math.max(0, (v / max) * 100) + '%'; };
     bar('#b-hp', s.hp, g.maxHp()); bar('#b-food', s.hunger); bar('#b-water', s.thirst); bar('#b-stam', s.stamina, g.maxStamina()); bar('#b-inf', s.infection); bar('#b-stress', s.stress || 0);
     $('#v-hp').textContent = Math.ceil(s.hp); $('#v-food').textContent = Math.ceil(s.hunger); $('#v-water').textContent = Math.ceil(s.thirst); $('#v-inf').textContent = Math.floor(s.infection) + '%'; $('#v-stress').textContent = Math.floor(s.stress || 0);
@@ -256,25 +288,32 @@ export class UI {
 
   drawBigMap() {
     const cv = $('#bigmap'); if (!cv) return;
-    const g = this.g, c = cv.getContext('2d'), W = cv.width, H = cv.height;
-    c.drawImage(g.world.mapCanvas, 0, 0, W, H);
-    c.font = '11px Sarabun, sans-serif'; c.textAlign = 'center';
+    const g = this.g, c = cv.getContext('2d'), W = cv.width, H = cv.height, src = g.world.mapCanvas;
+    // ซูม/เลื่อนแผนที่: Z = เท่าซูม · มุมมองตามศูนย์กลาง (ค่าเริ่มต้น = ตำแหน่งผู้เล่น)
+    const Z = this.mapZoom || 1, WW = WORLD.maxX - WORLD.minX, WH = WORLD.maxZ - WORLD.minZ, vw = WW / Z, vh = WH / Z;
+    const C = this.mapCenter || { x: g.player.pos.x, z: g.player.pos.z };
+    const vx = Math.min(Math.max(C.x - vw / 2, WORLD.minX), WORLD.maxX - vw), vz = Math.min(Math.max(C.z - vh / 2, WORLD.minZ), WORLD.maxZ - vh);
+    this.mapView = { vx, vz, vw, vh, W, H };
+    const toMap = (x, z) => [((x - vx) / vw) * W, ((z - vz) / vh) * H];
+    c.fillStyle = '#0b3d66'; c.fillRect(0, 0, W, H);
+    c.drawImage(src, ((vx - WORLD.minX) / WW) * src.width, ((vz - WORLD.minZ) / WH) * src.height, (vw / WW) * src.width, (vh / WH) * src.height, 0, 0, W, H);
+    c.font = `${Math.round(11 + Math.min(6, (Z - 1) * 1.5))}px Sarabun, sans-serif`; c.textAlign = 'center';
     for (const l of g.world.labels) {
-      const [x, y] = this.worldToMap(l.x, l.z, W, H);
+      const [x, y] = toMap(l.x, l.z, W, H);
       c.fillStyle = { town: '#fff', island: '#caf0f8', lake: '#bde0fe', mountain: '#d8f3dc', poi: '#ffd166' }[l.kind];
       c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; c.strokeText(l.name, x, y - 4); c.fillText(l.name, x, y - 4);
       c.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
-    const dot = (x, z, col, r) => { const [a, b] = this.worldToMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };
+    const dot = (x, z, col, r) => { const [a, b] = toMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };
     for (const s of g.world.structures) dot(s.x, s.z, '#f4a261', 3);
     for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, g.party?.members?.some((m) => m.id === r.id) ? '#00f5d4' : '#4cc9f0', g.party?.members?.some((m) => m.id === r.id) ? 6 : 4);
     dot(g.player.pos.x, g.player.pos.z, '#ff006e', 5);
     const qt = g.quest.target();
-    for (const [x, z, k] of g.boxUI.markers()) { const [a, b] = this.worldToMap(x, z, W, H); boxMark(c, a, b, k, 1.2); }
+    for (const [x, z, k] of g.boxUI.markers()) { const [a, b] = toMap(x, z, W, H); boxMark(c, a, b, k, 1.2); }
     // ฐานของเรา/ที่เราเป็นสมาชิก
-    for (const b of basesOf(g.world.structures, g.id)) { const [a, y] = this.worldToMap(b.x, b.z, W, H); c.font = '16px sans-serif'; c.fillText('🏡', a, y + 6); c.font = 'bold 12px Sarabun, sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeText(b.name, a, y - 10); c.fillText(b.name, a, y - 10); }
-    for (const f of g.friends || []) if (f.online && f.x !== null) { const [a, b] = this.worldToMap(f.x, f.z, W, H); c.fillStyle = '#06d6a0'; c.beginPath(); c.arc(a, b, 5, 0, 7); c.fill(); c.font = 'bold 12px sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeText(f.name, a + 7, b + 4); c.fillText(f.name, a + 7, b + 4); }
-    if (qt) { const [a, b] = this.worldToMap(qt.x, qt.z, W, H); c.fillStyle = '#ffd60a'; c.strokeStyle = '#000'; c.lineWidth = 1.5; star(c, a, b, 8); c.fill(); c.stroke(); }
+    for (const b of basesOf(g.world.structures, g.id)) { const [a, y] = toMap(b.x, b.z, W, H); c.font = '16px sans-serif'; c.fillText('🏡', a, y + 6); c.font = 'bold 12px Sarabun, sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeText(b.name, a, y - 10); c.fillText(b.name, a, y - 10); }
+    for (const f of g.friends || []) if (f.online && f.x !== null) { const [a, b] = toMap(f.x, f.z, W, H); c.fillStyle = '#06d6a0'; c.beginPath(); c.arc(a, b, 5, 0, 7); c.fill(); c.font = 'bold 12px sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeText(f.name, a + 7, b + 4); c.fillText(f.name, a + 7, b + 4); }
+    if (qt) { const [a, b] = toMap(qt.x, qt.z, W, H); c.fillStyle = '#ffd60a'; c.strokeStyle = '#000'; c.lineWidth = 1.5; star(c, a, b, 8); c.fill(); c.stroke(); }
   }
 
   // ---------- แผงเมนู ----------
@@ -388,7 +427,7 @@ export class UI {
     else if (this.tab === 'bshop') html += this.baseShopHTML();
     else if (this.tab === 'struct' && this.struct) html += this.structHTML();
     else if (this.tab === 'trade') html += this.tradeHTML();
-    else if (this.tab === 'map') html += `<canvas id="bigmap" width="${Math.round(700 * (WORLD.maxX - WORLD.minX) / (WORLD.maxZ - WORLD.minZ))}" height="700" style="max-width:100%;height:auto"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
+    else if (this.tab === 'map') html += `<div class="mapbar"><button data-mz="1">➕ ซูมเข้า</button><button data-mz="-1">➖ ซูมออก</button><button data-mz="0">📍 กลับมาที่ฉัน</button><span class="hint">ซูม ×${(this.mapZoom || 1).toFixed(1)} · หมุนล้อเมาส์/หยิกสองนิ้วเพื่อซูม · ลากเพื่อเลื่อน</span></div><canvas id="bigmap" width="${Math.round(700 * (WORLD.maxX - WORLD.minX) / (WORLD.maxZ - WORLD.minZ))}" height="700" style="max-width:100%;height:auto"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
     $('#panel').innerHTML = html + '</div>';
     if (this.tab === 'map') this.drawBigMap();
   }
@@ -761,6 +800,7 @@ export class UI {
     if (d.petequip) { const [i, k] = d.petequip.split(':'); equipPet(g, g.pets[+i], k); return this.refreshPanels(); }
     if (d.petunequip) { const [i, sl] = d.petunequip.split(':'); unequipPet(g, g.pets[+i], sl); return this.refreshPanels(); }
     if (d.bcol) { const b = g.world.structures.find((x) => x.id === d.bcol); if (b) g.home.op(b, { o: 'color', c: d.c }); return this.refreshPanels(); }
+    if (d.mz !== undefined) { const k = +d.mz; if (!k) { this.mapZoom = 1; this.mapCenter = null; } else { const cv = $('#bigmap'), r = cv.getBoundingClientRect(); zoomBtn(this, k > 0 ? 1.6 : 1 / 1.6, r); } return this.refreshPanels(); }
     if (d.ring) { const P = g.player.pos; g.auth.do('fencering', { n: this.ringN || 6, gates: this.ringG || 1, x: P.x, z: P.z }); setTimeout(() => this.refreshPanels(), 400); return; }
     if (d.bname) { const b = g.world.structures.find((x) => x.id === d.bname); const n = b && prompt('ชื่อฐานใหม่', b.name); if (n) g.home.op(b, { o: 'rename', name: n }); return this.refreshPanels(); }
     if (d.cbuild) { if (!canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน', 'warn'); return g.builder.start(d.cbuild, true); }

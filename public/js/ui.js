@@ -11,8 +11,10 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // หมวดหมู่ไอเท็ม (ใช้กรองกระเป๋าและสูตรประดิษฐ์)
-const CATS = [['all', '📦 ทั้งหมด'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี/อุปกรณ์'], ['pet', '🐾 สัตว์เลี้ยง'], ['farm', '🌱 เมล็ด/ดอกไม้'], ['quest', '📜 ภารกิจ']];
-const catOf = (k) => { const it = ITEMS[k]; return k.startsWith('seeds_') || it.flower ? 'farm' : it.coin ? 'mat' : it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
+const CATS = [['all', '📦 ทั้งหมด'], ['surv', '🏕️ อุปกรณ์ดำรงชีพ'], ['weapon', '⚔️ อาวุธ/โล่'], ['wear', '👕 เสื้อผ้า'], ['food', '🍖 อาหาร/น้ำ'], ['med', '💊 ยา'], ['mat', '🪵 วัตถุดิบ'], ['place', '🏠 วาง/ยานพาหนะ'], ['fun', '🎸 ดนตรี/อุปกรณ์'], ['pet', '🐾 สัตว์เลี้ยง'], ['farm', '🌱 เมล็ด/ดอกไม้'], ['quest', '📜 ภารกิจ']];
+// อุปกรณ์ดำรงชีพ: เครื่องมือหาอยู่หากิน ก่อไฟ ที่พัก ภาชนะ (ไม่ใช่อาวุธต่อสู้หลัก)
+const SURVIVAL = new Set(['stone_axe', 'steel_axe', 'stone_hammer', 'wood_hammer', 'hammer', 'hoe', 'sickle', 'rod', 'rod_pro', 'net', 'watering_can', 'torch', 'bottle', 'campfire', 'shelter', 'watchtower', 'cage', 'flower_pot', 'raft']);
+const catOf = (k) => { const it = ITEMS[k]; return SURVIVAL.has(String(k).split('~')[0]) ? 'surv' : k.startsWith('seeds_') || it.flower ? 'farm' : it.coin ? 'mat' : it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
 const pct = (v) => Math.round(v * 100);
 // สเตตัสของไอเท็ม (อาวุธ เสื้อผ้า อาหาร ยา อุปกรณ์สัตว์)
 export function statText(k) {
@@ -309,11 +311,11 @@ export class UI {
   // ประดิษฐ์ค้อน วัสดุ และของที่ใช้สร้างบ้านได้จากหน้าสร้างบ้านเลย
   buildCraftHTML() {
     const g = this.g, fire = g.nearFire, used = new Set(Object.values(PIECES).flatMap((p) => Object.keys(p.cost)));
-    const rows = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => (ITEMS[r.out].builds || ITEMS[r.out].place || used.has(r.out)) && (!r.job || hasPerk(g.ch, r.job, 0))).map(({ r, i }) => {
+    const rows = RECIPES.map((r, i) => ({ r, i })).filter(({ r }) => (ITEMS[r.out].builds || ITEMS[r.out].place || used.has(r.out)) && (!r.job || hasPerk(g.ch, r.job, 0)) && (!(this.craftQ || '').trim() || [r.label, ITEMS[r.out].name, ...Object.keys(r.need).map((k) => ITEMS[k].name)].some((t) => String(t || '').toLowerCase().includes(this.craftQ.trim().toLowerCase())))).map(({ r, i }) => {
       const lock = skillLevel(g.skills[r.skill]) < r.lvl, noSt = r.station === 'fire' && !fire, miss = Object.entries(r.need).filter(([k, q]) => (g.inv[k] || 0) < q), ok = !lock && !noSt && !miss.length;
       return `<button class="piece ${ok ? '' : 'dis'}" data-craft="${i}" title="${lock ? `ต้องการ ${SKILLS[r.skill]} Lv${r.lvl}` : noSt ? 'ต้องอยู่ใกล้กองไฟ' : ''}"><span class="ic">${ITEMS[r.out].icon}</span><b>${esc(r.label || ITEMS[r.out].name)}${r.qty > 1 ? ' ×' + r.qty : ''}</b><small>${Object.entries(r.need).map(([k, q]) => `<span class="${(g.inv[k] || 0) >= q ? 'have' : 'miss'}">${ITEMS[k].icon}${g.inv[k] || 0}/${q}</span>`).join(' ')}</small></button>`;
     }).join('');
-    return `<h4>🧰 ประดิษฐ์ค้อน วัสดุ และของใช้ก่อสร้าง (ไม่ต้องสลับแท็บ)</h4><div class="pieces">${rows}</div>`;
+    return `<h4>🧰 ประดิษฐ์ค้อน วัสดุ และของใช้ก่อสร้าง (ไม่ต้องสลับแท็บ)</h4><input id="craft-q" class="craft-q" type="search" placeholder="🔍 ค้นหาสูตร เช่น ค้อน, รั้ว, ไม้" value="${esc(this.craftQ || '')}" autocomplete="off"><div class="pieces">${rows}</div>`;
   }
   structHTML() {
     const g = this.g, s = g.world.structures.find((x) => x.id === this.struct.id) || this.struct, P = pieceInfo(s);

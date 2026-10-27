@@ -5,6 +5,7 @@ import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX, makeLabel } from './models.js';
 import { LANDMARKS } from './landmarks.js';
+import { ROUTES, CAMPS } from './quest-core.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
 import { isHalloween, onTheme } from './theme.js';
@@ -112,7 +113,7 @@ export class World {
 
   buildTowns() {
     const L = this.layout;
-    this.baseBuildings = [...L.buildings, ...L.fence, L.gate];
+    this.baseBuildings = [...L.buildings, ...L.fence, ...Object.values(L.gates)];
     this.buildings = [...this.baseBuildings];
     let ci = 0; for (const l of L.loot) { this.addLoot(l.x, l.z, l.kind, l); if (l.kind === 'car') this.loot[this.loot.length - 1].carIdx = ci++; }
     const boxes = L.boxes.map((b) => ({ ...b, color: new THREE.Color(...b.rgb) }));
@@ -219,39 +220,54 @@ export class World {
     }
   }
 
-  // สถานที่ของภารกิจหลัก
+  // สถานที่ของภารกิจหลัก: ป้อมวิทยุ + เสาส่งสัญญาณของทุกเส้นทาง และค่ายกักกันทุกแห่ง
   buildQuestSites() {
     const B = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; this.scene.add(m); return m; };
-    // ป้อมยามชายหาด
-    const r = QUEST_SPOTS.radio, ry = heightAt(r.x, r.z);
-    B(2.6, 2.4, 2.6, '#d9d2c3', r.x, ry + 1.2, r.z); B(3.2, 0.3, 3.2, '#b23a48', r.x, ry + 2.55, r.z);
-    B(0.9, 0.5, 0.6, '#222', r.x + 1.6, ry + 0.9, r.z); // โต๊ะวิทยุ
-    this.radioGlow = B(0.25, 0.25, 0.25, '#7cff6b', r.x + 1.6, ry + 1.3, r.z);
-    // เสาส่งสัญญาณ
-    const t = QUEST_SPOTS.tower, ty = heightAt(t.x, t.z);
-    for (let i = 0; i < 6; i++) B(1.6 - i * 0.2, 4, 0.2, i % 2 ? '#e63946' : '#f1faee', t.x, ty + 2 + i * 4, t.z);
-    for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B(0.15, 24, 0.15, '#8d99ae', t.x + ox * 0.8, ty + 12, t.z + oz * 0.8);
-    this.towerLight = B(0.5, 0.5, 0.5, '#ff4d4d', t.x, ty + 24.5, t.z);
-    B(2, 1.4, 1.4, '#495057', t.x + 3, ty + 0.7, t.z); // ตู้ส่งสัญญาณ
-    // ค่ายอพยพ
-    const c = QUEST_SPOTS.camp, cy = heightAt(c.x, c.z);
-    for (const f of this.layout.fence) B(f.w, 3, f.d, '#6c757d', f.x, cy + 1.5, f.z);
-    for (let i = -2; i <= 2; i++) if (i) B(0.3, 4, 0.3, '#343a40', c.x + i * 3.5, cy + 2, c.z - c.size / 2);
-    this.gateMesh = B(this.layout.gate.w, 3, 0.4, '#ffb703', this.layout.gate.x, cy + 1.5, this.layout.gate.z);
-    for (let i = 0; i < 6; i++) {
-      const tx = c.x - 10 + (i % 3) * 10, tz = c.z - 2 + Math.floor(i / 3) * 9;
-      const tent = new THREE.Mesh(new THREE.ConeGeometry(2.4, 2.6, 4), mat(i % 2 ? '#2a9d8f' : '#e9c46a'));
-      tent.position.set(tx, heightAt(tx, tz) + 1.3, tz); tent.rotation.y = Math.PI / 4; tent.castShadow = true; this.scene.add(tent);
+    this.radioGlows = {}; this.towerLights = {}; this.gateMeshes = {};
+    const seen = new Set();
+    for (const R of Object.values(ROUTES)) {
+      const r = R.radio, rk = `${Math.round(r.x)},${Math.round(r.z)}`;
+      if (!seen.has(rk)) {
+        seen.add(rk); const ry = heightAt(r.x, r.z);
+        B(2.6, 2.4, 2.6, '#d9d2c3', r.x, ry + 1.2, r.z); B(3.2, 0.3, 3.2, '#b23a48', r.x, ry + 2.55, r.z);
+        B(0.9, 0.5, 0.6, '#222', r.x + 1.6, ry + 0.9, r.z); // โต๊ะวิทยุ
+        this.radioGlows[rk] = B(0.25, 0.25, 0.25, '#7cff6b', r.x + 1.6, ry + 1.3, r.z);
+      }
+      const t = R.tower, tk = `${Math.round(t.x)},${Math.round(t.z)}`;
+      if (seen.has(tk)) continue; seen.add(tk);
+      const ty = heightAt(t.x, t.z);
+      for (let i = 0; i < 6; i++) B(1.6 - i * 0.2, 4, 0.2, i % 2 ? '#e63946' : '#f1faee', t.x, ty + 2 + i * 4, t.z);
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B(0.15, 24, 0.15, '#8d99ae', t.x + ox * 0.8, ty + 12, t.z + oz * 0.8);
+      this.towerLights[tk] = B(0.5, 0.5, 0.5, '#ff4d4d', t.x, ty + 24.5, t.z);
+      B(2, 1.4, 1.4, '#495057', t.x + 3, ty + 0.7, t.z); // ตู้ส่งสัญญาณ
     }
-    B(0.15, 9, 0.15, '#ced4da', c.x, cy + 4.5, c.z - 8);
-    this.flag = B(2.4, 1.4, 0.05, '#e63946', c.x + 1.2, cy + 8.2, c.z - 8);
-    B(2.4, 0.47, 0.06, '#f1faee', c.x + 1.2, cy + 8.2, c.z - 8); B(2.4, 0.25, 0.07, '#1d3557', c.x + 1.2, cy + 8.2, c.z - 8);
+    this.radioGlow = Object.values(this.radioGlows)[0]; this.towerLight = Object.values(this.towerLights)[0];
+    // ค่ายกักกัน: รั้วสูง ประตูเหลือง เต็นท์ เสาธง ป้ายชื่อ
+    for (const c of CAMPS) {
+      const cy = heightAt(c.x, c.z);
+      for (const f of this.layout.fence.filter((f) => f.camp === c.key)) B(f.w, 3, f.d, '#6c757d', f.x, cy + 1.5, f.z);
+      for (let i = -2; i <= 2; i++) if (i) B(0.3, 4, 0.3, '#343a40', c.x + i * 3.5, cy + 2, c.z - c.size / 2);
+      const g = this.layout.gates[c.key];
+      this.gateMeshes[c.key] = B(g.w, 3, 0.4, '#ffb703', g.x, cy + 1.5, g.z);
+      const n = c.size >= 34 ? 6 : 4;
+      for (let i = 0; i < n; i++) {
+        const tx = c.x - c.size * 0.28 + (i % 3) * c.size * 0.28, tz = c.z - 2 + Math.floor(i / 3) * 9;
+        const tent = new THREE.Mesh(new THREE.ConeGeometry(2.4, 2.6, 4), mat(i % 2 ? '#2a9d8f' : '#e9c46a'));
+        tent.position.set(tx, heightAt(tx, tz) + 1.3, tz); tent.rotation.y = Math.PI / 4; tent.castShadow = true; this.scene.add(tent);
+      }
+      // ธงเขตปลอดภัย: พื้นขาว ขอบส้มอบอุ่น กากบาทสีเขียว (ปฐมพยาบาล/ที่พักพิง)
+      B(0.15, 9, 0.15, '#ced4da', c.x, cy + 4.5, c.z - 8);
+      B(2.6, 1.6, 0.05, '#f4a261', c.x + 1.3, cy + 8.2, c.z - 8); B(2.36, 1.36, 0.06, '#fffaf0', c.x + 1.3, cy + 8.2, c.z - 8);
+      B(0.95, 0.3, 0.07, '#2a9d8f', c.x + 1.3, cy + 8.2, c.z - 8); B(0.3, 0.95, 0.07, '#2a9d8f', c.x + 1.3, cy + 8.2, c.z - 8);
+      const lb = makeLabel(c.name, '#90e0ef'); lb.position.set(c.x, cy + 12, c.z); lb.scale.set(14, 3.5, 1); this.scene.add(lb);
+    }
   }
 
-  openGate() {
-    const g = this.layout.gate;
+  // เปิดประตูค่ายของเส้นทางเรา (เมื่อทำภารกิจหลักจบ)
+  openGate(key = 'navy') {
+    const g = this.layout.gates[key]; if (!g || g.opened) return; g.opened = true;
     const i = this.baseBuildings.indexOf(g); if (i >= 0) { this.baseBuildings.splice(i, 1); this.rebuildColliders(); }
-    if (this.gateMesh) this.gateMesh.position.x += g.w;
+    if (this.gateMeshes?.[key]) this.gateMeshes[key].position.x += g.w;
   }
 
   // ---------- ธีมฮาโลวีน: ฟักทองแกะสลักเรืองแสงตามเมือง + ค้างคาวบินรอบตัว ----------

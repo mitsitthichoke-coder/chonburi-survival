@@ -728,6 +728,14 @@ export const NPCS = [
   { id: 'npc_daeng', name: 'แดง', sex: 'f', town: 'banglamung', likes: 'wood', job: 'builder', bio: 'ผู้รับเหมาก่อสร้างหญิงแกร่งแห่งบางละมุง' },
   { id: 'npc_noi', name: 'ป้าน้อย', sex: 'f', town: 'chonburi', likes: 'veg', job: 'chef', bio: 'แม่ครัวร้านข้าวหลามหนองมน' },
   { id: 'npc_chai', name: 'ช่างชัย', sex: 'm', town: 'sriracha', likes: 'copper_wire', job: 'electrician', bio: 'ช่างไฟฟ้านิคมอุตสาหกรรมศรีราชา ติดโซล่าเซลล์เป็นอาชีพ' },
+  // ผู้ติดต่อภารกิจหลักของแต่ละอำเภอ (รู้รหัสประตูค่ายกักกัน)
+  { id: 'npc_somchai_sgt', name: 'จ่าสมชาย', sex: 'm', town: 'chonburi', likes: 'clean_water', job: 'hunter', bio: 'จ่าทหารบกประจำค่ายกองทัพบกชลบุรี' },
+  { id: 'npc_weera', name: 'สิบเอกวีระ', sex: 'm', town: 'phanthong', likes: 'canned', job: 'hunter', bio: 'ทหารบกที่หนีออกมาจากค่ายกองทัพบก' },
+  { id: 'npc_kru_ae', name: 'ครูเอ', sex: 'f', town: 'sriracha', likes: 'clean_water', job: 'athlete', bio: 'ผู้กำกับลูกเสือประจำค่ายลูกเสือศรีราชา' },
+  { id: 'npc_sara', name: 'หมอซาร่า', sex: 'f', town: 'phanat', likes: 'herb', job: 'doctor', bio: 'อาสาสมัครแพทย์ประจำศูนย์ลี้ภัยต่างด้าวพนัสนิคม' },
+  { id: 'npc_saengduan', name: 'ป้าแสงเดือน', sex: 'f', town: 'bothong', likes: 'clean_water', job: 'doctor', bio: 'อาสากาชาดประจำศูนย์ลี้ภัยต่างด้าวบ่อทอง' },
+  { id: 'npc_winai', name: 'พี่วินัย', sex: 'm', town: 'nongyai', likes: 'fuel', job: 'mechanic', bio: 'นายท่าสถานีขนส่งจังหวัดชลบุรี' },
+  { id: 'npc_prasit', name: 'อาจารย์ประสิทธิ์', sex: 'm', town: 'banbueng', likes: 'scrap', job: 'engineer', bio: 'อาจารย์แผนกช่างกลโรงเรียนเทคนิคชลบุรี' },
   { id: 'npc_waew', name: 'ยายแวว', sex: 'f', town: 'phanat', likes: 'bamboo', job: 'weaver', teach: 'wicker', bio: 'ช่างจักสานฝีมือดีแห่งตลาดจักสานพนัสนิคม สอนสานตะกร้า ชะลอม พัด และผนังไม้ไผ่' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];

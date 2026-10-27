@@ -4,6 +4,7 @@ import { heightAt, waterAt, coastX, latToZ, mulberry32 } from './terrain.js';
 import { TOWNS, QUEST_SPOTS } from './data.js';
 import { rampHeight } from './building-core.js';
 import { buildLandmarks } from './landmarks.js';
+import { CAMPS, QUEST_KEEPOUT, inAnyCamp } from './quest-core.js';
 
 let cached = null;
 export function getLayout() { return (cached ||= buildLayout()); }
@@ -43,7 +44,7 @@ function buildLayout() {
   const roadPts = roads.flatMap((r) => r.pts);
 
   // พื้นที่ห้ามสร้างตึก: จุดภารกิจและค่ายอพยพ
-  const keepOut = Object.values(QUEST_SPOTS).map((s) => ({ x: s.x, z: s.z, r: s.keepOut || 8 }));
+  const keepOut = [...Object.values(QUEST_SPOTS).map((s) => ({ x: s.x, z: s.z, r: s.keepOut || 8 })), ...QUEST_KEEPOUT];
   const blocked = (x, z, w, d) => keepOut.some((k) => Math.abs(k.x - x) < w / 2 + k.r && Math.abs(k.z - z) < d / 2 + k.r);
 
   const rng = mulberry32(1234);
@@ -104,18 +105,20 @@ function buildLayout() {
       pavilions.push({ x: +x.toFixed(2), z: +z.toFixed(2), w, d, y: +(heightAt(x, z)).toFixed(2), hearth: k % 2 === 0 }); k++;
     }
   }
-  // ค่ายอพยพสัตหีบ: รั้วสี่ด้าน + ประตูทางทิศเหนือ
-  const c = QUEST_SPOTS.camp, half = c.size / 2, th = 0.6, top = heightAt(c.x, c.z) + 4;
-  const gateW = 6;
-  const fence = [
-    { x: c.x, z: c.z + half, w: c.size, d: th }, // ใต้
-    { x: c.x - half, z: c.z, w: th, d: c.size }, // ตะวันตก
-    { x: c.x + half, z: c.z, w: th, d: c.size }, // ตะวันออก
-    { x: c.x - (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ซ้ายประตู
-    { x: c.x + (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ขวาประตู
-  ].map((f) => ({ ...f, top: top + 6, fence: true }));
-  const gate = { x: c.x, z: c.z - half, w: gateW, d: th, top: top + 6, gate: true };
-  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate, pavilions, labels: LM.labels };
+  // ค่ายกักกัน/ศูนย์อพยพทุกแห่ง: รั้วสี่ด้าน + ประตูทางทิศเหนือ (เปิดเมื่อทำภารกิจหลักของเส้นทางนั้นจบ)
+  const fence = [], gates = {};
+  for (const c of CAMPS) {
+    const half = c.size / 2, th = 0.6, top = heightAt(c.x, c.z) + 4, gateW = 6;
+    fence.push(...[
+      { x: c.x, z: c.z + half, w: c.size, d: th }, // ใต้
+      { x: c.x - half, z: c.z, w: th, d: c.size }, // ตะวันตก
+      { x: c.x + half, z: c.z, w: th, d: c.size }, // ตะวันออก
+      { x: c.x - (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ซ้ายประตู
+      { x: c.x + (half + gateW / 2) / 2, z: c.z - half, w: half - gateW / 2, d: th }, // เหนือ ขวาประตู
+    ].map((f) => ({ ...f, top: top + 6, fence: true, camp: c.key })));
+    gates[c.key] = { x: c.x, z: c.z - half, w: gateW, d: th, top: top + 6, gate: true, camp: c.key };
+  }
+  return { roads, roadPts, boxes, buildings, loot, cars, fence, gate: gates.navy, gates, pavilions, labels: LM.labels };
 }
 
 // ดันวัตถุออกจากกล่องชน (อาคาร/รั้ว)
@@ -153,7 +156,5 @@ export function roofUnder(list, x, z, y) {
   return best;
 }
 
-export function inCamp(x, z, pad = 0) {
-  const c = QUEST_SPOTS.camp, h = c.size / 2 + pad;
-  return Math.abs(x - c.x) < h && Math.abs(z - c.z) < h;
-}
+// อยู่ในค่ายกักกัน/ศูนย์อพยพแห่งใดแห่งหนึ่ง (ผู้ติดเชื้อไม่เกิด/ไม่ไล่ล่าในนี้)
+export const inCamp = inAnyCamp;

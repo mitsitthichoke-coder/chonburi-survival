@@ -81,7 +81,7 @@ export async function setLang(l) {
 }
 // ปุ่มสลับภาษา (ใช้ได้ทั้งหน้าเมนูและในเกม)
 export function bindLangButton(btn) {
-  const sync = () => { btn.textContent = lang === 'en' ? '🇹🇭 ไทย' : '🇬🇧 EN'; btn.title = lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'; };
+  const sync = () => { btn.textContent = lang === 'en' ? 'TH' : 'EN'; btn.title = lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'; };
   btn.addEventListener('click', (ev) => { ev.stopPropagation(); setLang(lang === 'en' ? 'th' : 'en'); });
   onLang(sync); sync();
 }

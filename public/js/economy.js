@@ -8,6 +8,7 @@ import { heightAt, waterAt } from './terrain.js';
 import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, slotKey, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
+import { routeOf, campOf, campGate, pickRoute } from './quest-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
 export const LOOT_RESPAWN = 15 * 60000;
@@ -103,11 +104,13 @@ const cool = (ch, key, secs, now) => { ch.t ||= {}; if (now - (ch.t[key] || 0) <
 const lucky = (ch) => (ch.pets || []).some((p) => !p.home && !p.stay && p.traits?.includes('lucky'));
 
 export function newChar(profile) {
+  // สุ่มอำเภอที่เกิด แล้วเกิดข้างป้อมวิทยุของเส้นทางนั้น
+  const route = pickRoute(), R = routeOf({ route }), sx = R.radio.x + 3, sz = R.radio.z + 3, pos = [sx, +(heightAt(sx, sz) + 0.5).toFixed(2), sz];
   return {
-    v: 1, profile, inv: { bottle: 1, canned: 1 }, wear: {}, skills: {}, pets: [], quest: { step: 0 },
+    v: 1, profile, inv: { bottle: 1, canned: 1 }, wear: {}, skills: {}, pets: [], quest: { step: 0, route },
     equipped: null, hotbar: ['canned', 'bottle', null, null, null, null],
     stats: { hp: 100, hunger: 80, thirst: 80, stamina: 100, infection: 0, bleeding: false, fracture: false, sick: 0, kills: 0, survived: 0 },
-    pos: null, spawn: null, social: null, t: {}, boxes: {}, jobKit: null,
+    pos, spawn: { x: sx, z: sz }, social: null, t: {}, boxes: {}, jobKit: null,
   };
 }
 
@@ -510,14 +513,15 @@ const A = {
   // ภารกิจหลัก (ตรวจขั้นและตำแหน่งที่เซิร์ฟเวอร์)
   quest(ch, p, env) {
     const q = ch.quest ||= { step: 0 }, P = env.pos(ch), near = (s, r) => Math.hypot(P.x - s.x, P.z - s.z) < r;
+    const R = routeOf(q), C = campOf(R.camp), G = campGate(C);
     switch (p.a) {
-      case 'radio': if (q.step !== 0 || !near({ x: QS.radio.x + 1.6, z: QS.radio.z }, 4.5)) return { err: 'ทำตอนนี้ไม่ได้' }; return { give: { radio: 1 }, quest: 1, questMsg: 'radio' };
+      case 'radio': if (q.step !== 0 || !near({ x: R.radio.x + 1.6, z: R.radio.z }, 4.5)) return { err: 'ทำตอนนี้ไม่ได้' }; return { give: { radio: 1 }, quest: 1, questMsg: 'radio' };
       case 'prepare': if (q.step !== 1) return { silent: true, err: '-' }; if (!Object.keys(ch.inv).some((k) => ch.inv[k] > 0 && ['spear', 'stone_axe', 'machete', 'steel_axe', 'steel_spear', 'bone_spear', 'king_hammer'].includes(baseOf(k))) || !has(ch, 'clean_water', 2)) return { silent: true, err: '-' }; return { quest: 2, questMsg: 'prepare' };
-      case 'transmit': if (q.step !== 3 || !near({ x: QS.tower.x + 3, z: QS.tower.z }, 6) || !has(ch, 'car_battery')) return { err: 'ต้องมีแบตเตอรี่และอยู่ที่เสาส่งสัญญาณ' }; ch.t ||= {}; ch.t.transmit = env.now(); return { take: { car_battery: 1 }, questMsg: 'transmit' };
-      case 'tower': if (q.step !== 3 || !ch.t?.transmit || env.now() - ch.t.transmit < 55000 || !near(QS.tower, 35)) return { silent: true, err: '-' }; ch.t.transmit = 0; return { quest: 4, questMsg: 'tower', xp: { survival: 20 } };
+      case 'transmit': if (q.step !== 3 || !near({ x: R.tower.x + 3, z: R.tower.z }, 6) || !has(ch, 'car_battery')) return { err: 'ต้องมีแบตเตอรี่และอยู่ที่เสาส่งสัญญาณ' }; ch.t ||= {}; ch.t.transmit = env.now(); return { take: { car_battery: 1 }, questMsg: 'transmit' };
+      case 'tower': if (q.step !== 3 || !ch.t?.transmit || env.now() - ch.t.transmit < 55000 || !near(R.tower, 35)) return { silent: true, err: '-' }; ch.t.transmit = 0; return { quest: 4, questMsg: 'tower', xp: { survival: 20 } };
       case 'fail': if (q.step === 3) { ch.t ||= {}; ch.t.transmit = 0; return { quest: 2 }; } return { silent: true };
-      case 'kaew': if (q.step !== 4) return { silent: true, err: '-' }; return { quest: 5, questMsg: 'kaew' };
-      case 'gate': if (q.step !== 5 || !near({ x: QS.camp.x, z: QS.camp.z - QS.camp.size / 2 - 2 }, 6)) return { err: 'ต้องอยู่ที่ประตูค่าย' }; return { give: { antibiotic: 3, machete: 1, canned: 5, clean_water: 3, bandage: 3 }, xp: { survival: 120 }, quest: 6, questMsg: 'gate' };
+      case 'kaew': case 'contact': if (q.step !== 4) return { silent: true, err: '-' }; return { quest: 5, questMsg: 'kaew' };
+      case 'gate': if (q.step !== 5 || !near(G, 6)) return { err: 'ต้องอยู่ที่ประตูค่าย' }; return { give: { antibiotic: 3, machete: 1, canned: 5, clean_water: 3, bandage: 3 }, xp: { survival: 120 }, quest: 6, questMsg: 'gate' };
     }
     return { err: 'ไม่รู้จักขั้นภารกิจ' };
   },

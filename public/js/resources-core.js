@@ -3,6 +3,7 @@ import { WORLD, heightAt, waterAt, fbm, mulberry32, distToCoast, hash2 } from '.
 import { TOWNS, QUEST_SPOTS } from './data.js';
 import { getLayout, inCamp } from './citygen.js';
 import { LANDMARKS } from './landmarks.js';
+import { QUEST_KEEPOUT } from './quest-core.js';
 
 export const RES_TYPES = {
   // ล้มต้นไม้ได้ไม้ 5 ชิ้น + ผลที่เห็นบนต้น (มะพร้าว 2 ลูก · ส้ม 4 ลูก)
@@ -44,7 +45,7 @@ function generate() {
     let town = false;
     for (const t of TOWNS) if ((px - t.x) ** 2 + (pz - t.z) ** 2 < t.r * t.r) { town = true; break; }
     if (buildings.some((b) => Math.abs(b.x - px) < b.w / 2 + 1 && Math.abs(b.z - pz) < b.d / 2 + 1)) continue;
-    if (inCamp(px, pz, 3) || Object.values(QUEST_SPOTS).some((q) => (q.x - px) ** 2 + (q.z - pz) ** 2 < 49)) continue;
+    if (inCamp(px, pz, 3) || Object.values(QUEST_SPOTS).some((q) => (q.x - px) ** 2 + (q.z - pz) ** 2 < 49) || QUEST_KEEPOUT.some((q) => (q.x - px) ** 2 + (q.z - pz) ** 2 < 49)) continue;
     let type = null;
     if (d < 30) type = roll < 0.22 ? 'palm' : roll < 0.27 ? 'grass' : roll < 0.29 ? 'rock' : roll < 0.32 ? 'pebble' : null;
     else if (town) type = roll < 0.04 ? 'tree' : roll < 0.08 ? 'grass' : roll < 0.1 ? 'bush' : roll < 0.13 ? 'pebble' : roll < 0.15 ? 'twig' : null;

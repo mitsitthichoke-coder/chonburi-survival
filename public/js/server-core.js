@@ -20,7 +20,7 @@ export class WorldCore {
     this.send = send; this.broadcast = broadcast; this.relayState = relayState; this.onDirty = onDirty;
     this.players = new Map(); this.requests = new Map(); this.reqSeq = 1;
     this.zombies = new Map(); this.zseq = 1;
-    const L = getLayout(); this.baseWalls = [...L.buildings, ...L.fence, L.gate];
+    const L = getLayout(); this.baseWalls = [...L.buildings, ...L.fence, ...Object.values(L.gates)];
     this.rebuildWalls();
     this.tSpawn = 0; this.tZs = 0; this.tSlow = 0; this.tMs = 0; this.tBoss = BOSS_EVERY * 0.5;
     // สัตว์ป่า สัตว์จรจัด และ NPC — คำนวณที่นี่เพื่อให้ทุกคนเห็นตัวเดียวกัน

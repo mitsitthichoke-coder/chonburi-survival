@@ -9,6 +9,7 @@ import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSl
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
+import { inCampOf } from './quest-core.js';
 import { Boxes } from './boxes.js';
 import { jobKit, applyResult, repairCost } from './economy.js';
 const jobOfMe = (g) => jobOf(g.ch);
@@ -47,7 +48,7 @@ export class Game {
     this.touch = this.lowSpec ? new TouchControls(this) : null;
     this.auth = new Authority(this);
     this.lefty = this.profile.hand === 'l';
-    if (!this.auth.server) { this.load(); const k = jobKit(this.auth.ch); if (k) setTimeout(() => this.onEcon(k, null), 1500); } // โหมดเซิร์ฟเวอร์: ตัวละครโหลดจากเซิร์ฟเวอร์
+    if (!this.auth.server) { if (!this.load()) this.placeAtStart(); const k = jobKit(this.auth.ch); if (k) setTimeout(() => this.onEcon(k, null), 1500); } // โหมดเซิร์ฟเวอร์: ตัวละครโหลดจากเซิร์ฟเวอร์
     this.ents.syncChildren(this.social.children);
     for (const p of this.pets) this.ents.spawnPet(p);
     this.initInput();
@@ -99,6 +100,14 @@ export class Game {
   }
 
   // ---------------- ผู้เล่น ----------------
+  // ตัวละครใหม่: เกิดในอำเภอของเส้นทางภารกิจ (สุ่มตอนสร้างตัวละคร)
+  placeAtStart() {
+    const t = TOWNS.find((x) => x.key === this.quest.R.town) || TOWNS.find((x) => x.key === SPAWN_TOWN), R = this.quest.R.radio;
+    let sx = R.x + 3, sz = R.z + 3;
+    for (let i = 0; i < 60; i++) { const x = R.x + (Math.random() - 0.5) * 10, z = R.z + (Math.random() - 0.5) * 10; if (heightAt(x, z) > 1 && !waterAt(x, z) && !this.world.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)) { sx = x; sz = z; break; } }
+    this.spawnPoint = { x: sx, z: sz }; this.player.pos.set(sx, heightAt(sx, sz) + 0.5, sz); this.player.vy = 0;
+    this.ui.toast(`📍 คุณเริ่มต้นที่${t.name} — ภารกิจหลักจะพาไป${this.quest.camp.name}`, 'level');
+  }
   initPlayer() {
     const mesh = makeHuman(this.profile.sex, this.profile.look);
     this.scene.add(mesh);
@@ -335,7 +344,7 @@ export class Game {
     const wearKey = JSON.stringify(this.wear); swap(this.wear, c.wear);
     if (JSON.stringify(this.wear) !== wearKey) setOutfit(this.player.mesh, this.wear, ITEMS);
     if (this.equipped !== c.equipped || !!this.lefty !== !!c.lefty) { this.equipped = c.equipped; this.lefty = !!c.lefty; setHeldTool(this.player.mesh, this.equipped, this.lefty); }
-    if (c.quest) this.quest.step = c.quest.step;
+    if (c.quest) { if ((c.quest.route || 'classic') !== this.quest.route) this.quest.setRoute(c.quest.route || 'classic'); this.quest.step = c.quest.step; if (this.quest.done) this.world.openGate(this.quest.camp.key); }
     if (c.boxes) this.boxes = c.boxes;
     if (c.jp) this.jp = c.jp;
     if (c.trade) this.trade = c.trade;
@@ -834,11 +843,12 @@ export class Game {
   }
   // ตัวละครจากเซิร์ฟเวอร์ (ตอนเข้าเกม)
   applyServerChar(c) {
+    this.charLoaded = true;
     Object.assign(this.stats, c.stats || {});
     if (Array.isArray(c.hotbar)) this.hotbar = c.hotbar;
     this.applyCharView(c);
     setOutfit(this.player.mesh, this.wear, ITEMS);
-    if (c.pos) { this.player.pos.set(...c.pos); this.player.vy = 0; }
+    if (c.pos) { this.player.pos.set(...c.pos); this.player.vy = 0; } else this.placeAtStart();
     if (c.spawn) this.spawnPoint = c.spawn;
     if (c.social) { this.social.load(c.social); this.ents.syncChildren(this.social.children); }
     if (this.stats.hp <= 0) this.respawn();
@@ -846,7 +856,7 @@ export class Game {
   }
   load() {
     let d; try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { d = null; }
-    if (!d || d.id !== this.id) return;
+    if (!d || d.id !== this.id) return false;
     Object.assign(this.stats, d.stats); this.inv = d.inv || {}; this.hotbar = d.hotbar || this.hotbar; this.skills = d.skills || {};
     this.wear = d.wear || {};
     // เซฟเก่า: เสื้อเกราะผ้าเคยใส่อัตโนมัติจากกระเป๋า → สวมให้เลย
@@ -863,6 +873,7 @@ export class Game {
       for (const [id, u] of Object.entries(d.loot || {})) if (u > Date.now()) this.world.setLootState(id, u);
     }
     if (this.stats.hp <= 0) { this.dead = false; this.respawn(); }
+    return true;
   }
 
   // ---------------- main loop ----------------
@@ -1133,7 +1144,7 @@ export class Game {
     this.nearFire = nearest && nd < 16;
     if (nearest && nd < 60 * 60) { this.fireLight.position.set(nearest.x, heightAt(nearest.x, nearest.z) + 1.2, nearest.z); this.fireLight.intensity = (2 + Math.random() * 0.6) * (1.2 - day * 0.8); }
     else this.fireLight.intensity = 0;
-    this.inCampNow = this.quest.done && inCamp(P.x, P.z);
+    this.inCampNow = this.quest.done && inCampOf(this.quest.camp.key, P.x, P.z);
     this.sfx.ambience({ night: this.isNight(), rain: this.weather.rain, coast: clamp(1 - Math.abs(distToCoast(P.x, P.z)) / 90, 0, 1), fire: this.nearFire });
     // สภาพอากาศ
     // คำนวณจากเวลา: ทุกคนที่เล่นด้วยกันเห็นฝนตกพร้อมกัน (ช่วงละ 2.5 นาที โอกาสฝน 30%)
@@ -1176,7 +1187,8 @@ export class Game {
     this.overT = (this.overT || 0) - dt;
     if (this.overT <= 0) { this.overT = 1; const o = this.overloaded(); if (o && !this.wasOver) this.ui.toast(`🎒 กระเป๋าเต็ม (${this.usedSlots()}/${this.maxSlots()} ช่อง) — เดินช้าลงและวิ่งไม่ได้ ทำ/สวมกระเป๋าใหญ่ขึ้น ฝากของในหีบ หรือทิ้งของ`, 'warn'); this.wasOver = o; }
     this.netT -= dt;
-    if (this.net.online && this.netT <= 0) {
+    // โหมดเซิร์ฟเวอร์: ยังไม่ส่งตำแหน่งจนกว่าจะได้ตัวละครจริงจากเซิร์ฟเวอร์ (กันตำแหน่งเกิดชั่วคราวไปทับ)
+    if (this.net.online && this.netT <= 0 && (!this.auth.server || this.charLoaded)) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
       this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping || this.resting?.mode === 'lie' ? 3 : this.resting ? 4 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });

@@ -14,11 +14,13 @@ const POOL = {
 };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-export function rollPet(type) {
-  let r = Math.random() * PET_RARITY.reduce((s, x) => s + x.w, 0), rarity = PET_RARITY[0];
-  for (const x of PET_RARITY) { r -= x.w; if (r <= 0) { rarity = x; break; } }
+// boost = โอกาสหายาก/ตำนานสูงขึ้น · extra = สกิลพิเศษเพิ่ม (อาชีพปศุสัตว์)
+export function rollPet(type, { boost = 0, extra = 0 } = {}) {
+  const W = PET_RARITY.map((x, i) => x.w * (i ? 1 + boost * (i === 1 ? 1.5 : 3) : 1));
+  let r = Math.random() * W.reduce((s, x) => s + x, 0), rarity = PET_RARITY[0];
+  for (let i = 0; i < PET_RARITY.length; i++) { r -= W[i]; if (r <= 0) { rarity = PET_RARITY[i]; break; } }
   const innate = PET_TYPES[type].innate, pool = [...POOL[type]].filter((t) => t !== innate), traits = innate ? [innate] : [];
-  while (traits.length < rarity.traits + (innate ? 1 : 0) && pool.length) traits.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  while (traits.length < rarity.traits + extra + (innate ? 1 : 0) && pool.length) traits.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   const p = {
     id: 'p' + Date.now().toString(36), type, name: pick(NAMES[type]), loyal: 60, stay: false, t: 0,
     rarity: rarity.key, mul: +(rarity.mul * (0.85 + Math.random() * 0.3)).toFixed(2), traits, xp: 0, gear: emptyGear(), timers: {},

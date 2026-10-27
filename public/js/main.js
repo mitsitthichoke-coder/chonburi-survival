@@ -49,15 +49,18 @@ opt('#f-extra', EXTRAS, 'extra', () => 'none');
 // 🎲 สุ่มทุกอย่าง: ชื่อ เพศ อาชีพ มือถนัด และหน้าตา
 const NAMES_M = ['ต้นกล้า', 'ภูผา', 'ธนวัฒน์', 'กิตติ', 'อาทิตย์', 'ปกรณ์', 'ชลธี', 'วายุ', 'ศรราม', 'เมฆา', 'ก้องภพ', 'ณัฐ', 'บุญมี', 'ทะเล', 'พายุ', 'เพชร'];
 const NAMES_F = ['ต้นข้าว', 'ใบเตย', 'น้ำฝน', 'ดาวเหนือ', 'พลอย', 'มะลิ', 'ฟ้าใส', 'แพรวา', 'ขวัญใจ', 'จันทร์เพ็ญ', 'ปลายฟ้า', 'รุ้ง', 'ลำดวน', 'กุหลาบ', 'นภา', 'อิงดาว'];
-$('#f-rand').onclick = () => {
-  const R = (a) => a[Math.floor(Math.random() * a.length)];
-  profile.sex = ['m', 'f', 'x'][Math.floor(Math.random() * 3)];
-  profile.job = R(Object.keys(JOBS)); profile.hand = Math.random() < 0.15 ? 'l' : 'r';
-  profile.look = randomLook(profile.sex);
-  $('#f-name').value = R(profile.sex === 'f' ? NAMES_F : profile.sex === 'm' ? NAMES_M : [...NAMES_M, ...NAMES_F]) + (Math.random() < 0.5 ? '' : Math.floor(Math.random() * 90 + 10));
-  $('#f-name').dispatchEvent(new Event('input'));
-  refreshSegs(); drawPreview();
+const R = (a) => a[Math.floor(Math.random() * a.length)];
+// สุ่มแยกส่วน: ชื่อ (ตามเพศ) · ลักษณะ (สีผิว ผม เสื้อ หน้าตา) · เพศ
+const rnd = {
+  name() { $('#f-name').value = R(profile.sex === 'f' ? NAMES_F : profile.sex === 'm' ? NAMES_M : [...NAMES_M, ...NAMES_F]) + (Math.random() < 0.5 ? '' : Math.floor(Math.random() * 90 + 10)); $('#f-name').dispatchEvent(new Event('input')); },
+  look() { profile.look = randomLook(profile.sex); },
+  sex() { profile.sex = ['m', 'f', 'x'][Math.floor(Math.random() * 3)]; },
 };
+$('#f-rand').onclick = () => {
+  rnd.sex(); profile.job = R(Object.keys(JOBS)); profile.hand = Math.random() < 0.15 ? 'l' : 'r';
+  rnd.look(); rnd.name(); refreshSegs(); drawPreview();
+};
+document.querySelector('.randrow').addEventListener('click', (e) => { const k = e.target.closest('[data-rnd]')?.dataset.rnd; if (!k) return; rnd[k](); refreshSegs(); drawPreview(); });
 function drawPreview() {
   // หน้าตรงแบบพิกเซล (ไม่ต้องโหลด 3D) ให้เห็นทรงผมและสี
   const c = $('#f-preview'); if (!c) return; const x = c.getContext('2d'), L = profile.look, st = styleOf(), P = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };

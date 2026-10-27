@@ -2803,5 +2803,13 @@ export default {
 "ที่นี่ปลอดภัยจากผู้ติดเชื้อ — พักผ่อนให้เต็มที่ แล้วช่วยกันสร้างโลกใหม่นะ": "it's safe from the infected here — rest well, then let's build a new world together",
 "ฉันยังไม่รู้จักเธอดีพอจะบอกรหัส... อยู่ด้วยกันสักพัก หรือมีของที่ฉันชอบไหม?": "I don't know you well enough to tell you the code... stay a while, or do you have something I like?",
 "คุณเริ่มต้นที่": "You start in",
-"ภารกิจหลักจะพาไป": "the main quest leads to"
+"ภารกิจหลักจะพาไป": "the main quest leads to",
+"สุ่มชื่อ": "Random name",
+"สุ่มลักษณะ": "Random looks",
+"สุ่มเพศ": "Random gender",
+"ปศุสัตว์": "Livestock Keeper",
+"เลี้ยงสัตว์เก่ง ค้นพบสกิลพิเศษของสัตว์": "Great with animals, discovers special pet skills",
+"เก็บผลผลิตจากคอกสัตว์ได้เพิ่ม +1 ทุกครั้ง · ทำให้สัตว์เชื่องเร็วขึ้น 50%": "+1 produce every time you collect from pens · tames animals 50% faster",
+"สัตว์เลี้ยงที่ได้มีโอกาสเป็นระดับหายาก/ตำนานสูงขึ้นมาก (สกิลพิเศษมากขึ้น) · ชำแหละได้เนื้อเพิ่ม": "New pets are much more likely to be rare/legendary (more special skills) · extra meat when butchering",
+"สัตว์เลี้ยงตัวใหม่ได้สกิลพิเศษเพิ่มอีก 1 อย่าง · ทำให้เชื่องเร็วขึ้น ×2": "New pets get 1 extra special skill · tames ×2 faster"
 };

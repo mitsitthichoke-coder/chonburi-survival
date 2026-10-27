@@ -5,7 +5,7 @@
 import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
-import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, slotKey, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { routeOf, campOf, campGate, pickRoute } from './quest-core.js';
@@ -101,6 +101,8 @@ export function rollDrops(kind, rand) {
 }
 const dist = (env, ch, x, z) => { const p = env.pos(ch); return Math.hypot(p.x - x, p.z - z); };
 const cool = (ch, key, secs, now) => { ch.t ||= {}; if (now - (ch.t[key] || 0) < secs * 1000) return false; ch.t[key] = now; return true; };
+// อาชีพปศุสัตว์: สัตว์เลี้ยงตัวใหม่หายากขึ้น/สกิลมากขึ้น
+const petRoll = (ch) => ({ boost: hasPerk(ch, 'livestock', 1) ? 1 : 0, extra: hasPerk(ch, 'livestock', 2) ? 1 : 0 });
 const lucky = (ch) => (ch.pets || []).some((p) => !p.home && !p.stay && p.traits?.includes('lucky'));
 
 export function newChar(profile) {
@@ -489,9 +491,9 @@ const A = {
     if (mine >= cap) return { err: env.ownCount?.('bed') ? `🐾 มี${PET_TYPES[m.k].name}ครบ ${cap} ตัวแล้ว — สร้างบ้านสัตว์เลี้ยงเพิ่ม (+2 ตัว/หลัง)` : `🐾 มี${PET_TYPES[m.k].name}ครบ ${cap} ตัวแล้ว — ต้องมีบ้าน (วางเตียง) และสร้างบ้านสัตว์เลี้ยงก่อน จึงเลี้ยงเพิ่มได้ (+2 ตัว/หลัง)` };
     const foods = PET_TYPES[m.k].foods, f = foods.find((k) => has(ch, k));
     if (!f) return { err: `${PET_TYPES[m.k].name}อยากกิน: ${foods.map((k) => ITEMS[k].name).join(' / ')}` };
-    const v = env.tameAdd(p.id, ch, (34 + lvl(ch, 'survival') * 2) * (hasPerk(ch, 'hunter', 2) ? 2 : 1));
+    const v = env.tameAdd(p.id, ch, (34 + lvl(ch, 'survival') * 2) * (hasPerk(ch, 'hunter', 2) ? 2 : 1) * (hasPerk(ch, 'livestock', 2) ? 2 : hasPerk(ch, 'livestock', 0) ? 1.5 : 1));
     const r = { take: { [f]: 1 }, tame: { id: p.id, v, k: m.k } };
-    if (v >= 100) { const pet = rollPet(m.k); ch.pets.push(pet); r.pet = pet; r.xp = { survival: 15 }; env.tamed(p.id); }
+    if (v >= 100) { const pet = rollPet(m.k, petRoll(ch)); ch.pets.push(pet); r.pet = pet; r.xp = { survival: 15 }; env.tamed(p.id); }
     return r;
   },
 
@@ -559,7 +561,8 @@ export function sopCost(ch, s, op, env) {
     }
     case 'addlive': if (ITEMS[op.item]?.live !== s.type || !has(ch, op.item)) return { err: 'ไม่มีสัตว์ที่ปล่อยเข้าคอกนี้ได้' }; return { take: { [op.item]: 1 }, xp: { farming: 4 } };
     case 'breed': { const P = PENS[s.type]; if (P?.egg) { if (!has(ch, P.egg)) return { err: `ต้องมี${ITEMS[P.egg].name} 1 ฟองเพื่อฟัก` }; return { take: { [P.egg]: 1 }, xp: { farming: 6 } }; } return { xp: { farming: 8 } }; }
-    case 'butcher': return { xp: { survival: 4, farming: 4 } };
+    case 'butcher': return { xp: { survival: 4, farming: 4 }, give: hasPerk(ch, 'livestock', 1) ? { raw_meat: 1 } : null };
+    case 'collect': return PENS[s.type] && hasPerk(ch, 'livestock', 0) && penGoods(s, env.now()) > 0 ? { give: { [PENS[s.type].prod[0]]: 1 }, xp: { farming: 2 } } : {};
     case 'list': { const q = op.qty | 0; if (!(q > 0) || !ITEMS[op.item] || ITEMS[op.item].quest || op.item === 'jicoin' || !has(ch, op.item, q) || ch.equipped === op.item && (ch.inv[op.item] || 0) <= q) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; }
     case 'declare': {
       if (!env.structs) return {};
@@ -594,7 +597,7 @@ export function sopCost(ch, s, op, env) {
       if (!PET_TYPES[type]) return { err: 'สัตว์ตัวนี้เป็นสัตว์เลี้ยงไม่ได้ — นำเข้าคอกหรือแปรรูปอาหาร' };
       if (PET_TYPES[type].wild) { if (ch.pets.filter((x) => PET_TYPES[x.type]?.wild).length >= WILD_PET_MAX) return { err: `เลี้ยงสัตว์ป่าได้ ${WILD_PET_MAX} ตัว — ปล่อยตัวเก่าก่อน (หรือรอเปิดกรงทีหลัง)` }; }
       else if (ch.pets.filter((x) => x.type === type).length >= petCap(env.ownCount?.('pethouse') || 0, env.ownCount?.('bed') || 0)) return { err: `มี${PET_TYPES[type].name}ครบจำนวนแล้ว` };
-      const pet = rollPet(type); ch.pets.push(pet);
+      const pet = rollPet(type, petRoll(ch)); ch.pets.push(pet);
       return { pet, xp: { survival: 20 }, petsChanged: true };
     }
     case 'harvest': {

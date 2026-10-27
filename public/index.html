@@ -15,7 +15,6 @@
   * { box-sizing: border-box; }
   body.halloween { --accent: #ff7b00; --accent2: #9d4edd; --panel: rgba(24, 12, 32, .93); --line: #3c2650; --bg: #0d0614; }
   body.halloween .card h1 span { color: #ff7b00; text-shadow: 0 0 12px #ff7b0088; } body.halloween button.primary { background: #ff7b00; } body.halloween #hud, body.halloween #quest { border-color: #9d4edd; }
-  #theme-btn { position: absolute; right: 14px; top: 248px; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.5); font-size: 18px; } body.touch #theme-btn { top: 196px; }
   /* ปุ่มเต็มจอ: มุมขวาบนของแผนที่ย่อ (มุมว่างนอกวงกลม) */
   #fs-btn { position: absolute; right: 8px; top: 8px; z-index: 3; width: 32px; height: 32px; padding: 0; border-radius: 8px; background: rgba(0,0,0,.6); font-size: 16px; line-height: 1; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
@@ -31,7 +30,7 @@
   .card .sub { color: var(--muted); margin: 4px 0 18px; }
   .row { margin: 12px 0; } .row label { display: block; font-weight: 600; margin-bottom: 6px; }
   input[type=text] { width: 100%; font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: var(--text); }
-  #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #pwbox { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; } #acct { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #pwbox[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
+  #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #pwbox { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; } #acct { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #pwbox[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden], #f-have[hidden], #f-create[hidden] { display: none; }
   .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } .pwrap { display: flex; flex-direction: column; gap: 3px; } .pwrap .piece { flex: 1; } .coinbuy { font-size: 12px; padding: 3px 6px; } .coinbuy.dis { opacity: .45; } #coins { font-size: 13px; color: #ffd166; margin: 2px 0 0 2px; } #f-style button, #f-eyes button, #f-brows button, #f-mouth button, #f-extra button { padding: 5px 9px; font-size: 13px; } .namerow { display: flex; gap: 8px; } .namerow input { flex: 1; min-width: 0; } .namerow button { flex: none; padding: 6px 10px; }
   #donate { margin-top: 12px; text-align: center; } #donate[hidden], #d-box[hidden] { display: none; } #d-box { margin-top: 8px; padding: 10px; border: 1px solid #f72585; border-radius: 10px; background: #2a1020; text-align: left; } #d-box b { color: #ffafcc; } #d-box a { color: #ffafcc; }
   .seg.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .seg button.job { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; } .seg button.job small { font-size: 11px; opacity: .8; }
@@ -204,7 +203,6 @@
     #minimap, body.touch #minimap { right: max(8px, env(safe-area-inset-right)); top: 6px; width: 104px; height: 104px; }
     #mute-btn, body.touch #mute-btn { right: max(8px, env(safe-area-inset-right)); top: 116px; width: 34px; height: 34px; font-size: 15px; }
     #fs-btn { right: calc(max(8px, env(safe-area-inset-right)) - 4px); top: 2px; width: 28px; height: 28px; font-size: 14px; }
-    #theme-btn, body.touch #theme-btn { right: calc(max(8px, env(safe-area-inset-right)) + 40px); top: 116px; width: 34px; height: 34px; font-size: 15px; }
     #hand-btn, body.touch #hand-btn { right: max(8px, env(safe-area-inset-right)); left: auto; top: 156px; bottom: auto; font-size: 11px; padding: 3px 8px; }
     #toasts, body.touch #toasts { left: 50%; right: auto; transform: translateX(-50%); top: 58px; width: min(300px, 40vw); }
     #toasts > :nth-child(n+3) { display: none; } #toasts > * { font-size: 11px; padding: 4px 8px; }
@@ -273,6 +271,8 @@
       <p class="aerr" id="p-err"></p>
     </div>
     <div id="form">
+      <div class="row" id="f-have" hidden><label>ตัวละครของคุณ</label><div class="namerow"><b id="f-have-name"></b><button class="secondary" id="f-edit">✏️ แก้ไขตัวละคร</button></div></div>
+      <div id="f-create">
       <div class="row"><label id="f-name-label">ชื่อตัวละคร</label><div class="namerow"><input id="f-name" type="text" maxlength="16" placeholder="เช่น ต้นข้าว"><button class="secondary" id="f-rand" title="สุ่มชื่อ อาชีพ และหน้าตาทั้งหมด">🎲 สุ่มทั้งหมด</button></div><div class="hint" id="f-name-ok"></div></div>
       <div class="row"><label>มือข้างที่ถนัด (ถืออุปกรณ์ข้างนี้ได้พลัง +15%)</label><div class="seg" id="f-hand"><button data-v="r">🫱 ถนัดขวา</button><button data-v="l">🫲 ถนัดซ้าย</button></div></div>
       <div class="row"><label>บทบาท (เพศของตัวละคร)</label><div class="seg" id="f-sex"><button data-v="m">👨 ชาย</button><button data-v="f">👩 หญิง</button><button data-v="x">🧑 ไม่ระบุเพศ</button></div></div>
@@ -287,10 +287,11 @@
       <div class="row"><label>คิ้ว</label><div class="seg" id="f-brows"></div></div>
       <div class="row"><label>ปาก</label><div class="seg" id="f-mouth"></div></div>
       <div class="row"><label>ของตกแต่งใบหน้า</label><div class="seg" id="f-extra"></div></div>
+      </div>
       <div class="row"><label>กราฟิก</label><div class="seg" id="f-gfx"><button data-v="low">⚡ ประหยัด (มือถือ/เครื่องช้า)</button><button data-v="normal">🙂 ปกติ</button><button data-v="smooth">✨ ละมุน (ขอบมน แสงนุ่ม)</button></div></div>
       <div class="row" id="server-row"><label>เซิร์ฟเวอร์สำหรับเล่นกับเพื่อน</label><input id="f-server" type="text" placeholder="ws://192.168.1.10:8080"><div class="hint">เปิดเซิร์ฟเวอร์ด้วย <code>npm start</code> แล้วให้เพื่อนเข้า http://ไอพีของคุณ:8080</div></div>
       <div class="row hint" id="room-row" hidden>🌐 โหมดออนไลน์ในลิงก์นี้: ทุกคนที่เปิดลิงก์เดียวกันและกด "เล่นกับเพื่อน" จะอยู่ในโลกเดียวกัน (เจ้าของต้องแชร์ลิงก์ให้เพื่อนจากเมนู Share ก่อน)</div>
-      <div class="go"><button class="primary" id="b-solo">เล่นคนเดียว</button><button class="secondary" id="b-online">เล่นกับเพื่อน</button></div>
+      <div class="go"><button class="primary" id="b-online">🌐 เข้าเล่นออนไลน์</button></div>
       <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · H สลับมือซ้าย/ขวา · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
     </div>
     <div id="donate" hidden><button id="d-btn" class="secondary">💖 สนับสนุนผู้พัฒนาเกม</button><div id="d-box" hidden></div></div>
@@ -316,7 +317,6 @@
   <div id="leftcol"><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
   <button id="fs-btn" title="ขยายเต็มหน้าจอ">⛶</button>
-  <button id="theme-btn" title="สลับธีม: ฮาโลวีน / โลกล่มสลาย">🎃</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>
   <div id="toasts"></div>

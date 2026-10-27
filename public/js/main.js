@@ -83,7 +83,7 @@ let gfx = 'normal'; try { gfx = localStorage.getItem('cbs_gfx') || (isTouchDevic
 // ธีม: โลกล่มสลาย / ฮาโลวีน
 const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : 'วันล่มสลาย'; };
 $('#guide-btn').onclick = (e) => { e.preventDefault(); openGuide(); };
-syncTitle(); // ธีมเลือกได้ในเกม (เฉพาะแอดมิน/เจ้าของเซิร์ฟเวอร์ หรือเมื่อเล่นคนเดียว)
+syncTitle(); // ธีมเปลี่ยนได้เฉพาะเจ้าของเซิร์ฟเวอร์ (/theme)
 seg($('#f-gfx'), [], () => gfx, (v) => { gfx = v; try { localStorage.setItem('cbs_gfx', v); } catch { /* ignore */ } });
 const useRoom = RoomNet.available();
 if (useRoom) { $('#server-row').hidden = true; $('#room-row').hidden = false; }
@@ -107,8 +107,11 @@ function showAccount() {
   $('#auth').hidden = !!account; $('#acct').hidden = !account; $('#form').style.display = account ? '' : 'none';
   if (!account) return;
   $('#acct-name').textContent = `${account.username}${account.email ? ' · ' + account.email : ''}`;
-  $('#server-row').hidden = true; $('#room-row').hidden = true; $('#b-solo').style.display = 'none';
+  $('#server-row').hidden = true; $('#room-row').hidden = true; 
   $('#f-name-label').textContent = 'ชื่อตัวละคร (ห้ามซ้ำกับผู้เล่นคนอื่น)';
+  // มีตัวละครแล้ว: แค่เข้าสู่ระบบด้วยชื่อผู้ใช้ + รหัสผ่าน แล้วกดเข้าเกม ไม่ต้องตั้งค่าตัวละครใหม่
+  $('#f-have').hidden = !C; $('#f-create').hidden = !!C;
+  if (C) $('#f-have-name').textContent = `${C.name} · ${JOBS[C.job]?.icon || ''} ${JOBS[C.job]?.name || ''}`;
   if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; profile.hand = C.hand === 'l' ? 'l' : 'r'; refreshSegs(); }
   $('#b-online').textContent = C ? '▶️ เข้าเกม' : '✨ สร้างตัวละครและเข้าเกม';
   if (account.mustChange) { $('#pwbox').hidden = false; $('#p-err').textContent = 'คุณใช้รหัสผ่านชั่วคราว กรุณาตั้งรหัสผ่านใหม่'; }
@@ -132,6 +135,7 @@ $('#a-go-reg').onclick = async () => {
   if ($('#r-pass').value !== $('#r-pass2').value) return aerr('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
   try { signedIn(await api('/api/register', { email: $('#r-email').value, username: $('#r-user').value, password: $('#r-pass').value })); $('#f-name').focus(); } catch (e) { aerr(e.message); }
 };
+$('#f-edit').onclick = () => { $('#f-create').hidden = !$('#f-create').hidden; };
 $('#a-pwbtn').onclick = () => { $('#pwbox').hidden = !$('#pwbox').hidden; $('#p-err').textContent = ''; };
 $('#p-cancel').onclick = () => { $('#pwbox').hidden = true; };
 $('#p-go').onclick = async () => {
@@ -203,5 +207,4 @@ async function start(online) {
     $('#loading').innerHTML = `เกิดข้อผิดพลาด: ${err.message}`;
   }
 }
-$('#b-solo').onclick = () => start(false);
 $('#b-online').onclick = () => start(true);

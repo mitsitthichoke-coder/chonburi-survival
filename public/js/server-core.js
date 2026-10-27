@@ -218,7 +218,7 @@ export class WorldCore {
         if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
       case 'chat': return this.chatMsg(id, me, m);
-      case 'theme': if (this.allowTheme?.(id)) this.setThemeAll(m.v); else this.send(id, { t: 'notice', text: 'เปลี่ยนธีมได้เฉพาะแอดมิน/เจ้าของเซิร์ฟเวอร์' }); break;
+      case 'theme': if (this.allowTheme?.(id)) this.setThemeAll(m.v); else this.send(id, { t: 'notice', text: 'เปลี่ยนธีมได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์' }); break;
       case 'party': return this.partyMsg(id, m);
       case 'announce':
         if (m.kind === 'quest') this.broadcast({ t: 'chat', from: 'system', name: '📻', text: `📻 ${me.name} ติดต่อศูนย์อพยพสัตหีบสำเร็จ! ประตูค่ายเปิดรับผู้รอดชีวิตแล้ว` });

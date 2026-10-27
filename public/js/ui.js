@@ -8,7 +8,6 @@ import { WORLD, zToLat, xToLon } from './terrain.js';
 import { VOL_CH } from './audio.js';
 import { openGuide } from './guide-ui.js';
 import { fogName } from './weather-core.js';
-import { isHalloween } from './theme.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -79,12 +78,6 @@ export class UI {
       if (c === 'pm') { const n = prompt('กระซิบถึงใคร? (พิมพ์ชื่อผู้เล่น)', g.lastPm || g.chatTo || ''); if (n) g.chatTo = n.trim(); else c = 'all'; }
       g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
     });
-    // ปุ่ม 🎃 / 🌆 สลับธีมระหว่างเล่น
-    // แสดงเฉพาะคนที่เปลี่ยนธีมได้ (เล่นคนเดียว / แอดมิน-เจ้าของ / โฮสต์ห้อง)
-    const tb = $('#theme-btn'), syncT = () => { tb.hidden = !this.g.canTheme(); tb.textContent = isHalloween() ? '🌆' : '🎃'; tb.title = (isHalloween() ? 'กลับเป็นธีมโลกล่มสลาย' : 'เปลี่ยนเป็นธีมฮาโลวีน') + (this.g.net.online ? ' (ทั้งเซิร์ฟเวอร์)' : ''); };
-    this.syncThemeBtn = syncT;
-    tb.onclick = (ev) => { ev.stopPropagation(); const v = isHalloween() ? 'apocalypse' : 'halloween'; if (this.g.changeTheme(v) && !this.g.net.online) this.toast(v === 'halloween' ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี... ระวังผู้ติดเชื้อหัวฟักทอง!' : '🌆 กลับสู่โลกล่มสลาย'); syncT(); };
-    syncT(); setInterval(syncT, 3000);
     // ปุ่ม ⛶ ขยาย/ย่อเต็มหน้าจอ — iPhone ไม่รองรับ Fullscreen API จึงแนะนำให้เพิ่มลงหน้าจอโฮม
     const fb = $('#fs-btn'), d = document, root = d.documentElement;
     const fsEl = () => d.fullscreenElement || d.webkitFullscreenElement;

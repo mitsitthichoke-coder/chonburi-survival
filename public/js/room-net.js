@@ -180,7 +180,7 @@ export class RoomNet {
     const self = this;
     this.core = new WorldCore({
       state: state ? JSON.parse(JSON.stringify(state)) : null, relayState: false,
-      allowTheme: (id) => id === self.gid, // โฮสต์ของห้องเปลี่ยนธีมได้
+      allowTheme: () => false, // ห้องผ่านลิงก์ไม่มีเจ้าของเซิร์ฟเวอร์ จึงเปลี่ยนธีมไม่ได้
       send: (id, m) => { if (id === self.gid) queueMicrotask(() => self.deliver(m)); else self.emitBig('s2c', { to: id, m }); },
       broadcast: (m, ex) => { if (ex !== self.gid) queueMicrotask(() => self.deliver(m)); self.emitBig('s2c', { to: '*', ex: ex || null, m }); },
       onDirty: () => { self.dirty = true; },

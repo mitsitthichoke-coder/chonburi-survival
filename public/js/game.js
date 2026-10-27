@@ -460,14 +460,7 @@ export class Game {
     if (this.weather.rain) return { type: 'rain', text: this.hasItem('bottle') ? 'รองน้ำฝนใส่ขวด' : 'ดื่มน้ำฝน' };
     return null;
   }
-  // ใครเปลี่ยนธีมได้: เล่นคนเดียว = ได้ · ออนไลน์ = แอดมิน/เจ้าของ · เล่นผ่านลิงก์ = โฮสต์ของห้อง
-  canTheme() { return !this.net?.online || (this.auth?.server ? !!this.isAdmin : !!this.net.isHost); }
-  changeTheme(v) {
-    if (!this.canTheme()) return this.ui.toast('เปลี่ยนธีมได้เฉพาะแอดมิน/เจ้าของเซิร์ฟเวอร์', 'warn');
-    if (!this.net.online) { setTheme(v); return true; }
-    if (this.auth.server) this.net.send({ t: 'chat', text: '/theme ' + (v === 'halloween' ? 'ฮาโลวีน' : 'ปกติ') }); else this.net.send({ t: 'theme', v });
-    return true;
-  }
+  // ธีมเกม: เปลี่ยนได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์ ด้วยคำสั่งแชท /theme (ไม่มีปุ่มในเกม)
   // นอนบนเตียง: ตัวละครนอนราบ ม่านมืดลง มี 💤 ลอย · ขยับตัวเพื่อลุก
   startSleep(bed, done) {
     this.sleeping = { ...bed, t: 0, done, back: { x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z } };
@@ -702,7 +695,7 @@ export class Game {
         case 'leave': this.ents.removeRemote(m.id); break;
         case 'state': this.ents.upsertRemote(m); break;
         case 'chat': if (m.ch === 'pm' && m.from !== this.id) this.lastPm = m.name; this.ui.chat(m.name, m.text, m.from === 'system', m.ch, m.toName, m.from === this.id); break;
-        case 'theme': setTheme(m.v, true); this.ui.syncThemeBtn?.(); this.ui.toast(m.v === 'halloween' ? '🎃 แอดมินเปิดธีมฮาโลวีน!' : '🌆 แอดมินเปลี่ยนกลับเป็นธีมโลกล่มสลาย'); break;
+        case 'theme': setTheme(m.v, true); this.ui.toast(m.v === 'halloween' ? '🎃 เจ้าของเซิร์ฟเวอร์เปิดธีมฮาโลวีน!' : '🌆 เจ้าของเซิร์ฟเวอร์เปลี่ยนกลับเป็นธีมโลกล่มสลาย'); break;
         case 'party': this.party = m.id ? m : null; this.ui.refreshPanels(); break;
         case 'partyinv': this.sfx.play('love'); this.ui.confirm(`👥 ${m.name} ชวนคุณเข้าปาร์ตี้ ตกลงไหม?`, (ok) => { if (ok) this.net.send({ t: 'party', a: 'accept', pid: m.pid }); }); break;
         case 'res': this.world.setResState(m.id, m.until - this.timeOffset); break;
@@ -1041,9 +1034,11 @@ export class Game {
     if (hw) this.hemi.intensity = 0.32 + 0.55 * day;
     this.world.tickHalloween?.(dt, P, this.isNight());
     this.scene.background = sky; this.scene.fog.color.copy(sky);
-    const W = this.weather; this.scene.fog.far = W.fog >= 0.7 ? 32 : W.fog >= 0.35 ? 75 : W.snow ? 120 : W.rain ? 180 : 140 + day * 300;
-    if (W.fog > 0) this.scene.fog.color.lerp(new THREE.Color('#c9ced3').multiplyScalar(0.35 + day * 0.6), Math.min(0.85, W.fog));
-    if (W.snow) { this.scene.fog.color.lerp(new THREE.Color('#e9eef3').multiplyScalar(0.3 + day * 0.7), 0.5); this.hemi.groundColor.set('#cfd8df'); }
+    const W = this.weather; // near ต้องน้อยกว่า far เสมอ ไม่งั้นของใกล้ตัวจะขาวโพลนแต่ของไกลกลับชัด
+    this.scene.fog.far = W.fog >= 0.7 ? 95 : W.fog >= 0.35 ? 170 : W.snow ? 230 : W.rain ? 240 : 140 + day * 300;
+    this.scene.fog.near = Math.min(60, this.scene.fog.far * 0.35);
+    if (W.fog > 0) this.scene.fog.color.lerp(new THREE.Color('#c9ced3').multiplyScalar(0.35 + day * 0.6), Math.min(0.55, W.fog));
+    if (W.snow) { this.scene.fog.color.lerp(new THREE.Color('#e9eef3').multiplyScalar(0.3 + day * 0.7), 0.25); this.hemi.groundColor.set('#cfd8df'); }
     this.scene.background = this.scene.fog.color.clone();
     this.visT = (this.visT || 0) - dt; if (this.visT <= 0) { this.visT = 0.5; this.world.updateVisibility(P.x, P.z, this.scene.fog.far); }
     // กองไฟ
@@ -1065,7 +1060,7 @@ export class Game {
     const fall = Wp.rain || Wp.snow; this.rain.visible = fall;
     if (fall) {
       const pos = this.rain.geometry.attributes.position, sp = Wp.snow ? 3.2 : 30, M = this.rain.material;
-      M.color.set(Wp.snow ? '#ffffff' : '#aac'); M.size = Wp.snow ? 0.22 : 0.12; M.opacity = Wp.snow ? 0.9 : 0.6;
+      M.color.set(Wp.snow ? '#ffffff' : '#aac'); M.size = Wp.snow ? 0.13 : 0.1; M.opacity = Wp.snow ? 0.55 : 0.45;
       for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) - sp * dt; if (y < -10) y += 40; pos.setY(i, y); if (Wp.snow) pos.setX(i, pos.getX(i) + Math.sin(y + i) * dt * 0.6); }
       pos.needsUpdate = true; this.rain.position.set(P.x, P.y + 10, P.z);
     }

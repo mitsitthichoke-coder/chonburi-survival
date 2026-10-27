@@ -24,6 +24,7 @@
   input[type=text] { width: 100%; font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0b0e12; color: var(--text); }
   #auth .atabs { margin-bottom: 10px; } .aerr { color: #ff6b6b; min-height: 1.2em; margin: 6px 0 0; } #pwbox { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; } #acct { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } #acct[hidden], #pwbox[hidden], #auth[hidden], #a-reg[hidden], #a-login[hidden] { display: none; }
   .stylerow { display: flex; gap: 10px; align-items: flex-start; } #f-preview { width: 72px; height: 72px; border-radius: 10px; background: #1a2027; border: 1px solid var(--line); image-rendering: pixelated; flex: none; } #f-style button { padding: 5px 9px; font-size: 13px; }
+  #donate { margin-top: 12px; text-align: center; } #donate[hidden], #d-box[hidden] { display: none; } #d-box { margin-top: 8px; padding: 10px; border: 1px solid #f72585; border-radius: 10px; background: #2a1020; text-align: left; } #d-box b { color: #ffafcc; } #d-box a { color: #ffafcc; }
   .seg.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .seg button.job { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; } .seg button.job small { font-size: 11px; opacity: .8; }
   @media (max-width: 520px) { .seg.jobs { grid-template-columns: repeat(2, 1fr); } }
   .seg { display: flex; gap: 8px; flex-wrap: wrap; } .seg button.on { background: var(--accent); border-color: var(--accent); }
@@ -203,6 +204,7 @@
       <div class="go"><button class="primary" id="b-solo">เล่นคนเดียว</button><button class="secondary" id="b-online">เล่นกับเพื่อน</button></div>
       <p class="hint" id="keys-hint">WASD เดิน · Shift วิ่ง · Space กระโดด/ว่ายขึ้น · คลิกเพื่อหมุนกล้อง · คลิกซ้าย ตี/ตัดไม้ · E โต้ตอบ · 1–6 ช่องลัด · Tab กระเป๋า/ประดิษฐ์ · K ตัวละคร · R ความสัมพันธ์ · P สัตว์เลี้ยง · M แผนที่ · Enter แชท</p>
     </div>
+    <div id="donate" hidden><button id="d-btn" class="secondary">💖 สนับสนุนผู้พัฒนาเกม</button><div id="d-box" hidden></div></div>
     <div id="loading">⏳ กำลังสร้างจังหวัดชลบุรี... <div class="hint" id="loading-msg"></div></div>
   </div>
 </div>

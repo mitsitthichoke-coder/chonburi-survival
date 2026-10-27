@@ -117,7 +117,20 @@ $('#f-name').addEventListener('input', () => {
   if (!serverMode) return; clearTimeout(nameT);
   nameT = setTimeout(async () => { const n = $('#f-name').value.trim(); if (!n) return ($('#f-name-ok').textContent = ''); try { const r = await api('/api/name-check?name=' + encodeURIComponent(n)); $('#f-name-ok').textContent = r.ok ? '✅ ชื่อนี้ใช้ได้' : '❌ ' + r.error; } catch { /* ignore */ } }, 350);
 });
-initServerMode();
+initServerMode().then(async () => {
+  // ปุ่มสนับสนุนผู้พัฒนา (แสดงเมื่อเจ้าของเซิร์ฟเวอร์ตั้งค่าช่องทางไว้)
+  if (!serverMode) return;
+  let D = null; try { D = (await api('/api/config')).donate; } catch { /* ไม่มี */ }
+  if (!D) return;
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  $('#donate').hidden = false;
+  $('#d-box').innerHTML = `${D.note ? `<p>${esc(D.note)}</p>` : '<p>เงินสนับสนุนใช้เป็นค่าเซิร์ฟเวอร์และพัฒนาเกมต่อ ขอบคุณมากครับ 🙏</p>'}
+    ${D.promptpay ? `<p>📱 พร้อมเพย์: <b>${esc(D.promptpay)}</b> <button id="d-copy">คัดลอก</button></p>` : ''}
+    ${D.url ? `<p>🌐 <a href="${esc(D.url)}" target="_blank" rel="noopener noreferrer">สนับสนุนผ่านลิงก์นี้</a></p>` : ''}
+    <p class="hint">การสนับสนุนเป็นความสมัครใจ ไม่ได้ของหรือความได้เปรียบในเกม (เจ้าของอาจให้ป้าย 💖 หน้าชื่อเป็นการขอบคุณ)</p>`;
+  $('#d-btn').onclick = () => { $('#d-box').hidden = !$('#d-box').hidden; };
+  $('#d-box').addEventListener('click', (e) => { if (e.target.id === 'd-copy') { navigator.clipboard?.writeText(D.promptpay); e.target.textContent = 'คัดลอกแล้ว ✅'; } });
+});
 
 async function start(online) {
   const typed = $('#f-name').value.trim();

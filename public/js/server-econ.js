@@ -37,6 +37,7 @@ export function installEconomy(core) {
       resHp: (rid) => self.resHp.get(rid), setResHp: (rid, v) => (v === null ? self.resHp.delete(rid) : self.resHp.set(rid, v)),
       near: (type, P, rad) => self.db.structures.find((s) => s.type === type && Math.hypot(s.x - P.x, s.z - P.z) < rad),
       raining: () => hash2(Math.floor(Date.now() / 150000), 77) < 0.3,
+      sunny: () => !self.isNight() && !(hash2(Math.floor(Date.now() / 150000), 77) < 0.3),
       freshNear: (P) => !!self.db.structures.find((s) => s.type === 'pond' && Math.hypot(s.x - P.x, s.z - P.z) < 3.5) || ring(P, 3).some(([x, z]) => waterAt(x, z)?.fresh),
       waterNear: (P) => ring(P, 3.5).some(([x, z]) => waterAt(x, z)),
       fishKind: (x, z) => (self.db.structures.find((s) => s.type === 'pond' && Math.hypot(s.x - x, s.z - z) < 1.8) ? 'pond' : (() => { const w = waterAt(x, z); return w ? (w.fresh ? 'fresh' : 'sea') : null; })()),

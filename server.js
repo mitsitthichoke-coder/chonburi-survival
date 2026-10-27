@@ -29,6 +29,8 @@ const MAX_PLAYERS = Number(process.env.MAX_PLAYERS) || 40;
 const ALLOWED_ORIGINS = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean));
 const ADMINS = new Set((process.env.ADMIN_USERS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
 const TOKEN_DAYS = 30;
+// ช่องทางสนับสนุนผู้พัฒนา (ตั้งใน Environment ของ Render): DONATE_URL = ลิงก์ เช่น Ko-fi · PROMPTPAY = เบอร์/เลขบัตรพร้อมเพย์ · DONATE_NOTE = ข้อความ
+const DONATE = { url: /^https:\/\//.test(process.env.DONATE_URL || '') ? process.env.DONATE_URL : null, promptpay: (process.env.PROMPTPAY || '').replace(/[^0-9]/g, '').slice(0, 15) || null, note: (process.env.DONATE_NOTE || '').slice(0, 300) || null };
 
 const store = new Store(DATA_DIR);
 
@@ -173,6 +175,7 @@ async function api(req, res, route) {
   }
   if (route === '/api/logout' && req.method === 'POST') { delete store.sessions[tokenHash(bearer)]; store.saveSessions(); return json(200, { ok: true }); }
   // ตรวจว่าชื่อตัวละครว่างไหม
+  if (route === '/api/config') return json(200, { donate: DONATE.url || DONATE.promptpay ? DONATE : null });
   if (route === '/api/name-check') {
     if (limited('nc:' + ip, 60, 60e3)) return json(429, { error: 'ช้าลงหน่อย' });
     const u = userByToken(bearer), name = String(new URL(req.url, 'http://x').searchParams.get('name') || '').trim();
@@ -202,7 +205,7 @@ core.onCommand = (id, text) => {
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
@@ -215,6 +218,11 @@ core.onCommand = (id, text) => {
     case 'ban': t.banned = true; store.saveUsers(); for (const [k, s] of Object.entries(store.sessions)) if (s.uid === t.id) delete store.sessions[k]; store.saveSessions(); sockets.get(t.id)?.close(4001, 'banned'); return say(`แบน ${t.username} แล้ว`);
     case 'unban': t.banned = false; store.saveUsers(); return say(`ปลดแบน ${t.username} แล้ว`);
     case 'mute': { const c = core.chars.get(t.id); if (c) c.muted = true; t.muted = true; store.saveUsers(); return say(`ปิดแชท ${t.username} แล้ว`); }
+    case 'supporter': case 'unsupporter': // ป้าย 💖 ผู้สนับสนุน (ของตกแต่งเท่านั้น ไม่ให้ความได้เปรียบในเกม)
+      if (!isOwner(u)) return say('ให้ป้ายผู้สนับสนุนได้เฉพาะ ⭐ เจ้าของ');
+      t.supporter = cmd === 'supporter'; store.saveUsers();
+      if (t.supporter) core.send(t.id, { t: 'chat', from: 'system', name: '💖', text: 'ขอบคุณที่สนับสนุนเกม! คุณได้ป้าย 💖 หน้าชื่อ (เห็นตั้งแต่เข้าเกมครั้งถัดไป)' });
+      return say(`${t.supporter ? '💖 ให้' : 'ถอด'}ป้ายผู้สนับสนุน ${label(t)} แล้ว`);
     case 'unmute': { const c = core.chars.get(t.id); if (c) c.muted = false; t.muted = false; store.saveUsers(); return say(`เปิดแชท ${t.username} แล้ว`); }
     case 'admin':
       if (isAdmin(t)) return say(`${label(t)} เป็นแอดมินอยู่แล้ว`);
@@ -294,7 +302,7 @@ wss.on('connection', (ws, req) => {
       const C = u.char, ch = store.getChar(id) || Object.assign(newChar({ ...C }), { lefty: C.hand === 'l' });
       ch.profile = { name: C.name, sex: C.sex, look: C.look, job: C.job, hand: C.hand || 'r' }; jobKit(ch); ch.muted = !!u.muted;
       core.attachChar(id, ch);
-      core.message(id, { t: 'hello', name: C.name, sex: C.sex, look: C.look, p: ch.pos });
+      core.message(id, { t: 'hello', name: (u.supporter ? '💖' : '') + C.name, sex: C.sex, look: C.look, p: ch.pos });
       return;
     }
     core.message(id, m);

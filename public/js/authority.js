@@ -38,6 +38,7 @@ export class Authority {
       resHp: (id) => W.resources[id]?.hpLeft, setResHp: (id, v) => { const r = W.resources[id]; if (r) r.hpLeft = v === null ? undefined : v; },
       near: (type, P, rad) => W.nearStructure(P.x, P.z, type, rad),
       raining: () => g.weather.rain,
+      sunny: () => !g.isNight() && !g.weather.rain,
       freshNear: (P) => !!W.nearestStructure(P.x, P.z, 3.5, (s) => s.type === 'pond') || ring(P, 3).some(([x, z]) => waterAt(x, z)?.fresh),
       waterNear: (P) => ring(P, 3.5).some(([x, z]) => waterAt(x, z)),
       fishKind: (x, z) => (W.nearestStructure(x, z, 1.8, (s) => s.type === 'pond') ? 'pond' : (() => { const w = waterAt(x, z); return w ? (w.fresh ? 'fresh' : 'sea') : null; })()),

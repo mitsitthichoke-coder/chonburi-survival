@@ -13,6 +13,7 @@ services:
       - key: MAX_PLAYERS
         value: "40"
       # รหัสยืนยันเจ้าของ: ไม่ต้องตั้ง เซิร์ฟเวอร์จะสุ่มและแสดงใน Logs ให้เอง
+      # ปุ่มสนับสนุนผู้พัฒนา (ใส่ค่าในหน้า Environment ของ Render ภายหลังได้): PROMPTPAY, DONATE_URL, DONATE_NOTE
     # เปิดใช้ดิสก์ถาวร (แบบเสียเงิน): เอา # ด้านล่างออก แล้วเพิ่ม env DATA_DIR=/var/data
     # disk:
     #   name: game-data

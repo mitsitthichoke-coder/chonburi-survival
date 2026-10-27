@@ -1,6 +1,6 @@
 import { lonToX, latToZ } from './terrain.js';
 
-export const DAY_MS = 24 * 60 * 1000;        // 1 วันในเกม = 24 นาทีจริง (กลางวันยาวขึ้น)
+export const DAY_MS = 36 * 60 * 1000;        // 1 วันในเกม = 36 นาทีจริง
 export const PREG_MS = 20 * 60 * 1000;       // ตั้งครรภ์ 20 นาทีจริง
 export const BABY_MS = 30 * 60 * 1000;       // ทารก -> เด็ก
 export const CHILD_MS = 90 * 60 * 1000;      // เด็ก -> วัยรุ่น (ช่วยหาของได้)
@@ -115,6 +115,7 @@ const RAW_ITEMS = {
   copper_wire: { name: 'สายไฟทองแดง', icon: '🧵', value: 4 },
   solar_panel: { name: 'แผงโซล่าเซลล์', icon: '🔆', value: 35, place: 'solar' },
   ev_car: { name: 'รถยนต์ไฟฟ้า EV', icon: '🚙', value: 120, place: 'vehicle', vt: 'ev_car' },
+  ev_bike: { name: 'มอเตอร์ไซค์ไฟฟ้า', icon: '🛵', value: 70, place: 'vehicle', vt: 'ev_bike' },
   // ---- โล่ (ถือมือซ้าย) · block = โอกาสกันการโจมตีได้ (เหลือความเสียหาย 25% และไม่ติดเชื้อ) ----
   shield_wood: { name: 'โล่ไม้เล็ก', icon: '🛡️', value: 6, wear: { slot: 'off', def: 0.04, block: 0.15, size: 0.8, color: '#9c6644' } },
   shield_lid: { name: 'โล่ฝาถังเหล็ก', icon: '🛡️', value: 10, wear: { slot: 'off', def: 0.06, block: 0.22, size: 0.9, round: true, color: '#8d99ae' } },
@@ -246,7 +247,6 @@ export const RECIPES = [
   { out: 'steel_axe', need: { scrap: 5, wood: 2, fiber: 2 }, skill: 'crafting', lvl: 2, job: 'engineer' },
   { out: 'steel_spear', need: { scrap: 4, wood: 3, fiber: 2 }, skill: 'crafting', lvl: 3, job: 'engineer' },
   { out: 'pickup', need: { scrap: 18, fuel: 2, cloth: 4, zipper: 3 }, skill: 'crafting', lvl: 3, job: 'mechanic', label: 'รถกระบะดัดแปลง (เร็ว · ต้องเติมน้ำมัน)' },
-  { out: 'motorbike', need: { scrap: 8, fuel: 1, cloth: 2 }, skill: 'crafting', lvl: 2, job: 'mechanic', label: 'มอเตอร์ไซค์ (สูตรช่างยนต์ ไม่ต้องใช้แบตเตอรี่)' },
   { out: 'big_meal', need: { corn: 2, veg: 2, cooked_meat: 1 }, skill: 'cooking', lvl: 2, job: 'farmer', station: 'fire' },
   { out: 'rod_pro', need: { scrap: 3, fiber: 4, wood: 2 }, skill: 'fishing', lvl: 2, job: 'fisher' },
   { out: 'fish_soup', need: { raw_fish: 2, herb: 1, clean_water: 1 }, skill: 'cooking', lvl: 1, job: 'fisher', station: 'fire' },
@@ -288,7 +288,8 @@ export const RECIPES = [
   { out: 'battery_pack', need: { scrap: 3, zipper: 2 }, skill: 'crafting', lvl: 2, label: 'แบตเตอรี่ประกอบ' },
   { out: 'raft_kit', need: { wood: 6, fiber: 4 }, skill: 'crafting', lvl: 1, label: 'ชุดลำแพไม้ไผ่' },
   { out: 'bicycle', need: { wheel: 2, wood: 2 }, skill: 'crafting', lvl: 2, label: '🔧 ประกอบจักรยาน (ล้อ 2)' },
-  { out: 'motorbike', need: { wheel: 2, engine: 1, car_seat: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ (ล้อ 2 + เครื่องยนต์ + เบาะ)' },
+  { out: 'motorbike', need: { wheel: 2, engine: 1, spark_plug: 1, fuel: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์น้ำมัน (ล้อ 2 + เครื่องยนต์ + หัวเทียน + น้ำมัน)' },
+  { out: 'ev_bike', need: { wheel: 2, ev_motor: 1, ev_battery: 1 }, skill: 'crafting', lvl: 3, label: '🔧 ประกอบมอเตอร์ไซค์ไฟฟ้า (ล้อ 2 + มอเตอร์ไฟฟ้า + แบต EV · ไม่ใช้น้ำมัน)' },
   { out: 'steering_wheel', need: { scrap: 2, hide: 1 }, skill: 'crafting', lvl: 2, label: 'พวงมาลัย' },
   { out: 'spark_plug', need: { scrap: 2, copper_wire: 1 }, skill: 'crafting', lvl: 2, label: 'หัวเทียน' },
   { out: 'copper_wire', need: { scrap: 1, rag: 1 }, skill: 'crafting', lvl: 1, qty: 2, label: 'สายไฟทองแดง ×2' },
@@ -356,7 +357,6 @@ export const RECIPES = [
   { out: 'grilled_big_fish', need: { big_fish: 1 }, skill: 'cooking', lvl: 2, station: 'fire' },
   { out: 'raft', need: { wood: 12, fiber: 8 }, skill: 'crafting', lvl: 2, label: 'แพไม้ไผ่ (ล่องทะเลไปเกาะได้)' },
   { out: 'bicycle', need: { scrap: 6, wood: 2, cloth: 1 }, skill: 'crafting', lvl: 2, label: 'จักรยาน' },
-  { out: 'motorbike', need: { scrap: 12, car_battery: 1, cloth: 2 }, skill: 'crafting', lvl: 4, label: 'มอเตอร์ไซค์ (ต้องเติมน้ำมัน)' },
   { out: 'antibiotic', need: { herb: 5, clean_water: 1, scrap: 1 }, skill: 'medicine', lvl: 4, station: 'fire', label: 'ยาปฏิชีวนะสกัด' },
 ];
 
@@ -387,6 +387,8 @@ export const SPAWN_TOWN = 'bangsaen';
 // ช่องสวมใส่ และกระเป๋า
 export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้อ', legs: '👖 กางเกง/กระโปรง', hands: '🧤 ถุงมือ', socks: '🧦 ถุงเท้า', shoes: '👟 รองเท้า', back: '🎒 กระเป๋า', off: '🛡️ มือซ้าย' };
 export const BASE_SLOTS = 48;
+// ยานพาหนะไฟฟ้า: ชาร์จที่แผงโซล่าเซลล์เฉพาะตอนกลางวันที่มีแดด (ไม่ใช้น้ำมัน)
+export const ELECTRIC = new Set(['ev_car', 'ev_bike']);
 // มีค้อนที่ใช้สร้างบ้านไหม (ค้อนช่างไม้ หรือ ค้อนไม้)
 export const canBuild = (inv) => Object.keys(inv || {}).some((k) => inv[k] > 0 && ITEMS[k]?.builds);
 

@@ -116,6 +116,11 @@ export function makeVehicle(vt) {
   } else if (vt === 'motorbike') {
     for (const z of [-0.65, 0.65]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.12, 8, 16), mat('#1b1b1b')); w.rotation.y = Math.PI / 2; w.position.set(0, 0.36, z); g.add(w); }
     g.add(box(0.35, 0.35, 1.0, '#264653', 0, 0.62, 0), box(0.32, 0.12, 0.6, '#111', 0, 0.85, -0.15), box(0.6, 0.06, 0.06, '#adb5bd', 0, 1.0, 0.55), box(0.18, 0.18, 0.1, '#ffd166', 0, 0.85, 0.72));
+  } else if (vt === 'ev_bike') {
+    // มอเตอร์ไซค์ไฟฟ้า: ทรงสกู๊ตเตอร์ สีฟ้า ไฟ LED
+    for (const z of [-0.6, 0.6]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1, 8, 16), mat('#1b1b1b')); w.rotation.y = Math.PI / 2; w.position.set(0, 0.32, z); g.add(w); }
+    g.add(box(0.32, 0.2, 1.0, '#4cc9f0', 0, 0.5, 0), box(0.3, 0.12, 0.55, '#111', 0, 0.72, -0.2), box(0.3, 0.55, 0.12, '#4cc9f0', 0, 0.75, 0.45));
+    g.add(box(0.55, 0.05, 0.05, '#adb5bd', 0, 1.05, 0.5), box(0.2, 0.08, 0.06, '#caf0f8', 0, 0.9, 0.53), box(0.1, 0.18, 0.02, '#ffd60a', 0.17, 0.5, 0.1));
   } else if (vt === 'ev_car') {
     // รถ EV: ทรงเตี้ยมน สีขาวฟ้า มีสัญลักษณ์สายฟ้า
     for (const x of [-0.8, 0.8]) for (const z of [-1.25, 1.25]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 14), mat('#1b1b1b')); w.rotation.z = Math.PI / 2; w.position.set(x, 0.36, z); g.add(w); }

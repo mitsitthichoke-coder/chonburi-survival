@@ -3,7 +3,7 @@ import { PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_M
 import { heightAt, waterAt } from './terrain.js';
 import { ITEMS , hasPerk } from './data.js';
 
-const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
+const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
 const INTERACT = new Set(['door', 'gate', 'bed', 'storage', 'plot', 'coop', 'pond', 'pethouse', 'vehicle']);
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -56,8 +56,9 @@ export class Homestead {
         const V = VEH[s.vt];
         if (V?.electric && (s.fuel ?? 0) < 95) {
           // รถ EV: ชาร์จที่แผงโซล่าเซลล์ (ช่างไฟฟ้าขั้นสูงชาร์จได้ทุกที่ตอนกลางวัน)
-          const solar = g.world.nearestStructure(s.x, s.z, 9, (x) => x.type === 'solar'), anywhere = hasPerk(g.auth.ch, 'electrician', 2) && !g.isNight();
-          if (solar || anywhere) return { text: `⚡ ชาร์จ${V.name} (🔋 ${Math.round(s.fuel ?? 0)}%)${g.isNight() ? ' — กลางคืนชาร์จช้า' : ''}`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 30) }); g.sfx.play('radio'); } };
+          const solar = g.world.nearestStructure(s.x, s.z, 9, (x) => x.type === 'solar'), anywhere = hasPerk(g.auth.ch, 'electrician', 2), sun = !g.isNight() && !g.weather.rain;
+          if ((solar || anywhere) && !sun) return { text: `🔋 ${V.name} ${Math.round(s.fuel ?? 0)}% — ☁️ ชาร์จได้เฉพาะตอนกลางวันที่มีแดด · กด E เพื่อขี่`, act: () => this.mount(s) };
+          if (solar || anywhere) return { text: `⚡ ชาร์จ${V.name} (🔋 ${Math.round(s.fuel ?? 0)}%) ☀️`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 30) }); g.sfx.play('radio'); } };
         }
         if (VEH[s.vt]?.fuel && !V.electric && (s.fuel ?? 0) < 80 && g.hasItem('fuel')) return { text: `⛽ เติมน้ำมัน${V.name} (${Math.round(s.fuel ?? 0)}%)`, act: () => { this.op(s, { o: 'move', x: s.x, z: s.z, ry: s.ry || 0, fuel: Math.min(100, (s.fuel ?? 0) + 50) }); g.sfx.play('drink'); } };
         if (s.driver && s.driver !== g.id) return { text: `${V.name} (มีคนขับอยู่)`, act: () => {} };

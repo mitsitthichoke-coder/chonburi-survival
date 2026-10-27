@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf } from './data.js';
+import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { PIECES, FEEDS, CROPS, refundFor } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
@@ -247,7 +247,7 @@ const A = {
     }
     const it = ITEMS[p.item]; if (!it?.place || !has(ch, p.item)) return { err: 'ไม่มีของชิ้นนี้' };
     const st = { ...clean, type: it.place }; delete st.y;
-    if (it.vt) { st.vt = it.vt; if (it.vt === 'motorbike' || it.vt === 'pickup' || it.vt === 'ev_car') st.fuel = 60; }
+    if (it.vt) { st.vt = it.vt; if (['motorbike', 'pickup', 'ev_car', 'ev_bike'].includes(it.vt)) st.fuel = 60; }
     return { take: { [p.item]: 1 }, place: st, xp: { survival: 5 }, sfx: 'place' };
   },
 
@@ -397,7 +397,8 @@ export function sopCost(ch, s, op, env) {
     case 'move': {
       if ((op.fuel ?? s.fuel) > (s.fuel ?? 0) + 1) {
         // รถ EV: ชาร์จที่แผงโซล่าเซลล์ (หรือช่างไฟฟ้าขั้นสูงชาร์จได้ทุกที่) ไม่ใช้น้ำมัน
-        if (s.vt === 'ev_car') {
+        if (ELECTRIC.has(s.vt)) {
+          if (!env.sunny()) return { err: '☁️ ชาร์จได้เฉพาะตอนกลางวันที่มีแดด (กลางคืนหรือฝนตกชาร์จไม่ได้)' };
           if (!env.near('solar', { x: s.x, z: s.z }, 9) && !hasPerk(ch, 'electrician', 2)) return { err: '🔆 ต้องจอดใกล้แผงโซล่าเซลล์ (ไม่เกิน 9 หน่วย) จึงจะชาร์จได้' };
           if (!cool(ch, 'charge', 4, env.now())) return { err: 'กำลังชาร์จ... รอสักครู่', silent: true };
           return { fuel: Math.min(100, (s.fuel ?? 0) + (hasPerk(ch, 'electrician', 0) ? 30 : 15)), xp: { electric: 2 } };

@@ -799,8 +799,9 @@ export class Game {
         case 'char': this.applyServerChar(m.c); break;
         case 'correct': this.player.pos.set(...m.p); this.player.vy = 0; break;
         case 'authfail': this.ui.showFatal(m.text || 'เข้าสู่ระบบไม่สำเร็จ'); break;
+        case 'maint': this.ui.toast(m.text, 'warn'); this.ui.chat('', m.text, true); this.maintMsg = m.text; break;
         case 'disconnected':
-          if (this.auth.server) { this.ui.showFatal('ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — ตัวละครของคุณถูกบันทึกไว้แล้ว กดเพื่อเข้าเล่นใหม่'); break; } this.ui.toast('ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — เล่นต่อแบบออฟไลน์', 'warn'); break;
+          if (this.auth.server) { this.ui.showFatal(this.maintMsg ? '🔧 ขออภัยในความไม่สะดวก กำลังอัพเดทข้อมูล — ตัวละครของคุณถูกบันทึกไว้แล้ว กดเพื่อกลับเข้าเล่น (ถ้ายังอัปเดตอยู่ หน้าเข้าสู่ระบบจะรอให้เอง)' : 'ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — ตัวละครของคุณถูกบันทึกไว้แล้ว กดเพื่อเข้าเล่นใหม่'); break; } this.ui.toast('ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ — เล่นต่อแบบออฟไลน์', 'warn'); break;
         default: this.social.onNet(m);
       }
     });

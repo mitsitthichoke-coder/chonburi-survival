@@ -57,6 +57,7 @@ setInterval(() => { const now = Date.now(); core.tick(Math.min(0.25, (now - last
 
 // ---------- บัญชี ----------
 const U = store.users;
+const MAINT_TEXT = 'ขออภัยในความไม่สะดวก กำลังอัพเดทข้อมูล';
 const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
 const tokenHash = (t) => crypto.createHash('sha256').update(t).digest('hex');
 // เจ้าของเซิร์ฟเวอร์ = คนแรกที่สมัคร หรือชื่อใน ADMIN_USERS · มีสิทธิ์ตั้ง/ถอดแอดมิน
@@ -129,6 +130,7 @@ async function api(req, res, route) {
     try { body = JSON.parse(raw || '{}'); } catch { return json(400, { error: 'ข้อมูลไม่ถูกต้อง' }); }
   }
   const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (U.maint?.on && route === '/api/register') return json(503, { error: MAINT_TEXT });
   if (route === '/api/register' && req.method === 'POST') {
     if (limited('reg:' + ip, 15, 3600e3)) return json(429, { error: 'สมัครบ่อยเกินไป ลองใหม่ภายหลัง (สูงสุด 15 ครั้ง/ชั่วโมง)' });
     const username = String(body.username || '').trim(), password = String(body.password || ''), contact = String(body.email || '').trim().toLowerCase();
@@ -155,6 +157,7 @@ async function api(req, res, route) {
     if (!ok) { if (u) { u.fails = (u.fails || 0) + 1; if (u.fails >= 8) { u.fails = 0; u.lockUntil = Date.now() + 15 * 60e3; console.warn(`🔒 ล็อกบัญชี ${u.username} ชั่วคราว (ใส่รหัสผิด 8 ครั้ง จาก ${ip})`); } store.saveUsers(); } return json(401, { error: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง' }); }
     u.fails = 0;
     if (u.banned) return json(403, { error: 'บัญชีนี้ถูกระงับ' });
+    if (U.maint?.on && !isAdmin(u)) return json(503, { error: MAINT_TEXT });
     return json(200, { token: newSession(u.id), user: publicUser(u) });
   }
   if (route === '/api/me') { const u = userByToken(bearer); return u ? json(200, { user: publicUser(u) }) : json(401, { error: 'ยังไม่ได้เข้าสู่ระบบ' }); }
@@ -204,11 +207,19 @@ core.onCommand = (id, text) => {
   const find = (name) => { const k = String(name).toLowerCase(), tid = U.byChar[k] || U.byName[k]; return tid && U.users[tid]; };
   if (cmd === 'owner') { const err = claimOwner(u, arg, sockIp.get(id) || ''); return say(err ? '❌ ' + err : '⭐ คุณเป็นเจ้าของเซิร์ฟเวอร์แล้ว! พิมพ์ /help เพื่อดูคำสั่ง'); }
   if (cmd === 'players') return say(`ออนไลน์ ${core.players.size} คน: ${[...core.players.values()].map((p) => p.name).join(', ')}`);
-  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · /theme ฮาโลวีน|ปกติ (เปลี่ยนธีม) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
+  if (cmd === 'help') return say(isAdmin(u) ? (!hasOwner() ? '🔑 ยังไม่มีเจ้าของ: /owner รหัส (ดูรหัสใน Logs ของเซิร์ฟเวอร์) · ' : '') + (isOwner(u) ? '⭐ เจ้าของ: /maint on|off (ปิดปรับปรุง) · /admin ชื่อ (ตั้งแอดมิน) · /unadmin ชื่อ (ถอดแอดมิน) · /resetpw ชื่อ (รีเซ็ตรหัสผ่านให้คนลืมรหัส) · /supporter ชื่อ (ให้ป้าย 💖 ผู้สนับสนุน) · /theme ฮาโลวีน|ปกติ (เปลี่ยนธีม) · ' : '') + 'คำสั่ง: /players · /admins · /kick ชื่อ · /ban ชื่อ · /unban ชื่อ · /mute ชื่อ · /unmute ชื่อ · /say ข้อความ' : 'คำสั่ง: /players · /admins' + (!hasOwner() ? ' · /owner รหัส (สำหรับเจ้าของเซิร์ฟเวอร์)' : ''));
   if (!isAdmin(u)) return say('คำสั่งนี้สำหรับแอดมินเท่านั้น');
   const label = (x) => `${x.char?.name || x.username} (ผู้ใช้: ${x.username})`;
   if (cmd === 'admins') return say('👑 แอดมิน: ' + Object.values(U.users).filter(isAdmin).map((x) => label(x) + (isOwner(x) ? ' ⭐เจ้าของ' : '')).join(', '));
   if ((cmd === 'admin' || cmd === 'unadmin') && !isOwner(u)) return say('ตั้ง/ถอดแอดมินได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+  if (cmd === 'maint') {
+    // /maint on [ข้อความ] | off — ปิดปรับปรุงเซิร์ฟเวอร์ (แอดมินยังเข้าได้)
+    if (!isOwner(u)) return say('ปิดปรับปรุงได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
+    const on = /^(on|เปิด)/i.test(arg); if (!on && !/^(off|ปิด)/i.test(arg)) return say('ใช้: /maint on [ข้อความ] หรือ /maint off');
+    U.maint = on ? { on: true, msg: cleanText(arg.replace(/^\S+\s*/, '')).slice(0, 120), t: Date.now() } : null; store.saveUsers();
+    if (on) { for (const [sid, ws] of sockets) if (!isAdmin(U.users[sid])) { sendWs(ws, { t: 'maint', text: '🔧 ' + MAINT_TEXT }); setTimeout(() => ws.close(4010, 'maint'), 8000); } }
+    return say(on ? '🔧 เปิดโหมดปิดปรับปรุงแล้ว — ผู้เล่นทั่วไปจะเห็นข้อความขออภัย (แอดมินเข้า ?staff ได้)' : '✅ ปิดโหมดปรับปรุงแล้ว ผู้เล่นเข้าได้ตามปกติ');
+  }
   if (cmd === 'theme') {
     // /theme ฮาโลวีน | ปกติ — เปลี่ยนธีมทั้งเซิร์ฟเวอร์ (เฉพาะ ⭐ เจ้าของ)
     if (!isOwner(u)) return say('เปลี่ยนธีมได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์');
@@ -269,7 +280,8 @@ const server = http.createServer((req, res) => {
   let url; try { url = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); return res.end(); }
   if (url.includes('\0') || url.split('/').some((p) => p.startsWith('.') && p !== '')) { res.writeHead(404); return res.end('not found'); }
   if (url.startsWith('/api/')) return api(req, res, url).catch((e) => { console.error(e); res.writeHead(500); res.end(); });
-  if (url === '/healthz') { res.writeHead(200); return res.end('ok'); }
+  // ปิดปรับปรุง: หน้าเข้าสู่ระบบจะขึ้นข้อความขออภัย (เจ้าของสั่ง /maint on|off)
+  if (url === '/healthz') { if (U.maint?.on) { res.writeHead(503, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ maint: true, msg: U.maint.msg || '' })); } res.writeHead(200); return res.end('ok'); }
   const file = path.normalize(path.join(PUBLIC, url === '/' ? 'index.html' : url));
   if (file !== path.join(PUBLIC, 'index.html') && !file.startsWith(PUBLIC + path.sep)) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, buf) => {
@@ -301,6 +313,7 @@ wss.on('connection', (ws, req) => {
       if (u.banned) { sendWs(ws, { t: 'authfail', text: 'บัญชีนี้ถูกระงับ' }); return ws.close(4001, 'banned'); }
       if (!sockets.has(u.id) && sockets.size >= MAX_PLAYERS) { sendWs(ws, { t: 'authfail', text: `เซิร์ฟเวอร์เต็ม (${MAX_PLAYERS} คน) ลองใหม่ภายหลัง` }); return ws.close(4005, 'full'); }
       if (!u.char) { sendWs(ws, { t: 'authfail', text: 'สร้างตัวละครก่อนเข้าเกม' }); return ws.close(4007, 'nochar'); }
+      if (U.maint?.on && !isAdmin(u)) { sendWs(ws, { t: 'authfail', text: MAINT_TEXT }); return ws.close(4010, 'maint'); }
       id = u.id;
       const old = sockets.get(id);
       if (old && old !== ws) { core.leave(id); const oc = core.detachChar(id); if (oc) store.saveChar(id, oc); old.close(4006, 'logged in elsewhere'); }
@@ -322,6 +335,8 @@ wss.on('connection', (ws, req) => {
 });
 
 const shutdown = () => {
+  // Render ส่ง SIGTERM ตอนอัปเดตเวอร์ชันใหม่: แจ้งผู้เล่นที่ออนไลน์ก่อนปิด
+  try { for (const ws of sockets.values()) sendWs(ws, { t: 'maint', text: '🔧 ' + MAINT_TEXT + ' (เซิร์ฟเวอร์กำลังรีสตาร์ต ตัวละครถูกบันทึกแล้ว กลับมาเล่นได้ในอีกสักครู่)' }); } catch { /* ignore */ }
   try { store.saveWorld(core.snapshot()); for (const [id, ch] of core.chars) store.saveChar(id, ch); store.flush('users.json', store.users); store.flush('sessions.json', store.sessions); } catch (e) { console.error(e); }
   process.exit(0);
 };

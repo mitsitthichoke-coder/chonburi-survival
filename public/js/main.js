@@ -118,7 +118,23 @@ function showAccount() {
 }
 async function initServerMode() {
   if (!sameHost || useRoom) return;
-  try { const r = await fetch('/healthz'); if (!r.ok) return; } catch { return; }
+  // เซิร์ฟเวอร์กำลังอัปเดต (ปิดปรับปรุง / รีสตาร์ต / ตอบไม่ทัน) → ขึ้นข้อความขออภัย แล้วลองใหม่เองทุก 6 วินาที
+  const check = async () => {
+    try {
+      const r = await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout?.(10000) });
+      if (r.ok) return 'ok';
+      if (r.status === 404) return 'none'; // เปิดจากเครื่องเปล่า ๆ (ไม่มีเซิร์ฟเวอร์เกม)
+      const j = await r.json().catch(() => null);
+      return j?.maint && /[?&]staff\b/.test(location.search) ? 'ok' : { msg: j?.msg || '' };
+    } catch { return { msg: '' }; }
+  };
+  let st = await check();
+  if (st === 'none') return;
+  if (st !== 'ok') {
+    $('#form').style.display = 'none'; $('#maint').hidden = false; $('#maint-msg').textContent = st.msg;
+    while (st !== 'ok') { await new Promise((r) => setTimeout(r, 6000)); st = await check(); if (st === 'none') return location.reload(); if (st.msg !== undefined) $('#maint-msg').textContent = st.msg; }
+    $('#maint').hidden = true; $('#form').style.display = '';
+  }
   serverMode = true;
   try { token = localStorage.getItem(TOKEN_KEY); } catch { token = null; }
   if (token) { try { account = (await api('/api/me')).user; } catch { token = null; } }

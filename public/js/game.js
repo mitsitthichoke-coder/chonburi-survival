@@ -5,7 +5,7 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, ridePose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
+import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, meleeReach, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
@@ -661,7 +661,7 @@ export class Game {
       let best = null, bd = tool.range;
       for (const e of this.ents.list) { if (e.dead || !(e.kind === 'zombie' || e.kind === 'animal')) continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.93) { bd = d; best = e; } }
       this.fireProjectile(dir, best ? bd : tool.range, ammo);
-      if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, adm * this.dmgMul() * this.handMul(), this.player.pos); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
+      if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, adm * this.dmgMul() * this.handMul(), this.player.pos, null, true); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
       return;
     }
     // แห: ทอดลงน้ำตรงหน้าเพื่อหาปลา
@@ -672,7 +672,7 @@ export class Game {
       this.sfx.play('splash'); return this.auth.do('castnet', spot);
     }
     const dmg = (tool ? tool.dmg : 6) * this.dmgMul() * this.handMul();
-    const hit = this.ents.hitInFront(this.player.pos, dir, tool ? tool.range : 2.0, dmg);
+    const hit = this.ents.hitInFront(this.player.pos, dir, meleeReach(tool), dmg);
     if (hit) { this.sfx.play('hit'); return; }
     const f = this.facingPoint(1.3);
     const r = this.world.nearRes(f.x, f.z, 2.0)[0];

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS, setInjury, tickInjury, ridePose, sleepPose, sitPose } from './models.js';
-import { ITEMS, WEAR_SLOTS, PET_SLOTS } from './data.js';
+import { ITEMS, WEAR_SLOTS, PET_SLOTS, BODY_R } from './data.js';
 import { makeVehicle } from './structures3d.js';
 import { NPCS as NPC_LIST } from './data.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -240,22 +240,24 @@ export class Entities {
   }
 
   // ----- การโจมตีของผู้เล่น -----
-  hitInFront(pos, dir, range, dmg) {
+  // ตีระยะประชิด: ต้องอยู่ในระยะเอื้อมถึงผิวเป้าหมาย อยู่ตรงหน้า (มุมกวาด ~110°) และระดับความสูงใกล้กัน
+  hitInFront(pos, dir, reach, dmg) {
     let best = null, bd = 1e9;
     for (const e of this.list) {
       if (e.dead || e.kind === 'npc' || e.kind === 'pet' || e.kind === 'child') continue;
-      tmp.subVectors(e.pos, pos); tmp.y = 0; const d = tmp.length();
-      if (d > range + 0.4) continue;
-      tmp.normalize(); if (tmp.dot(dir) < 0.35) continue;
+      tmp.subVectors(e.pos, pos); const dy = Math.abs(tmp.y); tmp.y = 0; const d = tmp.length();
+      const br = e.kind === 'zombie' ? 0.35 * (e.T?.scale || 1) : BODY_R[e.type] || 0.4;
+      if (d - br > reach || dy > 1.6 + br) continue;
+      tmp.normalize(); if (d > 0.6 && tmp.dot(dir) < 0.57) continue;
       if (d < bd) { bd = d; best = e; }
     }
     if (best) this.damage(best, dmg, pos);
     return best;
   }
 
-  damage(e, dmg, from, byPet = null) {
+  damage(e, dmg, from, byPet = null, ranged = false) {
     if (byPet) e.lastPet = byPet;
-    if (e.netId) { e.hurt = 0.25; this.g.net.send({ t: 'zdmg', id: e.netId, dmg, pet: byPet?.id }); return; }
+    if (e.netId) { e.hurt = 0.25; this.g.net.send({ t: 'zdmg', id: e.netId, dmg, pet: byPet?.id, r: ranged ? 1 : 0 }); return; }
     e.hp -= dmg; e.hurt = 0.25; e.alert = 8;
     if (ANIMALS[e.type]?.hostileWhenHit || WILD[e.type]?.angryHit || WILD[e.type]?.hostile) e.angry = 12;
     if (e.kind === 'stray') e.tame = Math.max(0, e.tame - 30);

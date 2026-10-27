@@ -572,6 +572,11 @@ export const TOWNS = [
   T('sichang', 'เกาะสีชัง', 13.152, 100.818, 14, 6, 0.5),
 ];
 export const SPAWN_TOWN = 'bangsaen';
+// ระยะตีของอาวุธระยะประชิด (วัดจากตัวผู้เล่นถึง "ผิว" ของเป้าหมาย) · มือเปล่าเอื้อมได้ใกล้สุด
+export const meleeReach = (tool) => Math.min(2.8, tool?.range ? tool.range * 0.72 : 1.15);
+// รัศมีลำตัวของเป้าหมาย (ตัวใหญ่ตีโดนได้จากไกลกว่า)
+export const BODY_R = { elephant: 1.7, trike: 1.3, buffalo: 0.8, cow: 0.8, tiger: 0.7, raptor: 0.6, boar: 0.6, deer: 0.5, sheep: 0.45, dog: 0.35, cat: 0.25, chicken: 0.25, bird: 0.2 };
+export const MELEE_MAX = 6.5; // เซิร์ฟเวอร์ยอมรับการตีระยะประชิดไม่เกินนี้ (เผื่อความหน่วงเน็ต)
 
 // ช่องสวมใส่ และกระเป๋า
 export const WEAR_SLOTS = { head: '🧢 หมวก', body: '👕 เสื้อ', legs: '👖 กางเกง/กระโปรง', hands: '🧤 ถุงมือ', socks: '🧦 ถุงเท้า', shoes: '👟 รองเท้า', back: '🎒 กระเป๋า', off: '🛡️ มือซ้าย' };

@@ -1,7 +1,7 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA } from './data.js';
+import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -242,10 +242,14 @@ export class WorldCore {
         this.send(id, { t: 'give', items: refundFor(st), msg: 'รื้อแล้ว ได้วัสดุคืน' });
         this.dirty(); break;
       }
-      case 'zdmg': case 'mdmg':
+      case 'zdmg': case 'mdmg': {
+        // ตีระยะประชิดต้องอยู่ใกล้เป้าหมายจริง (สัตว์เลี้ยง/อาวุธยิงไกลตีได้ไกลกว่า)
+        const t = this.zombies.get(m.id) || this.fauna.get(m.id), pp = me.p;
+        if (t && pp) { const d = Math.hypot(t.x - pp[0], t.z - pp[2]) - (BODY_R[t.k] || 0.4); if (d > (m.pet ? 45 : m.r ? 60 : MELEE_MAX)) return; }
         if (this.zombies.has(m.id)) this.damageZombie(m.id, Math.min(60, Math.max(0, +m.dmg || 0)), id);
         else this.damageFauna(m.id, Math.min(60, Math.max(0, +m.dmg || 0)), id);
         break;
+      }
       case 'mfeed': {
         const f = this.fauna.get(m.id); if (!f || !['dog', 'cat', 'bird'].includes(f.k)) return;
         f.tame[id] = Math.min(100, (f.tame[id] || 0) + Math.min(50, +m.amt || 0));

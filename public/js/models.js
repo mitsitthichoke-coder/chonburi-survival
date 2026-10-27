@@ -113,12 +113,13 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   addHair(head, kind === 'zombie' ? (sex === 'f' ? 'long' : 'short') : look.style, sex, hair);
   // ตา
   addFace(head, kind === 'zombie' ? {} : look, kind === 'zombie' ? '#e63946' : '#111', hair, skin);
-  const lArm = limb(0.14, 0.62, 0.14, shirt, -shoulder / 2 - 0.08, 1.58, 0);
-  const rArm = limb(0.14, 0.62, 0.14, shirt, shoulder / 2 + 0.08, 1.58, 0);
+  // ตัวละครหันหน้าไปทาง +z: มือขวาของตัวละครอยู่ฝั่ง -x · มือซ้ายอยู่ฝั่ง +x
+  const lArm = limb(0.14, 0.62, 0.14, shirt, shoulder / 2 + 0.08, 1.58, 0);
+  const rArm = limb(0.14, 0.62, 0.14, shirt, -shoulder / 2 - 0.08, 1.58, 0);
   lArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -0.34, 0));
   rArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -0.34, 0));
-  const lLeg = limb(0.18, 0.9, 0.2, pants, -0.13, 0.9, 0);
-  const rLeg = limb(0.18, 0.9, 0.2, pants, 0.13, 0.9, 0);
+  const lLeg = limb(0.18, 0.9, 0.2, pants, 0.13, 0.9, 0);
+  const rLeg = limb(0.18, 0.9, 0.2, pants, -0.13, 0.9, 0);
   inner.add(lArm, rArm, lLeg, rLeg);
   if (kind === 'zombie') { lArm.rotation.x = -1.3; rArm.rotation.x = -1.4; body.material = mat('#5b5b4a'); }
   // จุดถือเครื่องมือ
@@ -198,13 +199,13 @@ export function setOutfit(g, wear, ITEMS) {
   u.offFlame = null; u.offLight = null;
   if (of && wear.off === 'torch') {
     // คบเพลิงในมือรอง (คู่กับอาวุธมือหลัก) — ส่องสว่างรอบตัว
-    const t = TOOL_MESH.torch(), grp = new THREE.Group(); grp.position.set(-0.13, -0.6, 0.05); grp.add(t);
+    const t = TOOL_MESH.torch(), grp = new THREE.Group(); grp.position.set(0, -0.6, 0.05); grp.userData.torch = true; grp.add(t);
     if (GFX.mode !== 'low') { const L = new THREE.PointLight('#ffa94d', 2.2, 16, 1.5); L.position.y = 0.7; t.add(L); u.offLight = L; }
     u.offFlame = t.userData.flame || null;
     put(u.lArm, grp); u.shield = grp; placeShield(u);
   } else if (of) {
     // โล่บนแขนซ้าย หันออกด้านนอก
-    const s = of.size || 1, sh = new THREE.Group(); sh.position.set(-0.13, -0.42, 0.06);
+    const s = of.size || 1, sh = new THREE.Group(); sh.position.set(0.13, -0.42, 0.06);
     if (of.round) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.3 * s, 0.05, 14), new THREE.MeshLambertMaterial({ color: of.color })); m.rotation.z = Math.PI / 2; sh.add(m); }
     else sh.add(box(0.05, 0.55 * s, 0.42 * Math.min(s, 1.15), of.color, 0, 0, 0));
     sh.add(box(0.07, 0.1, 0.1, '#ced4da', -0.03, 0, 0));
@@ -344,7 +345,8 @@ export function setHeldTool(g, tool, lefty) {
 }
 function placeShield(u) {
   if (!u.shield) return;
-  (u.lefty ? u.rArm : u.lArm).add(u.shield); u.shield.position.x = u.lefty ? 0.13 : -0.13;
+  // โล่อยู่ด้านนอกของแขน (แขนซ้าย = +x · แขนขวา = -x) · คบเพลิงมือรองอยู่ในมือ
+  (u.lefty ? u.rArm : u.lArm).add(u.shield); u.shield.position.x = u.shield.userData.torch ? 0 : u.lefty ? -0.13 : 0.13;
 }
 
 export function makeAnimal(type) {

@@ -9,6 +9,9 @@
 <style>
   :root { --bg: #0e1116; --panel: rgba(16, 20, 26, .92); --line: #2b333d; --text: #e9ecef; --muted: #9aa3ad; --accent: #e76f51; --accent2: #2a9d8f; }
   * { box-sizing: border-box; }
+  body.halloween { --accent: #ff7b00; --accent2: #9d4edd; --panel: rgba(24, 12, 32, .93); --line: #3c2650; --bg: #0d0614; }
+  body.halloween .card h1 span { color: #ff7b00; text-shadow: 0 0 12px #ff7b0088; } body.halloween button.primary { background: #ff7b00; } body.halloween #hud, body.halloween #quest { border-color: #9d4edd; }
+  #theme-btn { position: absolute; right: 14px; top: 248px; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.5); font-size: 18px; } body.touch #theme-btn { top: 196px; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Sarabun, Tahoma, sans-serif; }
   button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #222a33; color: var(--text); border-radius: 8px; padding: 6px 12px; }
   button:hover:not(:disabled) { background: #2f3a46; }
@@ -178,7 +181,7 @@
 
 <div id="menu">
   <div class="card">
-    <h1>ชลบุรี: <span>วันล่มสลาย</span></h1>
+    <h1>ชลบุรี: <span id="title-sub">วันล่มสลาย</span></h1>
     <div class="sub">เกมเอาชีวิตรอด 3D โลกเปิด — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี ตั้งแต่บางแสน ศรีราชา พัทยา ถึงสัตหีบ</div>
     <div id="auth" hidden>
       <div class="seg atabs"><button data-a="login" class="on">🔑 เข้าสู่ระบบ</button><button data-a="register">📝 สมัครเล่นเกม</button></div>
@@ -220,6 +223,7 @@
       <div class="row"><label>คิ้ว</label><div class="seg" id="f-brows"></div></div>
       <div class="row"><label>ปาก</label><div class="seg" id="f-mouth"></div></div>
       <div class="row"><label>ของตกแต่งใบหน้า</label><div class="seg" id="f-extra"></div></div>
+      <div class="row"><label>ธีมของเกม (เปลี่ยนในเกมได้ที่ปุ่ม 🎃 มุมขวา)</label><div class="seg" id="f-theme"><button data-v="apocalypse">🌆 โลกล่มสลาย</button><button data-v="halloween">🎃 ฮาโลวีน</button></div></div>
       <div class="row"><label>กราฟิก</label><div class="seg" id="f-gfx"><button data-v="low">⚡ ประหยัด (มือถือ/เครื่องช้า)</button><button data-v="normal">🙂 ปกติ</button><button data-v="smooth">✨ ละมุน (ขอบมน แสงนุ่ม)</button></div></div>
       <div class="row" id="server-row"><label>เซิร์ฟเวอร์สำหรับเล่นกับเพื่อน</label><input id="f-server" type="text" placeholder="ws://192.168.1.10:8080"><div class="hint">เปิดเซิร์ฟเวอร์ด้วย <code>npm start</code> แล้วให้เพื่อนเข้า http://ไอพีของคุณ:8080</div></div>
       <div class="row hint" id="room-row" hidden>🌐 โหมดออนไลน์ในลิงก์นี้: ทุกคนที่เปิดลิงก์เดียวกันและกด "เล่นกับเพื่อน" จะอยู่ในโลกเดียวกัน (เจ้าของต้องแชร์ลิงก์ให้เพื่อนจากเมนู Share ก่อน)</div>
@@ -246,6 +250,7 @@
   </div>
   <div id="leftcol"><div id="status"></div><div id="quest" hidden></div><div id="sidequest"></div></div>
   <button id="mute-btn" aria-label="ปรับเสียง" title="ปรับระดับเสียง">🔊</button>
+  <button id="theme-btn" title="สลับธีม: ฮาโลวีน / โลกล่มสลาย">🎃</button>
   <div id="sound-panel" hidden></div>
   <canvas id="minimap" width="180" height="180"></canvas>
   <div id="toasts"></div>

@@ -6,6 +6,7 @@ import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqPr
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { VOL_CH } from './audio.js';
+import { isHalloween, setTheme } from './theme.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -76,6 +77,10 @@ export class UI {
       if (c === 'pm') { const n = prompt('กระซิบถึงใคร? (พิมพ์ชื่อผู้เล่น)', g.lastPm || g.chatTo || ''); if (n) g.chatTo = n.trim(); else c = 'all'; }
       g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
     });
+    // ปุ่ม 🎃 / 🌆 สลับธีมระหว่างเล่น
+    const tb = $('#theme-btn'), syncT = () => { tb.textContent = isHalloween() ? '🌆' : '🎃'; tb.title = isHalloween() ? 'กลับเป็นธีมโลกล่มสลาย' : 'เปลี่ยนเป็นธีมฮาโลวีน'; };
+    tb.onclick = (ev) => { ev.stopPropagation(); setTheme(isHalloween() ? 'apocalypse' : 'halloween'); syncT(); this.toast(isHalloween() ? '🎃 คืนฮาโลวีนมาเยือนชลบุรี... ระวังผู้ติดเชื้อหัวฟักทอง!' : '🌆 กลับสู่โลกล่มสลาย'); };
+    syncT();
     $('#hand-btn').onclick = (ev) => { ev.stopPropagation(); this.g.swapHands(); };
     // แตะกล่องภารกิจ = เปิด/ปิดลูกศรนำทาง 3 มิติเหนือหัวตัวละคร
     $('#quest').addEventListener('click', (ev) => { ev.stopPropagation(); this.g.navOn = !this.g.navOn; this.toast(this.g.navOn ? '🧭 เปิดลูกศรนำทางไปยังเป้าหมายภารกิจ' : '🧭 ปิดลูกศรนำทาง'); });

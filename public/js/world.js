@@ -6,6 +6,7 @@ import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX } from './models.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
+import { isHalloween, onTheme } from './theme.js';
 import { mat as tintMat } from './models.js';
 import { collidersFor } from './building-core.js';
 
@@ -28,6 +29,7 @@ export class World {
     this.buildTowns();
     this.buildResources();
     this.buildMinimap();
+    this.buildHalloween(); onTheme(() => this.applyTheme()); this.applyTheme();
   }
 
   colorAt(x, z, h, out) {
@@ -209,6 +211,47 @@ export class World {
     if (this.gateMesh) this.gateMesh.position.x += g.w;
   }
 
+  // ---------- ธีมฮาโลวีน: ฟักทองแกะสลักเรืองแสงตามเมือง + ค้างคาวบินรอบตัว ----------
+  buildHalloween() {
+    const g = new THREE.Group(), M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+    const spots = this.loot.filter((l) => l.kind === 'crate' && l.y === undefined).concat(this.loot.filter((l) => l.kind === 'car')).slice(0, 220);
+    const n = spots.length * 2;
+    const body = new THREE.InstancedMesh(new THREE.SphereGeometry(0.42, 10, 7).scale(1, 0.8, 1), new THREE.MeshLambertMaterial({ color: '#ff7b00', emissive: '#7a2a00' }), n);
+    const face = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: '#ffd166' }), n * 2);
+    const stem = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.16, 5), new THREE.MeshLambertMaterial({ color: '#386641' }), n);
+    let i = 0, f = 0;
+    for (const l of spots) for (let k = 0; k < 2; k++) {
+      const a = (l.x * 7 + l.z * 3 + k * 2.3) % 6.28, x = l.x + Math.cos(a) * (1.6 + k), z = l.z + Math.sin(a) * (1.6 + k), y = heightAt(x, z) + 0.32, ry = -a + Math.PI / 2;
+      e.set(0, ry, 0); q.setFromEuler(e);
+      M.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(1, 1, 1)); body.setMatrixAt(i, M);
+      M.compose(new THREE.Vector3(x, y + 0.36, z), q, new THREE.Vector3(1, 1, 1)); stem.setMatrixAt(i, M);
+      // ตา 2 ข้าง + ปากยิ้ม (หันออกด้านนอก)
+      const fx = Math.sin(ry) * 0.4, fz = Math.cos(ry) * 0.4;
+      M.compose(new THREE.Vector3(x + fx, y + 0.08, z + fz), q, new THREE.Vector3(0.9, 1, 1)); face.setMatrixAt(f++, M);
+      M.compose(new THREE.Vector3(x + fx, y - 0.1, z + fz), q, new THREE.Vector3(1.2, 0.8, 1)); face.setMatrixAt(f++, M);
+      i++;
+    }
+    g.add(body, face, stem);
+    // ค้างคาว
+    this.bats = [];
+    for (let b = 0; b < 10; b++) {
+      const bat = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: '#120818', side: THREE.DoubleSide });
+      bat.add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.2), m));
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.18), m); wl.position.x = -0.24; const wr = wl.clone(); wr.position.x = 0.24; bat.add(wl, wr);
+      bat.userData = { wl, wr, a: b * 0.63, r: 6 + (b % 4) * 3, h: 5 + (b % 3) * 2, s: 0.6 + (b % 5) * 0.15 };
+      g.add(bat); this.bats.push(bat);
+    }
+    g.visible = false; this.scene.add(g); this.halloween = g;
+  }
+  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); }
+  tickHalloween(dt, P, night) {
+    if (!this.halloween?.visible) return;
+    for (const b of this.bats) {
+      const u = b.userData; u.a += dt * u.s; b.visible = night || u.r < 9;
+      b.position.set(P.x + Math.cos(u.a) * u.r, P.y + u.h + Math.sin(u.a * 3) * 0.6, P.z + Math.sin(u.a) * u.r);
+      b.rotation.y = -u.a; const fl = Math.sin(u.a * 30) * 0.7; u.wl.rotation.z = fl; u.wr.rotation.z = -fl;
+    }
+  }
   addLoot(x, z, kind, src = {}) {
     const l = { id: 'L' + this.loot.length, x, z, kind, until: 0, y: src.y, broken: src.broken, ry: src.ry };
     this.loot.push(l);

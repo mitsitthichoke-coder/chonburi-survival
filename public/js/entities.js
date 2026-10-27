@@ -11,6 +11,7 @@ import { petStats, rarityOf, fights, gainPetXp } from './pets.js';
 import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
 import { killPerk, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf } from './data.js';
 import { safeBaseAt } from './building-core.js';
+import { isHalloween, onTheme } from './theme.js';
 
 const ANIMALS = {
   zombie: { hp: 40, speed: 1.6, chase: 3.0, drops: [['rag', 0.75], ['rag', 0.4], ['zipper', 0.22], ['kevlar', 0.05], ['cloth', 0.25], ['scrap', 0.25], ['bandage', 0.08], ['bottle', 0.1]] },
@@ -24,6 +25,7 @@ const tmp = new THREE.Vector3();
 // หน้าตาผู้ติดเชื้อตามระดับ
 function zombieMesh(T) {
   const m = makeHuman(Math.random() < 0.5 ? 'm' : 'f', { shirt: T.color, pants: '#2f2f2f', hair: '#333' }, 'zombie');
+  setPumpkin(m, isHalloween() && !T.boss);
   m.scale.setScalar(T.scale);
   if (T.key === 'toxic') m.userData.inner.add(new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), new THREE.MeshBasicMaterial({ color: '#70e000', transparent: true, opacity: 0.18, depthWrite: false })).translateY(1.2));
   if (T.boss) {
@@ -35,9 +37,23 @@ function zombieMesh(T) {
   return m;
 }
 
+// ฮาโลวีน: ผู้ติดเชื้อสวมหัวฟักทองแกะสลัก (ตาเรืองแสง)
+export function setPumpkin(m, on) {
+  const u = m.userData;
+  if (!on) { if (u.pumpkin) { u.head.remove(u.pumpkin); u.pumpkin = null; } return; }
+  if (u.pumpkin) return;
+  const p = new THREE.Group();
+  p.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 7).scale(1, 0.85, 1), new THREE.MeshLambertMaterial({ color: '#ff7b00', emissive: '#5a1f00' })));
+  const glow = new THREE.MeshBasicMaterial({ color: '#ffd166' });
+  for (const sx of [-1, 1]) { const eye = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.07, 3), glow); eye.position.set(sx * 0.09, 0.05, 0.24); eye.rotation.x = Math.PI / 2; p.add(eye); }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.03), glow); mouth.position.set(0, -0.07, 0.24); p.add(mouth);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.1, 5), new THREE.MeshLambertMaterial({ color: '#386641' })); stem.position.y = 0.26; p.add(stem);
+  p.position.y = 0.12; u.head.add(p); u.pumpkin = p;
+}
 export class Entities {
   constructor(game) {
     this.g = game; this.scene = game.scene;
+    onTheme(() => { for (const e of this.list) if (e.kind === 'zombie' && e.mesh) setPumpkin(e.mesh, isHalloween() && !(e.T || {}).boss); });
     this.list = []; this.remotes = new Map(); this.spawnT = 0;
     for (const n of NPCS) this.spawnNPC(n);
   }

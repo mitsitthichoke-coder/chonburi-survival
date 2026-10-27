@@ -16,6 +16,7 @@ import { Sfx } from './audio.js';
 import { TouchControls, isTouchDevice } from './touch.js';
 import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, equipPet } from './pets.js';
 import { Builder } from './building.js';
+import { isHalloween } from './theme.js';
 import { PIECES, baseY } from './building-core.js';
 import { Fishing } from './fishing.js';
 import { Homestead } from './homestead.js';
@@ -996,9 +997,13 @@ export class Game {
     this.sun.target.position.copy(P);
     this.sun.intensity = 1.4 * day * (this.weather.rain ? 0.5 : 1);
     this.hemi.intensity = 0.25 + 0.7 * day;
-    const sky = new THREE.Color('#0b1024').lerp(new THREE.Color(this.weather.rain ? '#8d99a6' : '#9cc3d9'), day);
-    if (tod > 0.72 && tod < 0.82) sky.lerp(new THREE.Color('#e07a5f'), 0.35 * (1 - Math.abs(tod - 0.77) / 0.05));
-    sky.lerp(new THREE.Color('#8a8f7a'), 0.12); // ฝุ่นควันโลกล่มสลาย
+    const hw = isHalloween();
+    const sky = new THREE.Color(hw ? '#170826' : '#0b1024').lerp(new THREE.Color(this.weather.rain ? '#8d99a6' : hw ? '#c99a8c' : '#9cc3d9'), hw ? day * 0.75 : day);
+    if (tod > 0.72 && tod < 0.82) sky.lerp(new THREE.Color(hw ? '#ff7b00' : '#e07a5f'), (hw ? 0.5 : 0.35) * (1 - Math.abs(tod - 0.77) / 0.05));
+    sky.lerp(new THREE.Color(hw ? '#5a2a6a' : '#8a8f7a'), hw ? 0.2 : 0.12); // ฝุ่นควันโลกล่มสลาย · หมอกม่วงฮาโลวีน
+    this.hemi.color.set(hw ? '#e8c9ff' : '#dfe9f3'); this.hemi.groundColor.set(hw ? '#4a2a10' : '#5a5a40');
+    if (hw) this.hemi.intensity = 0.32 + 0.55 * day;
+    this.world.tickHalloween?.(dt, P, this.isNight());
     this.scene.background = sky; this.scene.fog.color.copy(sky);
     this.scene.fog.far = this.weather.rain ? 180 : 140 + day * 300;
     this.visT = (this.visT || 0) - dt; if (this.visT <= 0) { this.visT = 0.5; this.world.updateVisibility(P.x, P.z, this.scene.fog.far); }

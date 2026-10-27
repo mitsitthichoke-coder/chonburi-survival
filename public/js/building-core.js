@@ -526,5 +526,15 @@ function baseOp(s, op, ctx) {
   }
   return null;
 }
+// รั้วล้อมครบทุกด้านไหม: ไล่จุดตามขอบกรอบรั้วทุก G/2 แล้วต้องมีรั้ว/ประตูรั้วอยู่ใกล้ทุกจุด
+export function fenceClosed(structs, b) {
+  if (!b?.box) return false;
+  const f = structs.filter((o) => (o.type === 'fence' || o.type === 'gate') && inBox(b.box, o.x, o.z, G));
+  const near = (x, z) => f.some((o) => Math.abs(o.x - x) <= G * 0.6 && Math.abs(o.z - z) <= G * 0.6);
+  const [x0, z0, x1, z1] = b.box, st = G / 2;
+  for (let x = x0; x <= x1 + 0.01; x += st) if (!near(x, z0) || !near(x, z1)) return false;
+  for (let z = z0; z <= z1 + 0.01; z += st) if (!near(x0, z) || !near(x1, z)) return false;
+  return true;
+}
 // ฐานที่ยังอยู่ในช่วงป้องกัน ณ จุด x,z (pad = ขยายขอบ)
 export const safeBaseAt = (bases, x, z, now, pad = 0) => bases.find((b) => protectLeft(b, now) > 0 && inBox(b.box, x, z, pad));

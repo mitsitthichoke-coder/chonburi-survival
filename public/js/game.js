@@ -3,7 +3,7 @@ import { World, RES_TYPES } from './world.js';
 import { Entities } from './entities.js';
 import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
-import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, makeLabel } from './models.js';
+import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
 import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
@@ -18,7 +18,7 @@ import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, 
 import { Builder } from './building.js';
 import { isHalloween, setTheme } from './theme.js';
 import { weatherAt, airTemp, bodyTarget, fogName } from './weather-core.js';
-import { PIECES, baseY } from './building-core.js';
+import { PIECES, baseY, safeBaseAt } from './building-core.js';
 import { Fishing } from './fishing.js';
 import { Homestead } from './homestead.js';
 import { Authority } from './authority.js';
@@ -388,6 +388,7 @@ export class Game {
       return;
     }
     s.hp -= dmg * (1 - ws.def) * (petNearbyWith(this, 'guardian') ? 0.85 : 1);
+    this.stopRest();
     this.ui.flashHurt();
     if (o.bleed && !s.bleeding && Math.random() < o.bleed) { s.bleeding = true; this.ui.toast('🩸 คุณเลือดออก! ใช้ผ้าพันแผลด่วน', 'warn'); }
     s.stress = Math.min(100, (s.stress || 0) + 3);
@@ -477,6 +478,52 @@ export class Game {
     if (fade) fade.style.opacity = Math.min(0.75, S.t / 2.5);
     if (S.t > 3 && !S.fired) { S.fired = true; S.done?.(); }
     if ((moving && S.t > 0.6) || S.t > 7) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; }
+    return true;
+  }
+  // 🧘 นั่ง/นอนพัก (ปุ่ม Z) — ทำได้เฉพาะที่ปลอดภัย: ในฐาน ศาลา/บ้าน ข้างกองไฟ ค่ายผู้รอดชีวิต และไม่มีผู้ติดเชื้ออยู่ใกล้
+  // ค่าบวกเพิ่ม (พลังชีวิต สตามิน่า ความสุข) · ค่าลบลด (ความเครียด ความเปียก ขาแพลง) · นอนพักได้ผลมากกว่านั่ง
+  restSpot() {
+    const P = this.player.pos, now = this.now();
+    if (this.ents.list.some((e) => e.kind === 'zombie' && !e.dead && Math.hypot(e.pos.x - P.x, e.pos.z - P.z) < 18)) return null;
+    if (this.inCampNow) return 'ค่ายผู้รอดชีวิต';
+    if (safeBaseAt(this.ents.baseList(), P.x, P.z, now)) return 'ฐานของคุณ';
+    if (this.shelter) return 'ที่หลบภัย';
+    if (this.nearFire || this.hearthNear) return 'ข้างกองไฟ';
+    return null;
+  }
+  toggleRest() {
+    if (this.dead || this.vehicle || this.sleeping || this.player.swim) return;
+    const R = this.resting;
+    if (R?.mode === 'lie') return this.stopRest();
+    const where = this.restSpot();
+    if (!where) return this.ui.toast('⚠️ พักได้เฉพาะที่ปลอดภัย: ในฐาน ศาลา/บ้าน ข้างกองไฟ หรือค่ายผู้รอดชีวิต (และต้องไม่มีผู้ติดเชื้ออยู่ใกล้)', 'warn');
+    this.resting = { mode: R ? 'lie' : 'sit', t: 0, ht: R?.ht || 0, x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z };
+    this.ui.toast(R ? `😌 นอนพักที่${where} — ฟื้นตัวเร็วขึ้น (กด Z อีกครั้งหรือเดินเพื่อลุก)` : `🧘 นั่งพักที่${where} — ฟื้นพลัง ลดความเครียด (กด Z อีกครั้งเพื่อนอนพัก)`);
+  }
+  stopRest(msg) {
+    if (!this.resting) return; this.resting = null;
+    const u = this.player.mesh.userData; u.inner.rotation.x = 0; u.inner.position.y = 0;
+    if (msg) this.ui.toast(msg, 'warn');
+  }
+  updateRest(dt, moving) {
+    const R = this.resting; if (!R) return false;
+    if (moving || this.dead) { this.stopRest(); return false; }
+    R.t += dt; R.chk = (R.chk || 0) - dt;
+    if (R.chk <= 0) { R.chk = 1; if (!this.restSpot()) { this.stopRest('🧟 ไม่ปลอดภัยแล้ว! ลุกขึ้นจากการพัก'); return false; } }
+    const p = this.player, s = this.stats, lie = R.mode === 'lie', k = lie ? 1.8 : 1;
+    p.pos.set(R.x, R.y, R.z); p.vy = 0; p.speedNow = 0;
+    if (lie) sleepPose(p.mesh); else sitPose(p.mesh);
+    // ค่าบวก ↑
+    s.stamina = Math.min(this.maxStamina(), s.stamina + 9 * k * dt);
+    if (!s.bleeding && s.infection < 50) s.hp = Math.min(this.maxHp(), s.hp + 0.45 * k * dt);
+    // ค่าลบ ↓
+    s.stress = Math.max(0, (s.stress || 0) - 1.2 * k * dt);
+    s.wet = Math.max(0, (s.wet || 0) - 0.8 * k * dt);
+    if (s.sprain > 0) s.sprain = Math.max(0, s.sprain - 1.5 * k * dt); // ขาแพลงหายเร็วขึ้น
+    if (s.sick > 0) s.sick = Math.max(0, s.sick - 0.05 * k * dt);
+    // ความสุข +1 ทุก 90 วิ (นั่ง) / 50 วิ (นอน)
+    R.ht += dt; const every = lie ? 50 : 90;
+    if (R.ht >= every && (s.happy ?? 50) < 100) { R.ht -= every; s.happy = Math.min(100, (s.happy ?? 50) + 1); this.ui.toast(`😊 พักผ่อนสบายใจ ความสุข +1 (${s.happy})`, 'level'); }
     return true;
   }
   // ลูกศรนำทาง 3 มิติ: ลอยเหนือหัว หมุนชี้ไปยังเป้าหมายภารกิจ (เปิดโดยแตะกล่องภารกิจ)
@@ -653,6 +700,7 @@ export class Game {
       if (k === 'k' && !e.repeat) return this.ui.togglePanel('char');
       if (k === 'g' && !e.repeat && !this.ui.open) return this.callPetsUp();
       if (k === 'h' && !e.repeat && !this.ui.open) return this.swapHands();
+      if (k === 'z' && !e.repeat && !this.ui.open) return this.toggleRest();
       if (k === 'control' && !e.repeat && !this.ui.open) { e.preventDefault(); return this.setStance((this.stance + 1) % 3); }
       if (k === 'i' && !e.repeat) return this.ui.togglePanel('equip');
       if (k === 'p' && !e.repeat) return this.ui.togglePanel('pets');
@@ -837,6 +885,7 @@ export class Game {
     const jump = (k.Space || this.touch?.consumeJump()) && !this.ui.open;
     if (this.vehicle) { animateHuman(p.mesh, dt, 0, 0); this.home.drive(dt, fx, fz); return; }
     if (this.updateSleep(dt, !!(fx || fz) || jump)) return;
+    if (this.updateRest(dt, !!(fx || fz) || jump)) return;
     const moving = fx || fz;
     const w = waterAt(p.pos.x, p.pos.z);
     p.swim = !!w && p.pos.y < w.level - 0.9;
@@ -1093,7 +1142,7 @@ export class Game {
     if (this.net.online && this.netT <= 0) {
       this.netT = 0.1;
       const petState = this.ents.list.filter((e) => e.kind === 'pet' && !e.dead).map((e) => ({ t: e.type, x: +e.pos.x.toFixed(2), y: +e.pos.y.toFixed(2), z: +e.pos.z.toFixed(2), ry: +e.ry.toFixed(2), g: Object.keys(PET_SLOTS).map((k) => e.pet.gear[k] || null) }));
-      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping ? 3 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
+      this.net.send({ t: 'state', p: this.player.pos.toArray().map((v) => +v.toFixed(2)), ry: +this.player.ry.toFixed(2), anim: this.player.speedNow, hp: Math.round(this.stats.hp), pets: petState, eq: this.equipped, lh: this.lefty ? 1 : 0, st: this.sleeping || this.resting?.mode === 'lie' ? 3 : this.resting ? 4 : this.stance, sk: +this.stealthMul().toFixed(2), en: hasPerk(this.ch, 'entertainer', 1) || hasPerk(this.ch, 'monk', 1) ? 1 : 0, ij: injuryBits(this.stats), cb: this.player.climb ? (this.player.climb.dir === 'up' ? 1 : 2) : 0, v: this.vehicle ? this.vehicle.s.vt : null, cl: Object.keys(WEAR_SLOTS).map((k) => this.wear[k] || 0), sf: this.safeTime > 0 || this.dead || this.inCampNow ? 1 : 0 });
     }
   }
 }

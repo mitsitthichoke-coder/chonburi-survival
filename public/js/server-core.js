@@ -3,7 +3,7 @@
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
 import { PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
-import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt } from './building-core.js';
+import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
 import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp } from './zombies-core.js';
@@ -457,9 +457,16 @@ export class WorldCore {
     }
     return null;
   }
+  // ฐานที่รั้วล้อมครบทุกด้าน (แคชไว้ 3 วินาที) — ห้ามมีอะไรเกิดข้างใน
+  closedBases() {
+    const now = Date.now();
+    if (!this._cb || now - this._cbT > 3000) { const S = this.db.structures; this._cbT = now; this._cb = S.filter((s) => s.type === 'basecore' && s.ok && fenceClosed(S, s)); }
+    return this._cb;
+  }
   validSpot(x, z) {
     const h = heightAt(x, z);
     if (h < 0.8 || waterAt(x, z, h) || inCamp(x, z, 4)) return false;
+    if (this.closedBases().some((b) => inBox(b.box, x, z, 1))) return false;
     return !this.walls.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1);
   }
   damageZombie(zid, dmg, by) {

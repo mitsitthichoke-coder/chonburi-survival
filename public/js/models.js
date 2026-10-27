@@ -227,6 +227,8 @@ export function ridePose(g, dt, speed, vt) {
     u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; const a = Math.sin(u.ride * 0.6) * 0.6; u.lArm.rotation.x = -0.9 + a; u.rArm.rotation.x = -0.9 - a;
   } else { u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; u.lArm.rotation.x = u.rArm.rotation.x = -1.0; u.inner.rotation.x = 0.12; }
 }
+// ท่านั่งพัก: นั่งพับขาบนพื้น มือวางบนเข่า
+export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
 // ท่านอนบนเตียง
 export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
 export function animateHuman(g, dt, speed, attacking = 0, mode = null) {

@@ -23,6 +23,7 @@ export class TouchControls {
         <button id="t-jump" aria-label="กระโดด">⤒</button>
         <button id="t-sprint" aria-label="วิ่ง">🏃</button>
         <button id="t-crouch" aria-label="ย่อ/คลาน">🧎</button>
+        <button id="t-rest" aria-label="นั่ง/นอนพัก">🧘</button>
       </div>
       <div id="t-menu">
         <button data-k="inv" aria-label="กระเป๋า">🎒</button><button data-k="rel" aria-label="ความสัมพันธ์">💞</button>
@@ -46,6 +47,7 @@ export class TouchControls {
     press('#t-use', () => game.interact());
     press('#t-jump', () => { this.jump = true; });
     press('#t-crouch', () => game.setStance((game.stance + 1) % 3));
+    press('#t-rest', () => game.toggleRest());
     press('#t-sprint', () => { this.sprint = !this.sprint; $('#t-sprint').classList.toggle('lock', this.sprint); });
     $('#t-menu').addEventListener('click', (e) => {
       const k = e.target.closest('button')?.dataset.k; if (!k) return;

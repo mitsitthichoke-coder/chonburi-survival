@@ -30,7 +30,8 @@ const ALLOWED_ORIGINS = new Set((process.env.ALLOWED_ORIGINS || '').split(',').m
 const ADMINS = new Set((process.env.ADMIN_USERS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
 const TOKEN_DAYS = 30;
 // ช่องทางสนับสนุนผู้พัฒนา (ตั้งใน Environment ของ Render): DONATE_URL = ลิงก์ เช่น Ko-fi · PROMPTPAY = เบอร์/เลขบัตรพร้อมเพย์ · DONATE_NOTE = ข้อความ
-const DONATE = { url: /^https:\/\//.test(process.env.DONATE_URL || '') ? process.env.DONATE_URL : null, promptpay: (process.env.PROMPTPAY || '').replace(/[^0-9]/g, '').slice(0, 15) || null, note: (process.env.DONATE_NOTE || '').slice(0, 300) || null };
+// ค่าเริ่มต้นของเจ้าของเกม (ตั้งค่าใน Environment ทับได้)
+const DONATE = { url: /^https:\/\//.test(process.env.DONATE_URL || '') ? process.env.DONATE_URL : null, promptpay: (process.env.PROMPTPAY || '0863574430').replace(/[^0-9]/g, '').slice(0, 15) || null, note: (process.env.DONATE_NOTE || 'ขอบคุณสำหรับการสนับสนุน 🙏').slice(0, 300) || null };
 
 const store = new Store(DATA_DIR);
 

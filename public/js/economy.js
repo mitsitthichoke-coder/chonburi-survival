@@ -4,7 +4,8 @@
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
 import { rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
 import { RES_TYPES } from './resources-core.js';
-import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { heightAt, waterAt } from './terrain.js';
+import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, slotKey, COLOR_COST, refundFor, cageCatch, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
@@ -347,6 +348,23 @@ const A = {
     const q = Math.max(1, p.q | 0); if (!has(ch, p.k, q)) return { err: 'ของไม่พอ' };
     if (ITEMS[p.k]?.quest) return { err: 'ของภารกิจทิ้งไม่ได้' };
     return { take: { [p.k]: q }, msg: `ทิ้ง ${ITEMS[p.k].name} ×${q}` };
+  },
+
+  // ล้อมรั้วสำเร็จรูปด้วยเงินจิ (ข้ามช่องที่มีของอยู่แล้ว/ในน้ำ/ติดอาคาร · จ่ายตามที่วางได้จริง)
+  fencering(ch, p, env) {
+    const n = Math.min(RING_MAX, Math.max(RING_MIN, p.n | 0)), gates = Math.min(4, Math.max(1, p.gates | 0)), P = env.pos(ch);
+    if (!canBuild(ch.inv)) return { err: 'ต้องมีค้อน (ค้อนไม้ หรือ ค้อนช่างไม้)' };
+    const ST = env.structs?.() || [], me = env.myId;
+    const B = baseAt(ST, P.x, P.z); if (B && B.owner !== me && !roleIn(B, me)) return { err: '🔒 ล้อมรั้วในฐานของผู้เล่นอื่นไม่ได้' };
+    const used = new Set(ST.filter((o) => PIECES[o.type]).map(slotKey)), walls = env.walls?.() || [];
+    const list = fenceRing(P.x, P.z, n, gates).filter((s) => !used.has(slotKey(s)) && heightAt(s.x, s.z) >= 0.4 && !waterAt(s.x, s.z) && !walls.some((b) => Math.abs(b.x - s.x) < b.w / 2 + 0.6 && Math.abs(b.z - s.z) < b.d / 2 + 0.6));
+    if (ST.some((o) => o.owner && o.owner !== me && PIECES[o.type] && !env.isFriend?.(o.owner) && list.some((s) => Math.hypot(o.x - s.x, o.z - s.z) < 6))) return { err: '🔒 ติดกับบ้านของผู้เล่นอื่น — ต้องแอดเพื่อนกับเจ้าของก่อน' };
+    if (!list.length) return { err: 'ไม่มีช่องว่างให้ล้อมรั้ว (มีรั้วครบแล้วหรืออยู่ในน้ำ)' };
+    const g = list.filter((s) => s.type === 'gate').length, cost = (list.length - g) * coinCost(PIECES.fence, ITEMS) + g * (coinCost(PIECES.gate, ITEMS) + 15) + n * n * 2;
+    if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${cost})` };
+    const per = Math.floor(cost / list.length);
+    for (const s of list) env.place(ch, { ...s, paid: per });
+    return { take: { jicoin: cost }, xp: { building: Math.min(60, list.length) }, sfx: 'place', msg: `🪵 ล้อมรั้ว ${n}×${n} ช่อง (${list.length - g} รั้ว · ${g} ประตู) แล้ว — จ่าย 🪙 ${cost}` };
   },
 
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)

@@ -1,6 +1,6 @@
 import { RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
-import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV } from './building-core.js';
+import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX } from './building-core.js';
 import { pieceInfo } from './homestead.js';
 import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
@@ -106,6 +106,7 @@ export class UI {
       <p class="hint">ตั้งค่าจำไว้ในเครื่องนี้</p>`; };
     mute.onclick = (ev) => { ev.stopPropagation(); sfx.unlock(); sp.hidden = !sp.hidden; if (!sp.hidden) drawSound(); };
     sp.addEventListener('input', (ev) => { const k = ev.target.dataset.vol; if (k) { sfx.setVol(k, ev.target.value / 100); ev.target.nextElementSibling.textContent = ev.target.value + '%'; } });
+    $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else return; this.refreshPanels(); });
     sp.addEventListener('change', (ev) => { if (ev.target.id === 'sp-mute') { sfx.setMuted(ev.target.checked); syncMute(); } });
     sp.addEventListener('click', (ev) => { ev.stopPropagation(); if (ev.target.dataset.sclose) sp.hidden = true; });
     ['keydown', 'pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach((t) => sp.addEventListener(t, (ev) => ev.stopPropagation()));
@@ -327,6 +328,12 @@ export class UI {
       <p><button data-bname="${b.id}">🪧 เปลี่ยนชื่อฐาน (ฟรี)</button></p>`).join('');
     return `<p>🪙 คุณมี <b>${coins}</b> เงินจิ · ซื้อชิ้นส่วนฐานด้วยเงินจิได้โดยไม่ต้องหาวัสดุ (ยังต้องมีค้อน${hammer ? ' ✅' : ' ❌'}) — กดเลือกแล้ววางเหมือนสร้างปกติ · รื้อแล้วได้เงินจิคืน</p>
       ${groups.map(([c, list]) => `<h4>${esc(c)}</h4><div class="pieces">${list.map(card).join('')}</div>`).join('')}
+      <h4>🪵 ล้อมรั้วสำเร็จรูป <small>(ล้อมรอบตัวคุณทันที · ไม่ต้องวางทีละชิ้น · ข้ามช่องที่มีรั้วอยู่แล้ว)</small></h4>
+      <div class="ringbox">ขนาด <select id="ring-n">${Array.from({ length: RING_MAX - RING_MIN + 1 }, (_, i) => i + RING_MIN).map((n) => `<option value="${n}" ${n === (this.ringN || 6) ? 'selected' : ''}>${n}×${n} ช่อง (${n * 3}×${n * 3} ม.ในเกม)</option>`).join('')}</select>
+        ประตูเข้าออก <select id="ring-g">${[1, 2, 3, 4].map((k) => `<option value="${k}" ${k === (this.ringG || 1) ? 'selected' : ''}>${k} ทาง</option>`).join('')}</select>
+        <b class="${coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? 'have' : 'miss'}">🪙 ${fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS)}</b>
+        <button data-ring="1" ${hammer && coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? '' : 'disabled'}>ล้อมรั้วตรงนี้</button></div>
+      <p class="hint">ราคาเพิ่มตามขนาดพื้นที่และจำนวนประตู · ยืนตรงกลางพื้นที่ที่ต้องการแล้วกด · รั้วล้อมครบทุกด้าน = ซอมบี้ไม่เกิดในรั้ว · รื้อแล้วได้เงินจิคืน</p>
       ${colors || '<p class="hint">🎨 เปลี่ยนสี/ชื่อฐานได้หลังประกาศฐานแล้ว (วาง 🏦 หลักบ้าน → ประกาศเป็นฐาน)</p>'}
       <p class="hint">หาเงินจิได้จาก: กำจัดผู้ติดเชื้อ/สัตว์ร้าย · ภารกิจหลัก · กล่องเสบียง/กล่องภารกิจ/กล่องหายาก · ขายของให้ NPC · แผงขายของหน้าบ้าน · แลกกับผู้เล่น</p>`;
   }
@@ -754,6 +761,7 @@ export class UI {
     if (d.petequip) { const [i, k] = d.petequip.split(':'); equipPet(g, g.pets[+i], k); return this.refreshPanels(); }
     if (d.petunequip) { const [i, sl] = d.petunequip.split(':'); unequipPet(g, g.pets[+i], sl); return this.refreshPanels(); }
     if (d.bcol) { const b = g.world.structures.find((x) => x.id === d.bcol); if (b) g.home.op(b, { o: 'color', c: d.c }); return this.refreshPanels(); }
+    if (d.ring) { const P = g.player.pos; g.auth.do('fencering', { n: this.ringN || 6, gates: this.ringG || 1, x: P.x, z: P.z }); setTimeout(() => this.refreshPanels(), 400); return; }
     if (d.bname) { const b = g.world.structures.find((x) => x.id === d.bname); const n = b && prompt('ชื่อฐานใหม่', b.name); if (n) g.home.op(b, { o: 'rename', name: n }); return this.refreshPanels(); }
     if (d.cbuild) { if (!canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน', 'warn'); return g.builder.start(d.cbuild, true); }
     if (d.build) { if (t.classList.contains('dis') && !canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน (🪵 ค้อนไม้ หรือ 🔨 ค้อนช่างไม้)', 'warn'); return g.builder.start(d.build); }

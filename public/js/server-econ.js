@@ -34,6 +34,7 @@ export function installEconomy(core) {
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
+      walls: () => self.baseWalls || [],
       pav: (i) => getLayout().pavilions[i] || null, hearthUntil: (i) => self.db.hearth?.[i] || 0,
       loot: (lid) => { const i = +String(lid).slice(1), L = self.lootList[i]; return L ? { ...L, until: self.db.loot[lid] || 0 } : null; },
       res: (rid) => self.resList[rid] || null,

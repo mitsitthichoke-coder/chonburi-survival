@@ -137,6 +137,22 @@ export const FEEDS = ['corn', 'veg', 'berry', 'seeds_corn', 'seeds_veg'];
 const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // 0=เหนือ 1=ตะวันออก 2=ใต้ 3=ตะวันตก
 export const cellOf = (x, z) => [Math.floor(x / G), Math.floor(z / G)];
 export const cellCenter = (cx, cz) => [(cx + 0.5) * G, (cz + 0.5) * G];
+// 🪵 ล้อมรั้วสำเร็จรูปด้วยเงินจิ: สี่เหลี่ยม n×n ช่อง (2–20) มีประตูรั้ว 1–4 ทาง (กลางด้านเหนือ ใต้ ตะวันออก ตะวันตก)
+export const RING_MIN = 2, RING_MAX = 20;
+export function fenceRingPrice(n, gates, ITEMS) {
+  const f = coinCost(PIECES.fence, ITEMS), gt = coinCost(PIECES.gate, ITEMS);
+  return (4 * n - gates) * f + gates * (gt + 15) + n * n * 2; // ค่ารั้วรอบ + ประตู + ค่าปรับพื้นที่ตามขนาด
+}
+export function fenceRing(px, pz, n, gates) {
+  const [c0, r0] = cellOf(px, pz), cx0 = c0 - Math.floor((n - 1) / 2), cz0 = r0 - Math.floor((n - 1) / 2), mid = Math.floor((n - 1) / 2);
+  const out = [], gateAt = new Set(['0:' + mid, '2:' + mid, '1:' + mid, '3:' + mid].slice(0, gates));
+  for (let i = 0; i < n; i++) for (const [rot, cx, cz] of [[0, cx0 + i, cz0], [2, cx0 + i, cz0 + n - 1], [1, cx0 + n - 1, cz0 + i], [3, cx0, cz0 + i]]) {
+    const p = slotPos('fence', cx, cz, rot), al = rot & 1;
+    const y = Math.min(heightAt(p.x - (al ? 0 : 1.4), p.z - (al ? 1.4 : 0)), heightAt(p.x + (al ? 0 : 1.4), p.z + (al ? 1.4 : 0)));
+    out.push({ type: gateAt.has(rot + ':' + i) ? 'gate' : 'fence', x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +y.toFixed(2), rot });
+  }
+  return out;
+}
 // ตำแหน่งของชิ้นส่วนบนกริด
 export function slotPos(type, cx, cz, rot) {
   const [x, z] = cellCenter(cx, cz);

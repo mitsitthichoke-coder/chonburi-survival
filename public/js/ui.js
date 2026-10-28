@@ -1,11 +1,13 @@
 import { tr } from './i18n.js';
-import { gearKind, parseKey, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, COIN_GOODS, tradeable, TRADE_RULE, PLUS_GLOW, TOWNS, RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
+import { shopPenalty, gearKind, parseKey, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, COIN_GOODS, tradeable, TRADE_RULE, PLUS_GLOW, TOWNS, RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
 import { pieceInfo } from './homestead.js';
 import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
+import { WATER_TOWERS } from './quest-core.js';
+import { DAM_PUMP } from './landmarks.js';
 import { VOL_CH } from './audio.js';
 import { openGuide } from './guide-ui.js';
 import { fogName } from './weather-core.js';
@@ -18,8 +20,9 @@ const CATS = [['all', '📦 ทั้งหมด'], ['surv', '🏕️ อุป
 // อุปกรณ์ดำรงชีพ: เครื่องมือหาอยู่หากิน ก่อไฟ ที่พัก ภาชนะ (ไม่ใช่อาวุธต่อสู้หลัก)
 const SURVIVAL = new Set(['pickaxe', 'iron_pickaxe', 'stone_axe', 'steel_axe', 'stone_hammer', 'wood_hammer', 'hammer', 'hoe', 'sickle', 'rod', 'rod_pro', 'net', 'watering_can', 'torch', 'bottle', 'campfire', 'shelter', 'watchtower', 'cage', 'flower_pot', 'raft']);
 // สถานีประดิษฐ์: 🔥 กองไฟ · ⚙️ เครื่องสีข้าว
-const STATION_TXT = { fire: '🔥 ใกล้กองไฟ', mill: '⚙️ ใกล้เครื่องสีข้าว' };
-const stationOk = (g, r, fire) => !r.station || (r.station === 'fire' ? fire : !!g.world.nearStructure(g.player.pos.x, g.player.pos.z, 'ricemill', 4.5));
+const STATION_TXT = { fire: '🔥 ใกล้กองไฟ', mill: '⚙️ ใกล้เครื่องสีข้าว', desal: '🧂 ใกล้เครื่องกรองน้ำทะเล' };
+const STATION_PIECE = { mill: 'ricemill', desal: 'desal' };
+const stationOk = (g, r, fire) => !r.station || (r.station === 'fire' ? fire : !!g.world.nearStructure(g.player.pos.x, g.player.pos.z, STATION_PIECE[r.station], 4.5));
 const catOf = (k) => { const it = ITEMS[k]; return SURVIVAL.has(String(k).split('~')[0]) ? 'surv' : k.startsWith('seeds_') || it.flower ? 'farm' : it.coin ? 'mat' : it.tool || it.wear?.slot === 'off' ? 'weapon' : it.wear ? 'wear' : it.food ? 'food' : it.med ? 'med' : it.instrument || it.device ? 'fun' : it.place ? 'place' : it.petGear ? 'pet' : it.quest ? 'quest' : 'mat'; };
 const pct = (v) => Math.round(v * 100);
 // สเตตัสของไอเท็ม (อาวุธ เสื้อผ้า อาหาร ยา อุปกรณ์สัตว์)
@@ -319,6 +322,9 @@ export class UI {
     }
     const dot = (x, z, col, r) => { const [a, b] = toMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };
     for (const s of g.world.structures) dot(s.x, s.z, '#f4a261', 3);
+    // 🗼 หอถังน้ำ · 💧 ภารกิจโรงสูบน้ำเขื่อน
+    for (const w of WATER_TOWERS) dot(w.x, w.z, '#4dabf7', 4);
+    if (!g.boxes?.learn_water) { dot(DAM_PUMP.x, DAM_PUMP.z, '#74c0fc', 6); const [a, b] = toMap(DAM_PUMP.x, DAM_PUMP.z, W, H); c.fillStyle = '#74c0fc'; c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; const t = tr('💧 ภารกิจระบบน้ำ'); c.strokeText(t, a, b - 9); c.fillText(t, a, b - 9); }
     for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, g.party?.members?.some((m) => m.id === r.id) ? '#00f5d4' : '#4cc9f0', g.party?.members?.some((m) => m.id === r.id) ? 6 : 4);
     dot(g.player.pos.x, g.player.pos.z, '#ff006e', 5);
     const qt = g.quest.target();
@@ -333,20 +339,20 @@ export class UI {
   openForge() { if (!(this.open === 'panel' && this.tab === 'forge')) { this.closeAll(); this.person = null; this.tab = 'forge'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); } this.refreshPanels(); }
   // ⚒️ หน้าตีบวก + ส่องออฟชั่น
   forgeHTML() {
-    const g = this.g, P = g.player.pos, smith = hasPerk(g.ch, 'blacksmith', 0), anvil = smith && g.world.nearStructure(P.x, P.z, 'anvil', 4.5);
+    const g = this.g, P = g.player.pos, smith = hasPerk(g.ch, 'blacksmith', 0), anvilAny = g.world.nearStructure(P.x, P.z, 'anvil', 6), anvil = smith && anvilAny, friendOk = !smith && anvilAny && g.auth.server;
     const npc = NPCS.find((n) => n.job === 'blacksmith'), ne = g.ents.list.find((e) => e.kind === 'npc' && e.def?.id === npc?.id), viaNpc = !anvil && ne && Math.hypot(ne.pos.x - P.x, ne.pos.z - P.z) <= 7;
-    const where = anvil ? '⚒️ ตีบวกเองที่ทั่งตีเหล็ก (ไม่เสียค่าจ้าง' + (hasPerk(g.ch, 'blacksmith', 1) ? ' · โอกาสสำเร็จ +8%' : '') + ')' : viaNpc ? `🧑‍🏭 จ้าง${npc.name}ตีบวก (จ่ายค่าจ้างเป็นเงินจิ)` : `<span class="miss">ยังตีบวกไม่ได้ — ${smith ? 'ไปที่ทั่งตีเหล็ก (สร้างในหมวดของในบ้าน)' : `ต้องเป็น ⚒️ ช่างตีเหล็ก (ลงแต้มสาย ${PERK_PTS[0]}) แล้วใช้ทั่งตีเหล็ก หรือจ้าง${npc?.name} ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}`}</span>`;
-    const can = anvil || viaNpc, pc = (v) => Math.round(v * 100) + '%';
+    const where = friendOk ? '⚒️ ข้างทั่งตีเหล็ก — ถ้ามีเพื่อนช่างตีเหล็กยืนอยู่ใกล้ (6 ม.) เพื่อนจะตีให้ด้วยฝีมือของเพื่อน (ไม่เสียค่าจ้าง)' : anvil ? '⚒️ ตีบวกเองที่ทั่งตีเหล็ก (ไม่เสียค่าจ้าง' + (hasPerk(g.ch, 'blacksmith', 1) ? ' · โอกาสสำเร็จ +8%' : '') + ')' : viaNpc ? `🧑‍🏭 จ้าง${npc.name}ตีบวก — จ่ายค่าจ้างเป็นเงินจิอย่างเดียว ไม่ต้องเตรียมหินไป` : `<span class="miss">ยังตีบวกไม่ได้ — ${smith ? 'ไปที่ทั่งตีเหล็ก (สร้างในหมวดของในบ้าน)' : `ต้องเป็น ⚒️ ช่างตีเหล็ก (ลงแต้มสาย ${PERK_PTS[0]}) แล้วใช้ทั่งตีเหล็ก หรือจ้าง${npc?.name} ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}`}</span>`;
+    const can = anvil || viaNpc || friendOk, pc = (v) => Math.round(v * 100) + '%';
     const rows = Object.entries(g.inv).filter(([k, q]) => q > 0 && gearKind(k)).map(([k]) => {
-      const it = ITEMS[k], pet = gearKind(k) === 'pet', L = parseKey(k).plus, max = pet ? PET_PLUS_MAX : PLUS_MAX, st = enhanceStone(L, pet), fee = viaNpc ? enhanceFee(L, pet) : 0, R = enhanceRates(L, pet, anvil ? g.ch : null);
-      const held = g.equipped === k && (g.inv[k] || 0) <= 1, okE = can && L < max && !held && (g.inv[st] || 0) > 0 && (g.inv.jicoin || 0) >= fee;
+      const it = ITEMS[k], pet = gearKind(k) === 'pet', L = parseKey(k).plus, max = pet ? PET_PLUS_MAX : PLUS_MAX, st = enhanceStone(L, pet), sst = enhanceStone(L, pet, true), fee = viaNpc ? enhanceFee(L, pet) : 0, R = enhanceRates(L, pet, anvil ? g.ch : null), RS = shopPenalty(R, L, pet), showS = !viaNpc && !pet;
+      const held = g.equipped === k && (g.inv[k] || 0) <= 1, base = can && L < max && !held && (g.inv.jicoin || 0) >= fee, okE = base && (viaNpc || (g.inv[st] || 0) > 0), okS = base && showS && (g.inv[sst] || 0) > 0;
       const rate = L >= max ? `<b>ตีบวกสูงสุดแล้ว (+${max})</b>` : `+${L} → +${L + 1}: ✅ ${pc(R.up)}${R.stay ? ` · ➖ คงเดิม ${pc(R.stay)}` : ''}${R.down ? ` · 📉 -1 ${pc(R.down)}` : ''}${R.brk ? ` · <span class="miss">💥 แตกหาย ${pc(R.brk)}</span>` : ''}`;
-      return `<div class="recipe ${okE ? 'ready' : ''}"><div><b style="${L >= 6 ? `color:${PLUS_GLOW[Math.min(10, L)]}` : it.rarity ? `color:${RARITY[it.rarity].color}` : ''}">${it.icon} ${esc(it.name)}</b> <small>${pet ? '🐾 อุปกรณ์สัตว์เลี้ยง' : ''}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}<div class="need">${rate}${L < max ? ` · ใช้ ${ITEMS[st].icon}${ITEMS[st].name} (มี ${g.inv[st] || 0})${fee ? ` · 🪙 ${fee}` : ''}` : ''}${held ? ' · <span class="miss">เลิกถือก่อน</span>' : ''}</div></div>
-        <button data-enh="${k}" ${okE ? '' : 'disabled'}>⚒️ ตีบวก</button>${pet ? '' : `<button data-ident="${k}" ${(g.inv.magnifier || 0) > 0 && !held ? '' : 'disabled'} title="ใช้แว่นขยาย 1 อัน สุ่มออฟชั่น 1–3 อย่าง">🔍 ส่อง (${g.inv.magnifier || 0})</button>`}</div>`;
+      return `<div class="recipe ${okE ? 'ready' : ''}"><div><b style="${L >= 6 ? `color:${PLUS_GLOW[Math.min(10, L)]}` : it.rarity ? `color:${RARITY[it.rarity].color}` : ''}">${it.icon} ${esc(it.name)}</b> <small>${pet ? '🐾 อุปกรณ์สัตว์เลี้ยง' : ''}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}<div class="need">${rate}${L < max ? (viaNpc ? ` · 🪙 ค่าจ้าง ${fee} (รวมค่าวัสดุ ไม่ต้องใช้หิน)` : ` · ใช้ ${ITEMS[st].icon}${ITEMS[st].name} (มี ${g.inv[st] || 0})`) : ''}${held ? ' · <span class="miss">เลิกถือก่อน</span>' : ''}</div></div>
+        <button data-enh="${k}" ${okE ? '' : 'disabled'}>⚒️ ตีบวก</button>${showS && (g.inv[sst] || 0) > 0 && L < max ? `<button data-enhs="${k}" ${okS ? '' : 'disabled'} title="ใช้${ITEMS[sst].name}: สำเร็จ ${pc(RS.up)}${RS.stay ? ' · คงเดิม ' + pc(RS.stay) : ''}${RS.down ? ' · -1 ' + pc(RS.down) : ''}${RS.brk ? ' · แตก ' + pc(RS.brk) : ''}">${ITEMS[sst].icon} ใช้หินร้านค้า ${pc(RS.up)} (${g.inv[sst]})</button>` : ''}${pet ? '' : `<button data-ident="${k}" ${(g.inv.magnifier || 0) > 0 && !held ? '' : 'disabled'} title="ใช้แว่นขยาย 1 อัน สุ่มออฟชั่น 1–3 อย่าง">🔍 ส่อง (${g.inv.magnifier || 0})</button>`}</div>`;
     }).join('');
-    return `<p>${where}</p><p>มี 🔹 หินพลัส <b>${g.inv.plus_stone || 0}</b> · 💠 หินซุปเปอร์ <b>${g.inv.super_stone || 0}</b> · 🔍 แว่นขยาย <b>${g.inv.magnifier || 0}</b> · 🪙 ${g.inv.jicoin || 0}</p>
+    return `<p>${where}</p><p>มี 🔹 เหล็กพลัส <b>${g.inv.plus_stone || 0}</b> · 💠 หินซุปเปอร์ <b>${g.inv.super_stone || 0}</b> · 🔷 เหล็กพลัสร้านค้า <b>${g.inv.shop_plus_stone || 0}</b> · 🔶 หินซุปเปอร์ร้านค้า <b>${g.inv.shop_super_stone || 0}</b> · 📌 พินสูง <b>${g.inv.pet_pin || 0}</b> · 🔍 แว่นขยาย <b>${g.inv.magnifier || 0}</b> · 🪙 ${g.inv.jicoin || 0}</p>
       <div class="recipes">${rows || '<p class="hint">ไม่มีอาวุธ/ชุด/อุปกรณ์สัตว์เลี้ยงในกระเป๋า (ถอดของที่สวมอยู่ออกก่อนจึงจะตีบวกได้)</p>'}</div>
-      <p class="hint">ชุด/อาวุธ +1–+5 ปลอดภัย (ไม่สำเร็จ = คงเดิม) · +6–+8 คงเดิม/+1/-1 · +9–+10 ใช้หินซุปเปอร์ อาจแตกหาย/+1/-1 · อุปกรณ์สัตว์เลี้ยง +1 ปลอดภัย · +2 คงเดิม/+1/-1 · +3 อาจแตกหาย<br>✨ +6 ขึ้นไป: อาวุธเรืองแสง (+10 มีกระแสไฟฟ้า) · ชุดมีนางฟ้าตัวน้อยบินตาม (ยิ่งบวกสูงยิ่งสวย) · 🔍 แว่นขยายซื้อได้ที่ร้านเงินจิ</p>`;
+      <p class="hint">ชุด/อาวุธ +1–+5 ปลอดภัย (ไม่สำเร็จ = คงเดิม) · +6–+8 คงเดิม/+1/-1 · +9–+10 ใช้หินซุปเปอร์ อาจแตกหาย/+1/-1 · อุปกรณ์สัตว์เลี้ยง +1 ปลอดภัย · +2 คงเดิม/+1/-1 · +3 อาจแตกหาย<br>✨ +6 ขึ้นไป: อาวุธเรืองแสง (+10 มีกระแสไฟฟ้า) · ชุดมีนางฟ้าตัวน้อยบินตาม (ยิ่งบวกสูงยิ่งสวย) · 🔍 แว่นขยายซื้อได้ที่ร้านเงินจิ<br>🔷 หินจากร้านเงินจิ: โอกาสสำเร็จต่ำกว่าหินที่ดรอป 30% · จ้างช่างบุญส่ง หรือให้เพื่อนช่างตีเหล็กตีให้ด้วยหินปกติ ได้โอกาสดีกว่า</p>`;
   }
   openTrade() { if (!(this.open === 'panel' && this.tab === 'trade')) { this.closeAll(); this.tab = 'trade'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); } this.refreshPanels(); }
   // หน้าต่างแลกของกับผู้เล่น
@@ -757,7 +763,7 @@ export class UI {
     const bask = Object.entries(B).map(([k, q]) => `<span class="item small" data-tunpay="${k}" title="คลิกเพื่อเอาออก">${ITEMS[k].icon}<b>×${q}</b></span>`).join('');
     const T = n.teach && LEARN[n.teach], knows = T && g.boxes?.['learn_' + n.teach];
     const teach = T ? `<h4>🎓 เรียน${T.name}กับ${esc(n.name)}</h4><p>${knows ? '✅ คุณเรียนวิชานี้แล้ว — เปิดหน้าประดิษฐ์ (ค้นหา "จักสาน" หรือ "ไผ่") และหน้าสร้าง (ผนังไม้ไผ่)' : `สอนสานตะกร้า ชะลอม พัด แพไม้ไผ่ และผนังไม้ไผ่ ค่าเรียน 🪙 ${T.cost} <button data-learn="${n.teach}" ${(g.inv.jicoin || 0) >= T.cost ? '' : 'disabled'}>เรียนเลย</button>`}</p>` : '';
-    const forge = n.job === 'blacksmith' ? `<h4>⚒️ จ้าง${esc(n.name)}ตีบวก</h4><p>ตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยง (จ่ายค่าจ้างเป็นเงินจิ + ใช้หินพลัส/หินซุปเปอร์ของคุณ) <button data-forge="1">⚒️ เปิดหน้าตีบวก</button></p>` : '';
+    const forge = n.job === 'blacksmith' ? `<h4>⚒️ จ้าง${esc(n.name)}ตีบวก</h4><p>ตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยง (จ่ายค่าจ้างเป็นเงินจิ + ใช้เหล็กพลัส/หินซุปเปอร์ของคุณ) <button data-forge="1">⚒️ เปิดหน้าตีบวก</button></p>` : '';
     return `${teach}${forge}<h4>🛒 แลกของกับ${esc(n.name)} <small>(ยิ่งสนิทยิ่งได้ส่วนลด สูงสุด 25%)</small></h4>
       <div class="recipes">${rows}</div>
       <p><b>ตะกร้าแลก:</b> มูลค่ารวม <b>${Math.floor(total)}</b> ${bask || '<span class="hint">คลิกของในกระเป๋าด้านล่างเพื่อใส่ตะกร้า</span>'} ${bask ? '<button data-tclear="1">ล้าง</button>' : ''}</p>
@@ -846,6 +852,7 @@ export class UI {
     if (d.bcol) { const b = g.world.structures.find((x) => x.id === d.bcol); if (b) g.home.op(b, { o: 'color', c: d.c }); return this.refreshPanels(); }
     if (d.mz !== undefined) { const k = +d.mz; if (!k) { this.mapZoom = 1; this.mapCenter = null; } else { const cv = $('#bigmap'), r = cv.getBoundingClientRect(); zoomBtn(this, k > 0 ? 1.6 : 1 / 1.6, r); } return this.refreshPanels(); }
     if (d.forge) return this.openForge();
+    if (d.enhs) { g.auth.do('enhance', { k: d.enhs, shop: 1 }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.enh) { g.auth.do('enhance', { k: d.enh }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.ident) { g.auth.do('identify', { k: d.ident }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.coinbuy) { g.auth.do('cbuy', { k: d.coinbuy, q: 1 }); setTimeout(() => this.refreshPanels(), 350); return; }

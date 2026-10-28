@@ -1,6 +1,7 @@
 // กฎของการก่อสร้าง ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ และยานพาหนะ (ไม่พึ่ง three.js)
 // ใช้ร่วมกันทั้งเซิร์ฟเวอร์ (server-core.js) และไคลเอนต์ เพื่อให้ทุกคนเห็นผลเหมือนกัน
 import { heightAt, hash2 } from './terrain.js';
+import { WATER_TOWERS } from './quest-core.js';
 
 // ---------- กรงดักสัตว์ ----------
 // ใส่เหยื่อแล้วรอ TRAP_MS จะมีสัตว์ติดกรง: เหยื่อเนื้อได้สัตว์กินเนื้อ · เหยื่อพืชได้สัตว์กินพืช · ใกล้สวนสัตว์เขาเขียวได้ไดโนเสาร์/เสือ
@@ -51,6 +52,12 @@ export const PIECES = {
   sheeppen: { name: 'คอกแกะ (จับแกะจากสวนแกะบางละมุงมาปล่อย · ตัดขนแกะ)', icon: '🐑', cost: { wood: 10, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
   bamboo_wall: { name: 'ผนังไม้ไผ่ (บ้านแบบง่าย · ต้องเรียนจักสาน)', icon: '🎋', cost: { bamboo: 6 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1, learn: 'wicker' },
   ricemill: { name: 'เครื่องสีข้าว (สีข้าวเปลือกเป็นข้าวสาร)', icon: '⚙️', cost: { wood: 8, stone: 6, scrap: 3 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
+  // 💧 ระบบน้ำ
+  desal: { name: 'เครื่องกรองน้ำทะเล (กลั่นน้ำทะเลเป็นน้ำจืด)', icon: '🧂', cost: { scrap: 4, stone: 4, cloth: 2, wood: 2 }, snap: 'cell', cat: 'ระบบน้ำ', lvl: 1 },
+  watertank: { name: 'ถังเก็บน้ำ 200 ลิตร (เติม/ตักด้วยขวด · ต่อท่อได้)', icon: '🛢️', cost: { scrap: 5, wood: 4 }, snap: 'cell', cat: 'ระบบน้ำ', lvl: 1 },
+  boiler: { name: 'เตาต้มน้ำขนาดใหญ่ (ต้มน้ำให้สัตว์ในฟาร์ม)', icon: '♨️', cost: { stone: 8, scrap: 6, wood: 4 }, snap: 'cell', cat: 'ระบบน้ำ', lvl: 1 },
+  watertower: { name: 'หอถังน้ำสำรอง (ต้นน้ำของท่อ · ต้องผ่านภารกิจเขื่อน)', icon: '🗼', cost: { scrap: 10, wood: 12, stone: 6, copper_wire: 2 }, snap: 'cell', cat: 'ระบบน้ำ', lvl: 2, learn: 'water' },
+  pipe: { name: 'ท่อส่งน้ำ (ต่อจากหอถังน้ำ · ต้องผ่านภารกิจเขื่อน)', icon: '🚰', cost: { scrap: 1 }, snap: 'cell', cat: 'ระบบน้ำ', lvl: 1, learn: 'water' },
   pond: { name: 'บ่อเลี้ยงปลา', icon: '🐟', cost: { stone: 6, wood: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   hive: { name: 'กล่องเลี้ยงผึ้ง (ปลูกดอกไม้ใกล้ ๆ เพื่อล่อผึ้ง)', icon: '🐝', cost: { wood: 6, fiber: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   stall: { name: 'แผงขายของหน้าบ้าน (ขายเป็นเงินจิ)', icon: '🏪', cost: { wood: 8, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
@@ -144,6 +151,18 @@ export const cellOf = (x, z) => [Math.floor(x / G), Math.floor(z / G)];
 export const cellCenter = (cx, cz) => [(cx + 0.5) * G, (cz + 0.5) * G];
 // 🪵 ล้อมรั้วสำเร็จรูปด้วยเงินจิ: สี่เหลี่ยม n×n ช่อง (2–20) มีประตูรั้ว 1–4 ทาง (กลางด้านเหนือ ใต้ ตะวันออก ตะวันตก)
 export const RING_MIN = 2, RING_MAX = 20;
+// ---------- 💧 ระบบน้ำ ----------
+export const TANK_L = 200, BOILER_L = 100, BOIL_BATCH = 40;
+// ท่อส่งน้ำ: เริ่มจากหอถังน้ำ (ของแผนที่ หรือที่ผู้เล่นสร้าง) ต่อกันทีละช่องติดกัน · ปลายท่ออยู่ช่องข้างถัง/แปลงผัก/เตาต้ม = ต่อท่อแล้ว
+const PIPE_LINK = 3.3, SRC_LINK = 4.6;
+export function pipeNet(structs) {
+  const pipes = structs.filter((o) => o.type === 'pipe'), src = [...WATER_TOWERS, ...structs.filter((o) => o.type === 'watertower')];
+  const on = new Set(), q = pipes.filter((p) => src.some((w) => Math.hypot(w.x - p.x, w.z - p.z) < SRC_LINK));
+  for (const p of q) on.add(p);
+  while (q.length) { const a = q.pop(); for (const b of pipes) if (!on.has(b) && Math.hypot(a.x - b.x, a.z - b.z) < PIPE_LINK) { on.add(b); q.push(b); } }
+  return on;
+}
+export const isPiped = (structs, x, z) => { for (const p of pipeNet(structs)) if (Math.hypot(p.x - x, p.z - z) < PIPE_LINK) return true; return false; };
 // 🛠️ ระดับรั้ว: เพิ่มวัสดุเพื่อให้รั้วสูงและแข็งแรงขึ้น
 export const FENCE_TIERS = [
   { name: 'รั้วไม้', h: FENCE_H, cost: {} },
@@ -227,6 +246,10 @@ export function collidersFor(s) {
     case 'stall': out.push({ x: s.x, z: s.z, w: 2.2, d: 1, top: y + 1 + 1, sid }); break;
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
     case 'anvil': out.push({ x: s.x, z: s.z, w: 1.0, d: 0.6, top: y + 0.9 + 1, sid }); break;
+    case 'watertank': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.6, top: y + 1.8 + 1, sid }); break;
+    case 'boiler': out.push({ x: s.x, z: s.z, w: 1.8, d: 1.4, top: y + 1.3 + 1, sid }); break;
+    case 'desal': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.0, top: y + 1.2 + 1, sid }); break;
+    case 'watertower': for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) out.push({ x: s.x + dx * 1.1, z: s.z + dz * 1.1, w: 0.25, d: 0.25, top: y + 6 + 1, sid }); break;
     case 'ricemill': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.2, top: y + 1.6 + 1, sid }); break;
     case 'watchtower': out.push({ x: s.x, z: s.z, w: 2.6, d: 2.6, top: y + 4.5 + 1, tower: true, sid }); break;
   }
@@ -294,6 +317,41 @@ export function applyOp(s, op, ctx) {
       if (s.owner && s.owner !== ctx.by && !['owner', 'deputy'].includes(ctx.role)) return { err: '🔒 อัปเกรดได้เฉพาะเจ้าของ/รองเจ้าบ้าน' };
       const t = (s.tier || 0) + 1; if (!FENCE_TIERS[t]) return { err: 'รั้วนี้เป็นรั้วเหล็กแล้ว (ระดับสูงสุด)' };
       return { patch: { tier: t }, msg: `🛠️ อัปเกรดเป็น${FENCE_TIERS[t].name}แล้ว` };
+    }
+    // 🛢️ ถังเก็บน้ำ: เติม (tpour) / ตัก (tdraw) เป็นลิตร (1 ขวด = 1 ลิตร) · เติมจากท่อ (tpipe) ได้น้ำดิบ
+    case 'tpour': {
+      if (s.type !== 'watertank') return { err: 'เติมน้ำได้เฉพาะถังเก็บน้ำ' };
+      const q = Math.min(op.q | 0, TANK_L - (s.wl || 0)); if (q <= 0) return { err: 'ถังเต็มแล้ว' };
+      return { patch: { wl: (s.wl || 0) + q, wc: (s.wl || 0) ? !!s.wc && !!op.clean : !!op.clean }, msg: `🛢️ เติมน้ำ${op.clean ? 'สะอาด' : 'ดิบ'} ${q} ลิตร (${(s.wl || 0) + q}/${TANK_L})` };
+    }
+    case 'tdraw': {
+      if (s.type !== 'watertank' && s.type !== 'boiler') return { err: 'ตักน้ำไม่ได้' };
+      const q = Math.min(op.q | 0, s.wl || 0); if (q <= 0) return { err: 'ไม่มีน้ำ' };
+      return { patch: { wl: (s.wl || 0) - q }, msg: `🫗 ตักน้ำ ${q} ลิตร (เหลือ ${(s.wl || 0) - q} ลิตร)` };
+    }
+    case 'tpipe': {
+      if (s.type !== 'watertank') return { err: 'ต่อท่อเติมได้เฉพาะถังเก็บน้ำ' };
+      if (!ctx.structs || !isPiped(ctx.structs, s.x, s.z)) return { err: '🚰 ถังนี้ยังไม่ได้ต่อท่อ — วางท่อต่อจากหอถังน้ำมาถึงช่องข้างถัง' };
+      if ((s.wl || 0) >= TANK_L) return { err: 'ถังเต็มแล้ว' };
+      return { patch: { wl: TANK_L, wc: false }, msg: `🚰 เปิดน้ำจากท่อเข้าถังแล้ว (${TANK_L} ลิตร · น้ำดิบ ต้องต้มก่อนดื่ม/ให้สัตว์ แต่รดน้ำแปลงผักได้)` };
+    }
+    // ♨️ เตาต้มน้ำใหญ่: ต้มน้ำจากถังเก็บน้ำข้าง ๆ / จากท่อ → น้ำสะอาดสำหรับสัตว์
+    case 'boil': {
+      if (s.type !== 'boiler') return { err: 'ต้มได้เฉพาะเตาต้มน้ำ' };
+      const room = BOILER_L - (s.wl || 0); if (room <= 0) return { err: 'เตาต้มเต็มแล้ว' };
+      const tank = (ctx.structs || []).filter((o) => o.type === 'watertank' && (o.wl || 0) > 0 && Math.hypot(o.x - s.x, o.z - s.z) < 7).sort((a, b) => Math.hypot(a.x - s.x, a.z - s.z) - Math.hypot(b.x - s.x, b.z - s.z))[0];
+      const piped = ctx.structs && isPiped(ctx.structs, s.x, s.z), q = Math.min(BOIL_BATCH, room, tank ? tank.wl : piped ? BOIL_BATCH : 0);
+      if (q <= 0) return { err: '♨️ ไม่มีน้ำให้ต้ม — ตั้งถังเก็บน้ำที่มีน้ำไว้ใกล้เตา (ไม่เกิน 7 ม.) หรือต่อท่อมาที่เตา' };
+      return { patch: { wl: (s.wl || 0) + q }, side: tank ? [{ id: tank.id, patch: { wl: tank.wl - q } }] : [], msg: `♨️ ต้มน้ำ ${q} ลิตร${tank ? 'จากถังเก็บน้ำ' : 'จากท่อ'}แล้ว (${(s.wl || 0) + q}/${BOILER_L} ลิตร น้ำสะอาด)` };
+    }
+    case 'bfeed': {
+      // ให้น้ำต้มสุกกับทุกคอกสัตว์ในรัศมี 14 ม. (คอกละ 4 ลิตร)
+      if (s.type !== 'boiler') return { err: 'ให้น้ำได้จากเตาต้มน้ำ' };
+      const pens = (ctx.structs || []).filter((o) => PENS[o.type] && Math.hypot(o.x - s.x, o.z - s.z) < 14 && waterLeft(o, now) < WATER_MAX - WATER_MS);
+      if (!pens.length) return { err: 'ไม่มีคอกสัตว์ใกล้ ๆ ที่ต้องการน้ำ (รัศมี 14 ม.)' };
+      const n = Math.min(pens.length, Math.floor((s.wl || 0) / 4)); if (!n) return { err: '♨️ น้ำต้มสุกไม่พอ (คอกละ 4 ลิตร) — ต้มน้ำก่อน' };
+      const side = pens.slice(0, n).map((o) => ({ id: o.id, patch: { ...settlePen(o, now), wat: Math.max(now, o.wat || 0) + WATER_MS } }));
+      return { patch: { wl: s.wl - n * 4 }, side, msg: `🐄 ให้น้ำต้มสุกกับคอกสัตว์ ${n} คอก (ใช้ ${n * 4} ลิตร)` };
     }
     case 'lock':
       if (s.owner && s.owner !== ctx.by) return { err: 'ล็อก/ปลดล็อกได้เฉพาะเจ้าของ' };

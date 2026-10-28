@@ -147,6 +147,44 @@ export function makeStructureMesh(s) {
       if (ck) { add(box(0.06, 0.7, 0.06, WOOD_D, 1.25, 0.35, 1.25)); add(box(0.4, 0.3, 0.04, CROPS[ck].color, 1.25, 0.75, 1.25)); }
       break;
     }
+    case 'watertank': {
+      // 🛢️ ถังเก็บน้ำพลาสติก 200 ลิตร บนแท่นปูน + ก๊อกน้ำ
+      add(box(1.6, 0.3, 1.6, '#adb5bd', 0, 0.15, 0));
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 1.4, 16), mat('#1d6fa5')); t.position.y = 1.0; t.castShadow = true; add(t);
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 12), mat('#14507a')); lid.position.y = 1.76; add(lid);
+      for (const y of [0.55, 1.0, 1.45]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.025, 6, 20), mat('#14507a')); r.rotation.x = Math.PI / 2; r.position.y = y; add(r); }
+      add(box(0.08, 0.08, 0.3, '#ced4da', 0, 0.5, 0.82), box(0.12, 0.12, 0.06, '#e63946', 0, 0.58, 0.95));
+      break;
+    }
+    case 'boiler': {
+      // ♨️ เตาต้มน้ำขนาดใหญ่: เตาก่ออิฐ + ช่องใส่ฟืน + หม้อต้มเหล็ก + ปล่องควัน
+      add(box(1.8, 0.8, 1.4, '#a4553a', 0, 0.4, 0)); add(box(0.6, 0.4, 0.05, '#1b1b1b', 0, 0.35, 0.71));
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 6), new THREE.MeshBasicMaterial({ color: '#ff9e00' })); fl.position.set(0, 0.3, 0.6); add(fl); root.userData.flame = fl;
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.5, 0.55, 16), mat('#495057')); pot.position.set(-0.15, 1.05, 0); pot.castShadow = true; add(pot);
+      const wtr = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.03, 16), new THREE.MeshPhongMaterial({ color: '#8ecae6', shininess: 90 })); wtr.position.set(-0.15, 1.3, 0); add(wtr);
+      add(box(0.25, 1.6, 0.25, '#6c757d', 0.7, 1.6, -0.45));
+      break;
+    }
+    case 'desal': {
+      // 🧂 เครื่องกรองน้ำทะเล: ถังน้ำทะเล + ขดท่อกลั่น + ถังน้ำจืด + แผงกระจกรับแดด
+      add(box(1.6, 0.25, 1.0, '#6c757d', 0, 0.12, 0));
+      const a = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.8, 12), mat('#2a9d8f')); a.position.set(-0.5, 0.65, 0); add(a);
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.65, 12), mat('#8ecae6')); b.position.set(0.5, 0.57, 0); add(b);
+      for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 6, 14), mat('#ced4da')); c.position.set(0, 0.55 + i * 0.12, 0); c.rotation.x = Math.PI / 2; add(c); }
+      add(box(1.1, 0.04, 0.12, '#ced4da', 0, 1.1, 0));
+      const gl = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.04, 0.9), new THREE.MeshPhongMaterial({ color: '#cfe8ff', transparent: true, opacity: 0.45, shininess: 120 })); gl.position.set(0, 1.25, 0); gl.rotation.x = -0.25; add(gl);
+      break;
+    }
+    case 'watertower': add(makeWaterTower(false)); break;
+    case 'pipe': {
+      // 🚰 ท่อส่งน้ำ: ท่อ PVC วางพาดตามแนว (Q หมุน) + ข้อต่อกลาง + ขาตั้ง
+      const g = add(new THREE.Group()); g.rotation.y = (s.rot & 1) ? Math.PI / 2 : 0;
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, G, 10), mat('#4a90c2')); p.rotation.z = Math.PI / 2; p.position.y = 0.35; p.castShadow = true; g.add(p);
+      const j = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.3, 10), mat('#2f6690')); j.rotation.z = Math.PI / 2; j.position.y = 0.35; g.add(j);
+      for (const x of [-1.1, 1.1]) g.add(box(0.08, 0.3, 0.08, '#6c757d', x, 0.15, 0));
+      g.add(box(0.12, 0.3, 0.12, '#2f6690', 0, 0.35, 0.18));
+      break;
+    }
     case 'anvil': {
       // ⚒️ ทั่งตีเหล็ก: ตอไม้ + ทั่งเหล็ก (มีเขาแหลม) + ค้อนวางข้าง ๆ + ถังน้ำชุบเหล็ก
       const g = add(new THREE.Group()); g.rotation.y = (s.rot & 3) * Math.PI / 2;
@@ -336,6 +374,19 @@ export function updateStructureMesh(root, now, dt) {
 }
 
 // เงาโปร่งแสงตอนวางของ
+// 🗼 หอถังน้ำ: ขาเหล็ก 4 ขา + บันได + ถังน้ำทรงกระบอก (ของแผนที่ใหญ่กว่า มีป้าย)
+export function makeWaterTower(big) {
+  const g = new THREE.Group(), H = big ? 10 : 6, R = big ? 2.2 : 1.3, L = big ? 1.8 : 1.1;
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.22, H, 0.22, '#6c757d', x * L, H / 2, z * L));
+  for (const y of [H * 0.33, H * 0.66]) { g.add(box(L * 2, 0.1, 0.1, '#868e96', 0, y, -L), box(L * 2, 0.1, 0.1, '#868e96', 0, y, L), box(0.1, 0.1, L * 2, '#868e96', -L, y, 0), box(0.1, 0.1, L * 2, '#868e96', L, y, 0)); }
+  for (let i = 0; i < Math.floor(H / 0.5); i++) g.add(box(0.5, 0.05, 0.05, '#adb5bd', L + 0.2, 0.3 + i * 0.5, 0));
+  g.add(box(0.05, H, 0.05, '#adb5bd', L + 0.2, H / 2, -0.24), box(0.05, H, 0.05, '#adb5bd', L + 0.2, H / 2, 0.24));
+  g.add(box(L * 2.4, 0.2, L * 2.4, '#495057', 0, H + 0.1, 0));
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(R, R, R * 1.3, 18), mat(big ? '#4dabf7' : '#74c0fc')); t.position.y = H + 0.2 + R * 0.65; t.castShadow = true; g.add(t);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(R * 1.05, R * 0.5, 18), mat('#1c7ed6')); cap.position.y = H + 0.2 + R * 1.3 + R * 0.25; g.add(cap);
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, H, 8), mat('#4a90c2')); pipe.position.set(-L * 0.4, H / 2, 0); g.add(pipe);
+  return g;
+}
 export function makeGhost(s, ok) {
   const m = makeStructureMesh(s);
   const gm = new THREE.MeshBasicMaterial({ color: ok ? '#52b788' : '#e63946', transparent: true, opacity: 0.45, depthWrite: false });

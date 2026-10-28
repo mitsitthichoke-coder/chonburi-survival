@@ -5,7 +5,7 @@ import { getLayout } from './citygen.js';
 import { getResources } from './resources-core.js';
 import { applyOp, collidersFor, flowersNear, accessFor, canDemolish } from './building-core.js';
 import { heightAt, waterAt, hash2 } from './terrain.js';
-import { tradeable, ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
+import { hasPerk, tradeable, ITEMS, WEAR_SLOTS, skillLevel, wearStats, NPCS, dmgMulOf, maxHpOf, WILD } from './data.js';
 import { relLevel, canDo, applyAction, ACTIONS, giftValue } from './social-core.js';
 import { petStats } from './pets.js';
 let SID = 0; // ลำดับรหัสสิ่งก่อสร้าง (กันรหัสซ้ำตอนวางหลายชิ้นพร้อมกัน)
@@ -32,6 +32,8 @@ export function installEconomy(core) {
       wild: (fid) => { const f = self.fauna.get(+fid); return f && WILD[f.k] ? { k: f.k, x: f.x, z: f.z, hp: f.hp, maxHp: WILD[f.k].hp } : null; },
       npcPos: (nid) => { const i = NPCS.findIndex((n) => n.id === nid), f = self.fauna.get(100000 + i); return f ? { x: f.x, z: f.z } : null; },
       structs: () => self.db.structures, myId: id,
+      // ⚒️ เพื่อนช่างตีเหล็กที่ยืนอยู่ใกล้ (ไม่เกิน 6 ม.) → ตัวละครของเพื่อน (ใช้ความสามารถของเพื่อนตีให้)
+      smithNear: (P) => { for (const [oid, o] of self.players) { if (oid === id || !o.p) continue; const c = self.chars.get(oid); if (c && hasPerk(c, 'blacksmith', 0) && Math.hypot(o.p[0] - P.x, o.p[2] - P.z) < 6) return { ch: c, name: o.name }; } return null; },
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
@@ -170,11 +172,13 @@ export function installEconomy(core) {
     if (cost.err) { if (!m.op.silent) this.send(id, { t: 'notice', text: cost.err }); return; }
     const op = { ...m.op }; if (op.o === 'move') op.fuel = cost.fuel; if (cost.opx) Object.assign(op, cost.opx);
     const fr = !s.owner || s.owner === id || relLevel(this.getRel(id, s.owner)) >= 2, role = accessFor(this.db.structures, s, id, fr), canAccess = fr || !!role;
-    const r = applyOp(s, op, { now: Date.now(), by: id, canAccess, role, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
+    const r = applyOp(s, op, { now: Date.now(), by: id, canAccess, role, structs: this.db.structures, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
     if (r.err) { if (!m.op.silent) this.send(id, { t: 'notice', text: r.err }); return; }
     Object.assign(s, r.patch);
     if ('open' in r.patch || 'x' in r.patch) this.rebuildWalls();
     this.broadcast({ t: 'supd', id: s.id, patch: r.patch });
+    for (const sd of r.side || []) { const o = this.db.structures.find((x) => x.id === sd.id); if (o) { Object.assign(o, sd.patch); this.broadcast({ t: 'supd', id: o.id, patch: sd.patch }); } } // ผลต่อสิ่งก่อสร้างข้างเคียง (เช่น ดึงน้ำจากถัง)
+    this.dirty?.();
     const give = { ...(cost.give || {}) }; for (const [k, q] of Object.entries(r.give || {})) give[k] = (give[k] || 0) + q;
     this.sendEcon(id, applyResult(ch, { take: cost.take, give, xp: cost.xp, pet: cost.pet, msg: m.op.silent ? null : r.msg, quietTake: true }));
   };

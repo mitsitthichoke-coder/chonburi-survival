@@ -18,6 +18,8 @@ export const NAVY = landmark('navy');
 export const inNavy = (x, z, pad = 1) => Math.hypot(x - NAVY.x, z - NAVY.z) < NAVY.r * pad;
 // อ่างเก็บน้ำหลังเขื่อน (ใช้ใน terrain LAKES ด้วยพิกัดเดียวกัน)
 export const DAM_LAKE = { lat: 13.418, lon: 101.378, rx: 38, rz: 18, level: 9 };
+// 💧 โรงสูบน้ำเขื่อนเกาะจันทร์: จุดทำภารกิจระบบน้ำ (หน้าอาคารควบคุมข้างสันเขื่อน)
+export const DAM_PUMP = { x: lonToX(DAM_LAKE.lon) + DAM_LAKE.rx * 0.95 + 1.5, z: latToZ(DAM_LAKE.lat) + DAM_LAKE.rz * 1.25 + 10, name: 'โรงสูบน้ำเขื่อนเกาะจันทร์' };
 
 const land = (x, z) => heightAt(x, z) > 1 && !waterAt(x, z);
 // สร้างอาคาร/กล่องเสบียงของทุกสถานที่ · ok(x,z,w,d) = ตรวจว่าวางได้ (ไม่ทับจุดภารกิจ)

@@ -1,11 +1,11 @@
 // บ้าน ฟาร์ม เล้าไก่ บ่อปลา หีบเก็บของ บ้านสัตว์เลี้ยง และยานพาหนะ (ฝั่งผู้เล่น)
-import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, CAGE_FARM, CAGE_FOOD, CAGE_NAME, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX, FENCE_TIERS, baseAt } from './building-core.js';
+import { BASE_NEED, baseCheck, protectLeft, HOUSE_LV, HOUSE_UP, REPAIR_BASE, ROLES, roleIn, GAME_DAY_MS, PIECES, CROPS, FEEDS, cropProgress, coopEggs, pondFish, fedLeft, FEED_MAX, FEED_MS, baseY, cageCatch, TRAP_MS, BAIT_MEAT, BAIT_PLANT, CAGE_FARM, CAGE_FOOD, CAGE_NAME, PENS, herdOf, ageStage, STAGE_NAME, waterLeft, WATER_MAX, WATER_MS, penGoods, isPlot, isGrow, cropsFor, needsTill, hiveHoney, HONEY_CAP, flowersNear, STALL_MAX, FENCE_TIERS, baseAt, TANK_L, BOILER_L, BOIL_BATCH, isPiped, pipeNet } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -54,6 +54,11 @@ export class Homestead {
       case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
+      case 'watertank': return { text: `🛢️ ถังเก็บน้ำ ${s.wl || 0}/${TANK_L} ลิตร (${!(s.wl > 0) ? 'ว่าง' : s.wc ? 'น้ำสะอาด' : 'น้ำดิบ'})`, act: () => this.tankMenu(s) };
+      case 'boiler': return { text: `♨️ เตาต้มน้ำ ${s.wl || 0}/${BOILER_L} ลิตร (น้ำต้มสุก)`, act: () => this.boilerMenu(s) };
+      case 'desal': return { text: `🧂 กรองน้ำทะเล (มี 🌊 ${g.inv.sea_water || 0} ขวด)`, act: () => { g.ui.craftQ = 'กรองน้ำทะเล'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
+      case 'watertower': return { text: '🗼 หอถังน้ำสำรอง — วางท่อส่งน้ำต่อจากหอไปยังถังเก็บน้ำ/แปลงผัก/เตาต้ม', act: () => g.ui.toast('🚰 วางท่อส่งน้ำทีละช่องติดกันจากหอถังน้ำไปจนถึงช่องข้างถังเก็บน้ำ แปลงผัก หรือเตาต้มน้ำ') };
+      case 'pipe': { const on = pipeNet(g.world.structures).has(s); return { text: on ? '🚰 ท่อส่งน้ำ — ✅ ต่อถึงหอถังน้ำแล้ว มีน้ำไหล' : '🚰 ท่อส่งน้ำ — ❌ ยังไม่ต่อถึงหอถังน้ำ (วางท่อทีละช่องติดกันจากหอ)', act: () => {} }; }
       case 'anvil': return { text: hasPerk(g.ch, 'blacksmith', 0) ? '⚒️ ตีบวกอาวุธ/ชุด/อุปกรณ์สัตว์เลี้ยง' : '⚒️ ทั่งตีเหล็ก (ต้องเป็นช่างตีเหล็ก — หรือจ้างช่างบุญส่ง พานทอง)', act: () => g.ui.openForge() };
       case 'fence': return mine ? { text: `🛠️ ${FENCE_TIERS[s.tier || 0].name}${FENCE_TIERS[(s.tier || 0) + 1] ? ' — อัปเกรดรั้ว' : ' (ระดับสูงสุด)'}`, act: () => this.fenceMenu(s) } : null;
       case 'ricemill': return { text: `⚙️ สีข้าวเปลือก (มี 🌾 ${g.inv.paddy || 0})`, act: () => { g.ui.craftQ = 'สีข้าว'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
@@ -109,6 +114,7 @@ export class Homestead {
     if (s.wt && !s.fb && g.hasItem('manure')) return { text: `💩 ใส่ปุ๋ยคอกให้${C.name} (โตเร็วขึ้น) · ${Math.floor(p * 100)}%`, act: () => this.op(s, { o: 'fert' }) };
     if (!s.wt) {
       const w = ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
+      if (!g.weather.rain && isPiped(g.world.structures, s.x, s.z)) return { text: `🚰 รดน้ำ${C.name}จากท่อ (${Math.floor(p * 100)}%)`, act: () => { g.sfx.play('splash'); this.op(s, { o: 'water', pipe: 1 }); } };
       if (g.weather.rain) return { text: `🌧️ ฝนรดน้ำให้${C.name}แล้ว (${Math.floor(p * 100)}%)`, act: () => this.op(s, { o: 'water' }) };
       if (ITEMS[g.equipped]?.tool?.water) return { text: `🚿 รดน้ำ${C.name}ด้วยบัว (${Math.floor(p * 100)}%)`, act: () => { g.atkT = 1; g.player.mesh.userData.atkStyle = 'pour'; g.sfx.play('splash'); this.op(s, { o: 'water' }); } };
       return { text: w ? `💧 รดน้ำ${C.name} (${Math.floor(p * 100)}%)` : `${C.name} ${Math.floor(p * 100)}% — ต้องมีน้ำ 1 ขวดเพื่อรดน้ำ (โตเร็วขึ้น ~3 เท่า)`, act: () => { if (w) this.op(s, { o: 'water' }); } };
@@ -126,6 +132,28 @@ export class Homestead {
     g.ui.choice(`🛠️ ${FENCE_TIERS[t].name} → ${N.name} (สูงขึ้น แข็งแรงขึ้น)`, [
       { label: `อัปเกรดชิ้นนี้ (${cost(N)})`, dis: !Object.entries(N.cost).every(([k, q]) => (g.inv[k] || 0) >= q) && 'วัสดุไม่พอ', run: () => this.op(s, { o: 'upfence' }) },
       { label: `อัปเกรดรั้ว+ประตูรั้ว${B ? 'ทั้งฐาน' : 'แถวนี้'} ${all.length} ชิ้น (${need.map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')})`, dis: !can && 'วัสดุไม่พอสำหรับทั้งแนว', run: () => { all.forEach((o, i) => setTimeout(() => this.op(o, { o: 'upfence', silent: i < all.length - 1 }), i * 70)); g.ui.toast(`🛠️ กำลังอัปเกรดรั้ว ${all.length} ชิ้น...`); } },
+    ]);
+  }
+  // 🛢️ เมนูถังเก็บน้ำ: เติมจากขวด / ตักใส่ขวด / เปิดน้ำจากท่อ
+  tankMenu(s) {
+    const g = this.g, wl = s.wl || 0, room = TANK_L - wl, piped = isPiped(g.world.structures, s.x, s.z);
+    const cl = g.inv.clean_water || 0, dw = g.inv.dirty_water || 0, bt = g.inv.bottle || 0;
+    g.ui.choice(`🛢️ ถังเก็บน้ำ ${wl}/${TANK_L} ลิตร · ${!wl ? 'ว่าง' : s.wc ? '💧 น้ำสะอาด (ดื่มได้)' : '🫙 น้ำดิบ (ต้องต้มก่อนดื่ม/ให้สัตว์ · รดน้ำผักได้)'}`, [
+      { label: `💧 เติมน้ำสะอาด ${Math.min(cl, room)} ลิตร (มี ${cl} ขวด)`, dis: (!cl || !room) && 'ไม่มีน้ำสะอาด หรือถังเต็ม', run: () => this.op(s, { o: 'tpour', q: cl, clean: 1 }) },
+      { label: `🫙 เติมน้ำดิบ ${Math.min(dw, room)} ลิตร (มี ${dw} ขวด${s.wc && wl ? ' · น้ำในถังจะกลายเป็นน้ำดิบ' : ''})`, dis: (!dw || !room) && 'ไม่มีน้ำดิบ หรือถังเต็ม', run: () => this.op(s, { o: 'tpour', q: dw }) },
+      { label: `🫗 ตักน้ำใส่ขวด ${Math.min(bt, wl)} ขวด (ขวดเปล่า ${bt})`, dis: (!bt || !wl) && 'ไม่มีขวดเปล่า หรือถังว่าง', run: () => this.op(s, { o: 'tdraw', q: bt }) },
+      { label: piped ? `🚰 เปิดน้ำจากท่อเติมให้เต็ม (น้ำดิบ)` : '🚰 เติมจากท่อ — ยังไม่ได้ต่อท่อมาถึงถังนี้', dis: (!piped || !room) && (piped ? 'ถังเต็มแล้ว' : 'วางท่อต่อจากหอถังน้ำมาถึงช่องข้างถัง'), run: () => this.op(s, { o: 'tpipe' }) },
+    ]);
+  }
+  // ♨️ เมนูเตาต้มน้ำ: ต้มน้ำจากถัง/ท่อ · ตักน้ำต้มสุก · ให้น้ำสัตว์ทุกคอกรอบ ๆ
+  boilerMenu(s) {
+    const g = this.g, wl = s.wl || 0, bt = g.inv.bottle || 0, now = g.now();
+    const tank = g.world.structures.find((o) => o.type === 'watertank' && (o.wl || 0) > 0 && Math.hypot(o.x - s.x, o.z - s.z) < 7), piped = isPiped(g.world.structures, s.x, s.z);
+    const pens = g.world.structures.filter((o) => PENS[o.type] && Math.hypot(o.x - s.x, o.z - s.z) < 14 && waterLeft(o, now) < WATER_MAX - WATER_MS).length;
+    g.ui.choice(`♨️ เตาต้มน้ำขนาดใหญ่ ${wl}/${BOILER_L} ลิตร (น้ำต้มสุก)`, [
+      { label: `🔥 ต้มน้ำ ${BOIL_BATCH} ลิตร${tank ? ` จากถังเก็บน้ำ (${tank.wl} ลิตร)` : piped ? ' จากท่อ' : ''} (ใช้ไม้ 2 · มี ${g.inv.wood || 0})`, dis: (!(tank || piped) && 'ต้องมีถังเก็บน้ำที่มีน้ำวางใกล้เตา (7 ม.) หรือต่อท่อมาที่เตา') || ((g.inv.wood || 0) < 2 && 'ไม้ไม่พอ') || (wl >= BOILER_L && 'เตาเต็มแล้ว'), run: () => this.op(s, { o: 'boil' }) },
+      { label: `🐄 ให้น้ำต้มสุกกับคอกสัตว์รอบ ๆ ${pens} คอก (คอกละ 4 ลิตร)`, dis: (!pens && 'ไม่มีคอกที่ต้องการน้ำในรัศมี 14 ม.') || (wl < 4 && 'น้ำต้มสุกไม่พอ'), run: () => this.op(s, { o: 'bfeed' }) },
+      { label: `🫗 ตักน้ำต้มสุกใส่ขวด ${Math.min(bt, wl)} ขวด`, dis: (!bt || !wl) && 'ไม่มีขวดเปล่า หรือไม่มีน้ำ', run: () => this.op(s, { o: 'tdraw', q: bt }) },
     ]);
   }
   sleep(s) {
@@ -149,7 +177,7 @@ export class Homestead {
     if (P && (s.type !== 'coop' || s.herd || s.wat !== undefined)) {
       // คอกสัตว์: อาหาร น้ำ อายุ ผลผลิต
       const herd = herdOf(s, now), fl = fedLeft(s, now), wl = waterLeft(s, now), n = penGoods(s, now);
-      const pf = P.foods.find((k) => g.hasItem(k)), water = ITEMS[g.equipped]?.tool?.water ? 'can' : ['dirty_water', 'clean_water'].find((k) => g.hasItem(k));
+      const pf = P.foods.find((k) => g.hasItem(k)), water = g.hasItem('clean_water') ? 'clean_water' : null; // สัตว์ดื่มได้เฉพาะน้ำต้มสุก
       const ageTxt = herd.map((a, i) => { const st = ageStage(P, a, now), m = a.b < 0 ? '' : ` ${Math.floor((now - a.b) / 60000)} นาที`; return `${PIECES[s.type].icon}${i + 1}: ${STAGE_NAME[st]}${m}`; }).join(' · ') || 'ไม่มีสัตว์ในคอก';
       info = `${ageTxt}<br>🍽️ อาหาร: ${fl ? mmss(fl) : '<b class="miss">หิว</b>'} · 💧 น้ำ: ${wl ? mmss(wl) : '<b class="miss">กระหายน้ำ</b>'} · 🧺 ผลผลิต: <b>${n}</b>/${P.cap} ${ITEMS[P.prod[0]].icon}${P.extra ? ` + ${ITEMS[P.extra[0]].icon}${ITEMS[P.extra[0]].name}` : ''}
         <br><small>ให้ผลผลิตเมื่อ "อิ่ม + มีน้ำ" และโตเต็มวัย (ลูก ${Math.round(P.adult / 60000)} นาที → โต · แก่หลัง ${Math.round(P.old / 60000)} นาที ผลผลิตลดครึ่ง · อายุขัย ${Math.round(P.life / 60000)} นาที) · อาหาร: ${P.foods.map((k) => ITEMS[k].icon).join('')}</small>`;
@@ -157,7 +185,7 @@ export class Homestead {
       const live = Object.keys(g.inv).find((k) => g.inv[k] > 0 && ITEMS[k]?.live === s.type);
       if (live) acts.push({ label: `🐾 ปล่อย${ITEMS[live].name.split(' ')[0]}เข้าคอก`, dis: herd.length >= P.max, run: () => this.op(s, { o: 'addlive', item: live }) });
       acts.push({ label: pf ? `🍽️ ให้อาหาร (${ITEMS[pf].name})` : `🍽️ ให้อาหาร (ต้องมี ${P.foods.slice(0, 4).map((k) => ITEMS[k].name).join('/')})`, dis: !pf || fl > FEED_MAX - FEED_MS, run: () => this.op(s, { o: 'feed', item: pf }) });
-      acts.push({ label: water ? `💧 ให้น้ำ${water === 'can' ? ' (บัวรดน้ำ)' : ` (${ITEMS[water].name})`}` : '💧 ให้น้ำ (ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ)', dis: !water || wl > WATER_MAX - WATER_MS, run: () => this.op(s, { o: 'drink' }) });
+      acts.push({ label: water ? `💧 ให้น้ำ (${ITEMS[water].name})` : '💧 ให้น้ำ (ต้องมีน้ำต้มสุก 1 ขวด — หรือใช้ ♨️ เตาต้มน้ำขนาดใหญ่)', dis: !water || wl > WATER_MAX - WATER_MS, run: () => this.op(s, { o: 'drink' }) });
       acts.push(P.egg ? { label: `🐣 ฟักไข่ (ใช้${ITEMS[P.egg].name} · ${herd.length}/${P.max})`, dis: !g.hasItem(P.egg) || herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) } : { label: `🍼 ผสมพันธุ์ (ต้องมีตัวโต 2 ตัว · ${herd.length}/${P.max})`, dis: herd.length >= P.max, run: () => this.op(s, { o: 'breed' }) });
       acts.push({ label: `🔪 ชำแหละ 1 ตัว (ได้${ITEMS[P.meat[0]].name} ×${P.meat[1]})`, dis: !herd.some((a) => ageStage(P, a, now) !== 'baby'), run: () => { if (confirm(`ชำแหละ${P.name} 1 ตัว?`)) this.op(s, { o: 'butcher' }); } });
       return { info, acts };

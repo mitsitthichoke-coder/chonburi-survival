@@ -28,6 +28,7 @@ const RAW_ITEMS = {
   herbal_soup: { name: 'ต้มยำสมุนไพร', icon: '🍲', value: 12, food: { hunger: 40, thirst: 20, hp: 12, infection: -15 } },
   dirty_water: { name: 'น้ำดิบ', icon: '🫙', value: 1, food: { thirst: 25, sick: 0.4 }, returns: 'bottle' },
   clean_water: { name: 'น้ำต้มสุก', icon: '💧', value: 4, food: { thirst: 40 }, returns: 'bottle' },
+  sea_water: { name: 'น้ำทะเล', icon: '🌊', value: 0, returns: 'bottle', desc: 'ดื่มไม่ได้ — กรองที่เครื่องกรองน้ำทะเลให้เป็นน้ำจืดก่อน' },
   bandage: { name: 'ผ้าพันแผล', icon: '🩹', value: 6, med: { stopBleed: true, hp: 12 } },
   splint: { name: 'เฝือกไม้', icon: '🦴', value: 6, med: { fracture: true, hp: 5 } },
   herbal_med: { name: 'ยาสมุนไพร', icon: '🧪', value: 8, med: { infection: -30, cureSick: true, hp: 5 } },
@@ -239,8 +240,11 @@ const RAW_ITEMS = {
   live_boar: { name: 'หมูป่ามีชีวิต (กรงหิ้ว)', icon: '🐗', value: 14, live: 'pigpen', desc: 'นำไปปล่อยที่คอกหมู' },
   // เงินตรา
   // ⚒️ ตีบวก & ส่องออฟชั่น
-  plus_stone: { name: 'หินพลัส', icon: '🔹', value: 25, desc: 'ใช้ตีบวกอาวุธ/ชุด +1 ถึง +8 และอุปกรณ์สัตว์เลี้ยง · ดรอปจากมอนสเตอร์และกล่อง' },
-  super_stone: { name: 'หินซุปเปอร์', icon: '💠', value: 80, desc: 'ใช้ตีบวก +9 และ +10 · ผสมจากหินพลัส 3 ก้อน' },
+  plus_stone: { name: 'เหล็กพลัส', icon: '🔹', value: 25, desc: 'ใช้ตีบวกอาวุธ/ชุด +1 ถึง +8 · ดรอปจากมอนสเตอร์และกล่อง' },
+  pet_pin: { name: 'พินสูง', icon: '📌', value: 15, desc: 'ใช้ตีบวกอุปกรณ์สัตว์เลี้ยง +1 ถึง +3 · ซื้อในร้านเงินจิ' },
+  super_stone: { name: 'หินซุปเปอร์', icon: '💠', value: 80, desc: 'ใช้ตีบวก +9 และ +10 · ผสมจากเหล็กพลัส 3 ก้อน' },
+  shop_plus_stone: { name: 'เหล็กพลัส (ร้านค้า)', icon: '🔷', value: 10, desc: 'เหล็กพลัสจากร้านเงินจิ ใช้แทนเหล็กพลัสได้ แต่โอกาสตีบวกสำเร็จต่ำกว่า (-30%)' },
+  shop_super_stone: { name: 'หินซุปเปอร์ (ร้านค้า)', icon: '🔶', value: 30, desc: 'หินซุปเปอร์จากร้านเงินจิ ใช้ตีบวก +9/+10 แต่โอกาสสำเร็จต่ำกว่า (-30%)' },
   magnifier: { name: 'แว่นขยายส่องออฟชั่น', icon: '🔍', value: 40, coinOnly: true, desc: 'ส่องอาวุธ/ชุดเพื่อเปิดออฟชั่นพิเศษ 1–3 อย่าง (ส่องใหม่ = สุ่มใหม่) · ซื้อในร้านเงินจิ' },
   name_tag: { name: 'ป้ายเปลี่ยนชื่อสัตว์เลี้ยง', icon: '🏷️', value: 30, coinOnly: true, desc: 'ตั้งชื่อสัตว์เลี้ยงใหม่ได้ 1 ครั้ง · ซื้อในร้านเงินจิ' },
   respec_potion: { name: 'ยาล้างแต้มสเตตัส', icon: '🔄', value: 250, coinOnly: true, respec: true, desc: 'คืนแต้มสเตตัสสายอาชีพทั้งหมด ให้กระจายใหม่ได้ (ซื้อด้วยเงินจิเท่านั้น)' },
@@ -341,9 +345,18 @@ export function enhanceRates(L, pet, ch) {
   if (ch && hasPerk(ch, 'blacksmith', 2)) { if (!pet && L >= 5 && L < 8) { r.stay += r.down; r.down = 0; } const h = r.brk / 2; r.brk -= h; r.down += h; }
   return r;
 }
-export const enhanceStone = (L, pet) => (!pet && L >= 8 ? 'super_stone' : 'plus_stone');
+// อุปกรณ์สัตว์เลี้ยงใช้พินสูง · ชุด/อาวุธ +1–+8 ใช้เหล็กพลัส · +9–+10 ใช้หินซุปเปอร์ (shop = ของจากร้านเงินจิ)
+export const enhanceStone = (L, pet, shop) => (pet ? 'pet_pin' : (shop ? 'shop_' : '') + (L >= 8 ? 'super_stone' : 'plus_stone'));
+// 🔷 หินจากร้านเงินจิ: โอกาสสำเร็จลดลง 30% (ส่วนที่หายไปกลายเป็นคงเดิม/ลดระดับ/แตก ตามช่วง)
+export function shopPenalty(r, L, pet) {
+  const cut = r.up * 0.3; r = { ...r, up: r.up - cut };
+  if ((pet && L === 0) || (!pet && L < 5)) r.stay += cut;
+  else if (r.brk) { r.down += cut / 2; r.brk += cut / 2; } else { r.stay += cut / 2; r.down += cut / 2; }
+  return r;
+}
 // ค่าจ้างช่างตีเหล็ก NPC (คนที่ไม่ใช่ช่างตีเหล็ก)
-export const enhanceFee = (L, pet) => (pet ? 20 + L * 20 : 15 + L * 12 + (L >= 8 ? 60 : 0));
+// ค่าจ้างรวมค่าวัสดุแล้ว (จ้าง NPC ไม่ต้องเตรียมหินไปเอง)
+export const enhanceFee = (L, pet) => (pet ? 45 + L * 25 : 45 + L * 15 + (L >= 8 ? 180 : 0));
 // 🤝 ขายของ/แลกกับผู้เล่น: ชุดและอุปกรณ์ต้องเป็นระดับหายากขึ้นไป หรือตีบวกเกิน +5 (อุปกรณ์สัตว์เลี้ยง +2 ขึ้นไป)
 export function tradeable(k) {
   const kind = gearKind(k); if (!kind) return true;
@@ -352,7 +365,7 @@ export function tradeable(k) {
 }
 export const TRADE_RULE = 'ชุด/อาวุธ/อุปกรณ์ต้องเป็น ★หายาก ขึ้นไป หรือตีบวก +6 ขึ้นไป (อุปกรณ์สัตว์เลี้ยง +2 ขึ้นไป) จึงจะแลก/วางขายได้';
 // 🪙 ของที่ซื้อได้ในร้านเงินจิ
-export const COIN_GOODS = [['magnifier', 80], ['name_tag', 60]];
+export const COIN_GOODS = [['shop_plus_stone', 50], ['shop_super_stone', 180], ['pet_pin', 40], ['magnifier', 80], ['name_tag', 60]];
 export const PLUS_GLOW = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };
 const SCALE = { tool: ['dmg', 'gather'], wear: ['def', 'bite', 'spd', 'stam', 'block', 'gather'], petGear: ['atk', 'def', 'hp'] };
 const BONUS = {
@@ -441,12 +454,13 @@ export const RECIPES = [
   { out: 'seeds_pumpkin', need: { pumpkin: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดฟักทอง' },
   { out: 'seeds_watermelon', need: { watermelon: 1 }, skill: 'farming', lvl: 1, qty: 3, label: 'แกะเมล็ดแตงโม' },
   { out: 'seeds_sunflower', need: { sunflower: 1 }, skill: 'farming', lvl: 1, qty: 2, label: 'เก็บเมล็ดทานตะวัน' },
-  { out: 'super_stone', need: { plus_stone: 3 }, skill: 'crafting', lvl: 1, label: 'หินซุปเปอร์ (ผสมหินพลัส 3 ก้อน · ช่างตีเหล็ก Lv2 ใช้ 2 ก้อน)' },
+  { out: 'super_stone', need: { plus_stone: 3 }, skill: 'crafting', lvl: 1, label: 'หินซุปเปอร์ (ผสมเหล็กพลัส 3 ก้อน · ช่างตีเหล็ก Lv2 ใช้ 2 ก้อน)' },
   { out: 'seeds_rice', need: { paddy: 2 }, skill: 'farming', lvl: 1, qty: 2, label: 'คัดข้าวเปลือกไว้ทำพันธุ์ ×2' },
   { out: 'rice', need: { paddy: 3 }, skill: 'farming', lvl: 1, qty: 2, station: 'mill', label: 'สีข้าวเปลือกเป็นข้าวสาร ×2 (+รำข้าว) · ที่เครื่องสีข้าว' },
   { out: 'bandage', need: { cloth: 2 }, skill: 'medicine', lvl: 1 },
   { out: 'bandage', need: { fiber: 6 }, skill: 'medicine', lvl: 2, label: 'ผ้าพันแผล (ใยพืช)' },
   { out: 'clean_water', need: { dirty_water: 1 }, skill: 'cooking', lvl: 1, station: 'fire', keepBottle: true },
+  { out: 'clean_water', need: { sea_water: 2, wood: 1 }, skill: 'survival', lvl: 1, station: 'desal', keepBottle: true, bottleBack: 1, label: 'กรองน้ำทะเลเป็นน้ำจืด (น้ำทะเล 2 ขวด + ไม้ 1 · ได้ขวดเปล่าคืน 1) · ที่เครื่องกรองน้ำทะเล' },
   { out: 'cooked_meat', need: { raw_meat: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
   { out: 'grilled_fish', need: { raw_fish: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
   { out: 'shelter', need: { wood: 15, fiber: 10 }, skill: 'crafting', lvl: 2 },
@@ -608,8 +622,11 @@ export const RECIPES = [
   { out: 'raft', need: { bamboo: 16, fiber: 6 }, skill: 'crafting', lvl: 1, learn: 'wicker', label: 'แพไม้ไผ่ (จากลำไผ่)' },
 ];
 // สูตรที่ต้องเรียนก่อน: เรียนจาก NPC หรืออ่านตำรา → เก็บใน ch.boxes['learn_<ชื่อ>']
-export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 } };
+export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 }, water: { name: 'ระบบประปา', quest: true, how: 'ทำภารกิจซ่อมโรงสูบน้ำที่เขื่อนเกาะจันทร์ก่อน' } };
+// 💧 ภารกิจซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์: เอาของมาส่งครบ → ปลดล็อกท่อส่งน้ำและหอถังน้ำสำรอง
+export const DAM_NEED = { scrap: 6, copper_wire: 4, battery_pack: 1, fuel: 2 };
 export const learned = (ch, k) => !!ch?.boxes?.['learn_' + k];
+export const learnHint = (k) => '🔒 ' + (LEARN[k]?.how || (k === 'wicker' ? 'ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) ก่อน' : `ต้องเรียน${LEARN[k]?.name || ''}ก่อน`));
 
 export const SKILLS = {
   gathering: 'เก็บเกี่ยว', crafting: 'ประดิษฐ์', cooking: 'ทำอาหาร',
@@ -704,7 +721,7 @@ export const JOBS = {
   ricefarmer: { name: 'ชาวนา', icon: '🧑‍🌾', skill: 'farming', xp: { farming: 1.5, survival: 1.1 }, kit: { seeds_rice: 4, hoe: 1 }, desc: 'ทำนาเก่ง ปลูกข้าวได้ผลผลิตมาก สีข้าวได้ข้าวสารเพิ่ม',
     perks: [[1, 'ข้าวในนาโตเร็วขึ้น 35% · เกี่ยวข้าวได้ข้าวเปลือกเพิ่ม +2'], [4, 'สีข้าวได้ข้าวสารเพิ่ม +1 และรำข้าว ×2 ทุกครั้ง'], [8, 'ปลูกข้าวแล้วไม่ต้องรดน้ำ (นามีน้ำในตัว) · เกี่ยวข้าวได้ผลผลิต ×2']] },
   blacksmith: { name: 'ช่างตีเหล็ก', icon: '⚒️', skill: 'crafting', xp: { crafting: 1.4, combat: 1.1 }, kit: { hammer: 1, plus_stone: 3, scrap: 4 }, desc: 'ตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยงด้วยตัวเอง ไม่เสียค่าจ้าง',
-    perks: [[1, 'ตีบวกเองได้ที่ ⚒️ ทั่งตีเหล็ก (ไม่ต้องจ้าง NPC) · ปลดล็อก ทั่งตีเหล็ก'], [4, 'โอกาสตีบวกสำเร็จ +8% · ผสมหินซุปเปอร์ใช้หินพลัสแค่ 2 ก้อน'], [8, 'ตีบวก +6 ถึง +8 ไม่ลดระดับ · โอกาสไอเท็มแตกหายลดลงครึ่งหนึ่ง']] },
+    perks: [[1, 'ตีบวกเองได้ที่ ⚒️ ทั่งตีเหล็ก (ไม่ต้องจ้าง NPC) · ปลดล็อก ทั่งตีเหล็ก'], [4, 'โอกาสตีบวกสำเร็จ +8% · ผสมหินซุปเปอร์ใช้เหล็กพลัสแค่ 2 ก้อน'], [8, 'ตีบวก +6 ถึง +8 ไม่ลดระดับ · โอกาสไอเท็มแตกหายลดลงครึ่งหนึ่ง']] },
   chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
     perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
 };

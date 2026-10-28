@@ -2,13 +2,14 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS } from './data.js';
+import { shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, DAM_NEED, learnHint } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
-import { PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
-import { routeOf, campOf, campGate, pickRoute } from './quest-core.js';
+import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
+import { DAM_PUMP } from './landmarks.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
 export const LOOT_RESPAWN = 15 * 60000;
@@ -295,11 +296,13 @@ const A = {
     if (lvl(ch, r.skill) < r.lvl) return { err: 'ทักษะยังไม่ถึง' };
     if (r.learn && !learned(ch, r.learn)) { const n = NPCS.find((x) => x.id === LEARN[r.learn].npc); return { err: `🔒 ต้องเรียน${LEARN[r.learn].name}ก่อน — คุยกับ${n?.name || 'ครู'} ที่${TOWNS.find((t) => t.key === n?.town)?.name || ''}` }; }
     if (r.station === 'fire' && !env.near('campfire', env.pos(ch), 4.5)) return { err: 'ต้องอยู่ใกล้กองไฟ' };
+    if (r.station === 'desal' && !env.near('desal', env.pos(ch), 4.5)) return { err: '🧂 ต้องอยู่ใกล้เครื่องกรองน้ำทะเล (สร้างได้ในหมวดระบบน้ำ)' };
     if (r.station === 'mill' && !env.near('ricemill', env.pos(ch), 4.5)) return { err: '⚙️ ต้องอยู่ใกล้เครื่องสีข้าว (สร้างได้ในหมวดฟาร์ม)' };
     for (const [k, q] of Object.entries(r.need)) if (!has(ch, k, r.out === 'super_stone' && k === 'plus_stone' && hasPerk(ch, 'blacksmith', 1) ? 2 : q)) return { err: 'วัตถุดิบไม่พอ' };
     const take = { ...r.need }; if (r.out === 'super_stone' && hasPerk(ch, 'blacksmith', 1)) take.plus_stone = 2;
     const give = rollVariants({ [r.out]: (r.qty || 1) + (r.skill === 'cooking' && ITEMS[r.out].food && hasPerk(ch, 'chef', 1) ? 1 : 0) }, env.rand, Math.min(0.3, (lvl(ch, r.skill) - r.lvl) * 0.03));
     for (const [k, q] of Object.entries(r.need)) if (ITEMS[k].returns && !r.keepBottle) give[ITEMS[k].returns] = (give[ITEMS[k].returns] || 0) + q;
+    if (r.bottleBack) give.bottle = (give.bottle || 0) + r.bottleBack;
     if (r.station === 'mill') { give.rice_bran = hasPerk(ch, 'ricefarmer', 1) ? 2 : 1; if (hasPerk(ch, 'ricefarmer', 1)) give.rice = (give.rice || 0) + 1; } // สีข้าว: ได้รำข้าว · ชาวนาได้ข้าวสารเพิ่ม
     if (hasPerk(ch, 'engineer', 2) && env.rand() < 0.25) return { give, xp: { [r.skill]: 8 + r.lvl * 4 }, sfx: 'craft', msg: '🔧 ฝีมือช่าง! ไม่เสียวัตถุดิบเลย' };
     return { take, give, xp: { [r.skill]: 8 + r.lvl * 4 }, sfx: 'craft' };
@@ -403,20 +406,23 @@ const A = {
     if (ch.equipped === k && (ch.inv[k] || 0) <= 1) return { err: 'เลิกถือไอเท็มนี้ก่อนตีบวก' };
     const pet = kind === 'pet', K = parseKey(k), L = K.plus, max = pet ? PET_PLUS_MAX : PLUS_MAX;
     if (L >= max) return { err: `ตีบวกสูงสุดแล้ว (+${max})` };
-    const P = env.pos(ch), smith = hasPerk(ch, 'blacksmith', 0) && env.near('anvil', P, 4.5), npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
-    const viaNpc = !smith && np && dist(env, ch, np.x, np.z) <= 7;
-    if (!smith && !viaNpc) return { err: hasPerk(ch, 'blacksmith', 0) ? '⚒️ ต้องอยู่ใกล้ทั่งตีเหล็ก (สร้างได้ในหมวดของในบ้าน)' : `⚒️ ต้องเป็นช่างตีเหล็กและอยู่ใกล้ทั่ง หรือจ้าง${npc?.name || 'ช่างตีเหล็ก'}ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}` };
-    const stone = enhanceStone(L, pet), fee = viaNpc ? enhanceFee(L, pet) : 0;
-    if (!has(ch, stone)) return { err: `ต้องมี ${ITEMS[stone].icon} ${ITEMS[stone].name} 1 ก้อน${stone === 'super_stone' ? ' (ผสมจากหินพลัส 3 ก้อนในหน้าประดิษฐ์)' : ''}` };
+    const P = env.pos(ch), anvil = env.near('anvil', P, 6), smith = hasPerk(ch, 'blacksmith', 0) && anvil, npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
+    const friend = !smith && anvil && env.smithNear?.(P); // จ้างเพื่อนช่างตีเหล็กที่ยืนข้างทั่ง
+    const viaNpc = !smith && !friend && np && dist(env, ch, np.x, np.z) <= 7;
+    if (!smith && !friend && !viaNpc) return { err: hasPerk(ch, 'blacksmith', 0) ? '⚒️ ต้องอยู่ใกล้ทั่งตีเหล็ก (สร้างได้ในหมวดของในบ้าน)' : `⚒️ ต้องเป็นช่างตีเหล็กและอยู่ใกล้ทั่ง หรือจ้าง${npc?.name || 'ช่างตีเหล็ก'}ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}` };
+    // จ้าง NPC: ไม่ต้องใช้หินของตัวเอง (รวมในค่าจ้างแล้ว)
+    const shop = !viaNpc && !pet && !!p.shop, stone = viaNpc ? null : enhanceStone(L, pet, shop), fee = viaNpc ? enhanceFee(L, pet) : 0;
+    if (stone && !has(ch, stone)) return { err: `ต้องมี ${ITEMS[stone].icon} ${ITEMS[stone].name} 1 ชิ้น${stone === 'super_stone' ? ' (ผสมจากเหล็กพลัส 3 ก้อนในหน้าประดิษฐ์)' : stone.startsWith('shop_') || stone === 'pet_pin' ? ' (ซื้อในร้านเงินจิ)' : ''}` };
     if (fee && !has(ch, 'jicoin', fee)) return { err: `🪙 ค่าจ้างตีบวก ${fee} เงินจิ` };
-    const R = enhanceRates(L, pet, smith ? ch : null), r = env.rand(), take = { [k]: 1, [stone]: 1 }; if (fee) take.jicoin = fee;
+    let R = enhanceRates(L, pet, smith ? ch : friend ? friend.ch : null); if (shop) R = shopPenalty(R, L, pet);
+    const r = env.rand(), take = { [k]: 1 }; if (stone) take[stone] = 1; if (fee) take.jicoin = fee;
     const res = r < R.up ? 'up' : r < R.up + R.stay ? 'stay' : r < R.up + R.stay + R.down ? 'down' : 'brk';
     const to = res === 'up' ? L + 1 : res === 'down' ? L - 1 : L, nk = makeKey({ ...K, plus: to }), nm = ITEMS[makeKey({ ...K, plus: 0, opts: '' })]?.name || ITEMS[k].name;
     const xp = { crafting: 6 + L * 2 }, sfx = res === 'up' ? 'level' : 'hit';
     if (res === 'brk') return { take, xp, sfx, msg: `💥 ตีบวกล้มเหลว! ${nm} +${L} แตกหายไป...`, enh: { res, from: L, to: -1 } };
     const give = { [nk]: 1 };
     const msg = res === 'up' ? `✨ ตีบวกสำเร็จ! ${nm} +${to}${to >= 6 && !pet ? ' — อาวุธ/ชุดเริ่มเรืองแสง!' : ''}` : res === 'stay' ? `😮‍💨 ตีบวกไม่สำเร็จ ${nm} ยังคง +${L}` : `📉 ตีบวกพลาด! ${nm} ลดลงเป็น +${to}`;
-    return { take, give, xp, sfx, msg, enh: { res, from: L, to, k: nk }, quietGive: true };
+    return { take, give, xp, sfx, msg: (friend ? `⚒️ ${friend.name}ตีให้ — ` : '') + msg, enh: { res, from: L, to, k: nk }, quietGive: true };
   },
   // 🔍 ส่องออฟชั่นด้วยแว่นขยาย: อาวุธ/ชุดได้ออฟชั่น 1–3 อย่างแล้วแต่ดวง (ส่องใหม่ = สุ่มใหม่ทั้งหมด)
   identify(ch, p, env) {
@@ -448,6 +454,16 @@ const A = {
     return { take: { name_tag: 1 }, petsChanged: true, petName: { id: pet.id, name }, msg: `🏷️ เปลี่ยนชื่อ ${old} เป็น "${name}" แล้ว` };
   },
 
+  // 💧 ภารกิจระบบน้ำ: ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์ → ปลดล็อกท่อส่งน้ำ + หอถังน้ำสำรอง
+  damfix(ch, p, env) {
+    if (learned(ch, 'water')) return { err: '✅ คุณซ่อมโรงสูบน้ำไปแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ในหมวดระบบน้ำ' };
+    if (dist(env, ch, DAM_PUMP.x, DAM_PUMP.z) > 7) return { err: `ต้องอยู่ที่${DAM_PUMP.name}` };
+    const miss = Object.entries(DAM_NEED).filter(([k, q]) => !has(ch, k, q));
+    if (miss.length) return { err: `🔧 ต้องใช้ ${Object.entries(DAM_NEED).map(([k, q]) => `${ITEMS[k].icon}${ITEMS[k].name} ${ch.inv[k] || 0}/${q}`).join(' · ')}` };
+    (ch.boxes ||= {}).learn_water = 1;
+    return { take: { ...DAM_NEED }, give: { jicoin: 80 }, xp: { crafting: 40, survival: 30 }, sfx: 'quest', msg: '💧 ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์สำเร็จ! น้ำไหลเข้าระบบประปาแล้ว — ปลดล็อก 🚰 ท่อส่งน้ำ และ 🗼 หอถังน้ำสำรอง (หมวดระบบน้ำ) · +🪙 80', learnt: 'water' };
+  },
+
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)
   place(ch, p, env) {
     const s = p.s || {}; if (typeof s.x !== 'number' || typeof s.z !== 'number') return { err: 'ตำแหน่งไม่ถูกต้อง' };
@@ -473,7 +489,7 @@ const A = {
       if (P.hidden) return { err: 'สร้างชิ้นนี้ไม่ได้แล้ว' };
       if (!canBuild(ch.inv)) return { err: 'ต้องมีค้อน (ค้อนไม้ หรือ ค้อนช่างไม้)' };
       if (lvl(ch, 'building') < P.lvl) return { err: `ต้องมีทักษะก่อสร้าง Lv${P.lvl}` };
-      if (P.learn && !learned(ch, P.learn)) return { err: '🔒 ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) ก่อน' };
+      if (P.learn && !learned(ch, P.learn)) return { err: learnHint(P.learn) };
       const cost = s.coin || P.cost.jicoin ? { jicoin: coinCost(P, ITEMS) } : buildCost(ch, P.cost);
       for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: s.coin ? `🪙 เงินจิไม่พอ (ต้องใช้ ${cost.jicoin})` : 'วัสดุไม่พอ' };
       const pl = { ...clean, type: s.type }; if (cost.jicoin) pl.paid = cost.jicoin;
@@ -491,6 +507,16 @@ const A = {
   fill(ch, p, env) {
     if (!has(ch, 'bottle')) return { err: 'ต้องมีขวดเปล่า' };
     if (p.kind === 'rain') { if (!env.raining()) return { err: 'ฝนไม่ได้ตก' }; return { take: { bottle: 1 }, give: { clean_water: 1 } }; }
+    if (p.kind === 'sea') {
+      const P = env.pos(ch), sea = [[0, 0], [2, 0], [-2, 0], [0, 2], [0, -2], [3, 3], [-3, -3], [3, -3], [-3, 3]].some(([dx, dz]) => { const w = waterAt(P.x + dx, P.z + dz); return w && !w.fresh; });
+      if (!sea) return { err: 'ไม่มีน้ำทะเลใกล้ ๆ' };
+      return { take: { bottle: 1 }, give: { sea_water: 1 }, msg: '🌊 ได้น้ำทะเล — ดื่มไม่ได้ ต้องกรองที่เครื่องกรองน้ำทะเลก่อน' };
+    }
+    if (p.kind === 'tower') {
+      const P = env.pos(ch); if (!WATER_TOWERS.some((w) => Math.hypot(w.x - P.x, w.z - P.z) < 5)) return { err: 'ต้องอยู่ใกล้หอถังน้ำ' };
+      const n = Math.min(10, ch.inv.bottle || 0);
+      return { take: { bottle: n }, give: { dirty_water: n }, msg: `🗼 ตักน้ำดิบจากหอถังน้ำ ${n} ขวด — ต้มก่อนดื่ม (รดน้ำแปลงผักได้เลย)` };
+    }
     if (!env.freshNear(env.pos(ch))) return { err: 'ไม่มีน้ำจืดใกล้ ๆ' };
     return { take: { bottle: 1 }, give: { dirty_water: 1 }, msg: 'ได้น้ำดิบ — ต้มที่กองไฟก่อนดื่ม' };
   },
@@ -627,19 +653,32 @@ export function sopCost(ch, s, op, env) {
     }
     case 'water': {
       if (op.silent || env.raining()) return {};
+      if (op.pipe && env.structs && isPiped(env.structs(), s.x, s.z)) return { xp: { farming: 3 } }; // 🚰 รดน้ำจากท่อ
       if (ch.equipped && ITEMS[ch.equipped]?.tool?.water && has(ch, ch.equipped)) return { xp: { farming: 3 } }; // ถือบัวรดน้ำ = ไม่ต้องใช้น้ำขวด
       const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด' };
       return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
     }
     case 'feed': { const P = PENS[s.type] && (s.type !== 'coop' || s.herd) ? PENS[s.type] : null; if (!(P ? P.foods : FEEDS).includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีอาหาร' }; return { take: { [op.item]: 1 }, xp: { farming: 2 } }; }
+    case 'tpour': {
+      const items = op.clean ? ['clean_water'] : ['dirty_water'], k = items.find((x) => has(ch, x)); if (!k) return { err: op.clean ? 'ไม่มีน้ำสะอาด' : 'ไม่มีน้ำดิบ' };
+      const q = Math.min(Math.max(1, op.q | 0), ch.inv[k], TANK_L - (s.wl || 0)); if (q <= 0) return { err: 'ถังเต็มแล้ว' };
+      return { take: { [k]: q }, give: { bottle: q }, opx: { q, clean: !!op.clean }, xp: { survival: 1 } };
+    }
+    case 'tdraw': {
+      const q = Math.min(Math.max(1, op.q | 0), ch.inv.bottle || 0, s.wl || 0); if (!(ch.inv.bottle > 0)) return { err: 'ต้องมีขวดเปล่า' }; if (q <= 0) return { err: 'ไม่มีน้ำ' };
+      return { take: { bottle: q }, give: { [s.type === 'boiler' || s.wc ? 'clean_water' : 'dirty_water']: q }, opx: { q } };
+    }
+    case 'tpipe': return { xp: { survival: 2 } };
+    case 'boil': if (!has(ch, 'wood', 2)) return { err: '♨️ ต้องใช้ไม้ 2 ชิ้นเป็นเชื้อเพลิง' }; return { take: { wood: 2 }, xp: { cooking: 4, farming: 2 } };
+    case 'bfeed': return { xp: { farming: 4 } };
     case 'upfence': { const T = FENCE_TIERS[(s.tier || 0) + 1]; if (!T) return { err: 'เป็นรั้วเหล็กแล้ว' }; for (const [k, q] of Object.entries(T.cost)) if (!has(ch, k, q)) return { err: `อัปเกรดเป็น${T.name}ต้องใช้ ${Object.entries(T.cost).map(([i, n]) => `${ITEMS[i].icon}${ITEMS[i].name} ${n}`).join(' + ')}` }; return { take: { ...T.cost }, xp: { building: 3 } }; }
     case 'till': if (!has(ch, 'hoe')) return { err: '⛏️ ต้องมีจอบ (ประดิษฐ์: ไม้ 2 + หิน 2)' }; return { xp: { farming: 2 } };
     case 'fert': if (!has(ch, 'manure')) return { err: 'ต้องมีปุ๋ยคอก (ได้จากคอกหมู/วัว)' }; return { take: { manure: 1 }, xp: { farming: 2 } };
     case 'drink': {
       if (op.silent && env.raining()) return {};
-      if (ch.equipped && ITEMS[ch.equipped]?.tool?.water && has(ch, ch.equipped)) return { xp: { farming: 2 } };
-      const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด หรือถือบัวรดน้ำ' };
-      return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
+      // สัตว์ดื่มได้เฉพาะน้ำต้มสุก (น้ำดิบ/น้ำจากท่อต้องต้มก่อน)
+      if (!has(ch, 'clean_water')) return { err: '💧 สัตว์ต้องดื่มน้ำต้มสุก — น้ำดิบ/น้ำจากท่อต้องต้มก่อน (หรือใช้เตาต้มน้ำขนาดใหญ่)' };
+      return { take: { clean_water: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };
     }
     case 'addlive': if (ITEMS[op.item]?.live !== s.type || !has(ch, op.item)) return { err: 'ไม่มีสัตว์ที่ปล่อยเข้าคอกนี้ได้' }; return { take: { [op.item]: 1 }, xp: { farming: 4 } };
     case 'breed': { const P = PENS[s.type]; if (P?.egg) { if (!has(ch, P.egg)) return { err: `ต้องมี${ITEMS[P.egg].name} 1 ฟองเพื่อฟัก` }; return { take: { [P.egg]: 1 }, xp: { farming: 6 } }; } return { xp: { farming: 8 } }; }

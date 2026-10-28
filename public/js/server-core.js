@@ -346,11 +346,12 @@ export class WorldCore {
   structureOp(me, m) {
     const s = this.db.structures.find((x) => x.id === m.id); if (!s || !m.op) return;
     const fr = !s.owner || s.owner === me.id || relLevel(this.getRel(me.id, s.owner)) >= 2, role = accessFor(this.db.structures, s, me.id, fr), canAccess = fr || !!role;
-    const r = applyOp(s, m.op, { now: Date.now(), by: me.id, canAccess, role, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
+    const r = applyOp(s, m.op, { now: Date.now(), by: me.id, canAccess, role, structs: this.db.structures, flowers: s.type === 'hive' ? flowersNear(this.db.structures, s, Date.now()) : 0 });
     if (r.err) { if (!m.op.silent) this.send(me.id, { t: 'notice', text: r.err }); if (m.refund) this.send(me.id, { t: 'give', items: m.refund }); return; }
     Object.assign(s, r.patch);
     if ('open' in r.patch || 'x' in r.patch) this.rebuildWalls();
     this.broadcast({ t: 'supd', id: s.id, patch: r.patch });
+    for (const sd of r.side || []) { const o = this.db.structures.find((x) => x.id === sd.id); if (o) { Object.assign(o, sd.patch); this.broadcast({ t: 'supd', id: o.id, patch: sd.patch }); } }
     if (r.give || (r.msg && !m.op.silent)) this.send(me.id, { t: 'give', items: r.give || {}, msg: m.op.silent ? null : r.msg });
     this.dirty();
   }

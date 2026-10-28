@@ -84,9 +84,10 @@ export class Authority {
       g.net.send({ t: 'sop', id: s.id, op: op2, refund: cost.take });
       g.ui.refreshPanels(); return;
     }
-    const r = applyOp(s, op2, { now: g.now(), by: g.id, canAccess: true, role: accessFor(g.world.structures, s, g.id, true), flowers: s.type === 'hive' ? flowersNear(g.world.structures, s, g.now()) : 0 });
+    const r = applyOp(s, op2, { now: g.now(), by: g.id, canAccess: true, role: accessFor(g.world.structures, s, g.id, true), structs: g.world.structures, flowers: s.type === 'hive' ? flowersNear(g.world.structures, s, g.now()) : 0 });
     if (r.err) { if (!op.silent) g.ui.toast(r.err, 'warn'); return; }
     g.world.updateStructure(s.id, r.patch);
+    for (const sd of r.side || []) g.world.updateStructure(sd.id, sd.patch);
     const give = { ...(cost.give || {}) }; for (const [k, q] of Object.entries(r.give || {})) give[k] = (give[k] || 0) + q;
     g.onEcon(applyResult(this.ch, { take: cost.take, give, xp: cost.xp, pet: cost.pet, msg: op.silent ? null : r.msg }), null);
   }

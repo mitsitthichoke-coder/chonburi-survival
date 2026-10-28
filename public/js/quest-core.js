@@ -58,8 +58,14 @@ export const ROUTES = {
 export const START_ROUTES = ['sattahip', 'chonburi', 'phanthong', 'sriracha', 'phanat', 'bothong', 'nongyai', 'banbueng'];
 export const routeOf = (q) => ROUTES[q?.route] || ROUTES.classic;
 export const pickRoute = (rand = Math.random) => START_ROUTES[Math.floor(rand() * START_ROUTES.length)];
+// 🗼 หอถังน้ำสำรองประจำอำเภอ (มีอยู่ถาวรในแผนที่ตั้งแต่เริ่มเกม) — ต้นน้ำของท่อส่งน้ำ · ตักน้ำดิบได้
+export const WATER_TOWERS = TOWNS.filter((t) => t.key !== 'sichang').map((t, i) => {
+  const a = hash2(i + 91, 17) * 6.283, r = t.r * (0.55 + hash2(17, i + 91) * 0.3), p = landNear(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, 300 + i, 4, 30);
+  return { id: 'wt_' + t.key, town: t.key, name: `หอถังน้ำ${t.name}`, ...p };
+});
 // จุดที่ห้ามมีตึกทับ (ป้อมวิทยุ เสาส่ง ค่าย)
 export const QUEST_KEEPOUT = [
   ...Object.values(ROUTES).flatMap((r) => [{ x: r.radio.x, z: r.radio.z, r: 6 }, { x: r.tower.x, z: r.tower.z, r: 10 }]),
   ...CAMPS.map((c) => ({ x: c.x, z: c.z, r: c.size / 2 + 8 })),
+  ...WATER_TOWERS.map((w) => ({ x: w.x, z: w.z, r: 7 })),
 ];

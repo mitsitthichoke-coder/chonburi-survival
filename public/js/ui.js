@@ -1,5 +1,5 @@
 import { tr } from './i18n.js';
-import { shopPenalty, gearKind, parseKey, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, COIN_GOODS, tradeable, TRADE_RULE, PLUS_GLOW, TOWNS, RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
+import { SELF_PENALTY, shopPenalty, gearKind, parseKey, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, COIN_GOODS, tradeable, TRADE_RULE, PLUS_GLOW, TOWNS, RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
 import { pieceInfo } from './homestead.js';
@@ -65,7 +65,8 @@ export class UI {
       this.craftQ = ev.target.value; const pos = ev.target.selectionStart;
       this.refreshPanels(); const el = $('#craft-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
     });
-    $('#panel').addEventListener('keydown', (ev) => { if (ev.target.id === 'craft-q') ev.stopPropagation(); });
+    $('#panel').addEventListener('input', (ev) => { if (ev.target.id === 'st-q' && +ev.target.value > 0) this.stQty = Math.max(1, +ev.target.value | 0); });
+    $('#panel').addEventListener('keydown', (ev) => { if (ev.target.id === 'craft-q' || ev.target.matches?.('input')) ev.stopPropagation(); }); // พิมพ์ตัวเลขในช่องจำนวนไม่ไปกดปุ่มลัด
     $('#panel').addEventListener('contextmenu', (ev) => {
       const pv = ev.target.closest('[data-pdep],[data-pwd]');
       if (pv && this.struct) { ev.preventDefault(); const s0 = this.g.world.structures.find((x) => x.id === this.struct.id) || this.struct; if (pv.dataset.pdep) this.g.home.op(s0, { o: 'pitem', item: pv.dataset.pdep, qty: this.g.inv[pv.dataset.pdep] || 0 }); else this.g.home.op(s0, { o: 'pitem', item: pv.dataset.pwd, qty: -(s0.pi?.[this.g.id]?.[pv.dataset.pwd] || 0) }); return this.refreshPanels(); }
@@ -140,7 +141,7 @@ export class UI {
       else if (drag && t.length === 1) { pan(t[0].clientX - drag.x, t[0].clientY - drag.y); drag = { x: t[0].clientX, y: t[0].clientY }; }
     }, { passive: false });
     P.addEventListener('touchend', () => { pinch = null; drag = null; });
-    $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else if (id === 'pf-n') this.pfN = +ev.target.value; else return; this.refreshPanels(); });
+    $('#panel').addEventListener('change', (ev) => { const id = ev.target.id; if (id === 'ring-n') this.ringN = +ev.target.value; else if (id === 'ring-g') this.ringG = +ev.target.value; else if (id === 'pf-n') this.pfN = +ev.target.value; else if (id === 'st-q') { this.stQty = Math.max(1, +ev.target.value | 0); return; } else return; this.refreshPanels(); });
     sp.addEventListener('change', (ev) => { if (ev.target.id === 'sp-mute') { sfx.setMuted(ev.target.checked); syncMute(); } });
     sp.addEventListener('click', (ev) => { ev.stopPropagation(); if (ev.target.dataset.sclose) sp.hidden = true; });
     ['keydown', 'pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach((t) => sp.addEventListener(t, (ev) => ev.stopPropagation()));
@@ -247,7 +248,7 @@ export class UI {
       return `<div class="slot ${k && g.equipped === k ? 'eq' : ''} ${k && !q ? 'empty' : ''}" data-slot="${i}" data-drop="hb:${i}"><span class="n">${i + 1}</span>${it ? `${it.icon}<span class="q">${q}</span>` : ''}</div>`;
     }).join('');
     this.drawMinimap();
-    if (this.open === 'panel' && this.tab === 'struct') { this.structT = (this.structT || 0) + 0.15; if (this.structT > 1) { this.structT = 0; this.refreshPanels(); } }
+    if (this.open === 'panel' && this.tab === 'struct') { this.structT = (this.structT || 0) + 0.15; if (this.structT > 1 && document.activeElement?.tagName !== 'INPUT') { this.structT = 0; this.refreshPanels(); } }
     if (this.open === 'panel' && this.tab === 'map') this.drawBigMap();
   }
 
@@ -336,15 +337,21 @@ export class UI {
   }
 
   // ---------- แผงเมนู ----------
+  // จำนวนต่อคลิกเวลาฝาก/ถอนของ (แบ่งของที่ซ้อนกันหรือเงินจิเป็นส่วน ๆ)
+  qtyBar() {
+    const q = this.stQty || 1;
+    return `<div class="seg qbar">จำนวนต่อคลิก: ${[1, 5, 10, 50].map((n) => `<button data-stq="${n}" class="${q === n ? 'on' : ''}">${n}</button>`).join('')}<button data-stq="all" class="${q === 'all' ? 'on' : ''}">ทั้งหมด</button> <input type="number" class="qty" id="st-q" min="1" max="99999" value="${q === 'all' ? '' : q}" placeholder="กำหนดเอง"> <small class="hint">คลิก = ตามจำนวนนี้ · คลิกขวา = ทั้งหมด</small></div>`;
+  }
+  stAmt(have) { const q = this.stQty || 1; return Math.max(0, q === 'all' ? have : Math.min(have, q)); }
   openForge() { if (!(this.open === 'panel' && this.tab === 'forge')) { this.closeAll(); this.person = null; this.tab = 'forge'; this.open = 'panel'; $('#panel').style.display = 'block'; document.exitPointerLock?.(); } this.refreshPanels(); }
   // ⚒️ หน้าตีบวก + ส่องออฟชั่น
   forgeHTML() {
     const g = this.g, P = g.player.pos, smith = hasPerk(g.ch, 'blacksmith', 0), anvilAny = g.world.nearStructure(P.x, P.z, 'anvil', 6), anvil = smith && anvilAny, friendOk = !smith && anvilAny && g.auth.server;
     const npc = NPCS.find((n) => n.job === 'blacksmith'), ne = g.ents.list.find((e) => e.kind === 'npc' && e.def?.id === npc?.id), viaNpc = !anvil && ne && Math.hypot(ne.pos.x - P.x, ne.pos.z - P.z) <= 7;
-    const where = friendOk ? '⚒️ ข้างทั่งตีเหล็ก — ถ้ามีเพื่อนช่างตีเหล็กยืนอยู่ใกล้ (6 ม.) เพื่อนจะตีให้ด้วยฝีมือของเพื่อน (ไม่เสียค่าจ้าง)' : anvil ? '⚒️ ตีบวกเองที่ทั่งตีเหล็ก (ไม่เสียค่าจ้าง' + (hasPerk(g.ch, 'blacksmith', 1) ? ' · โอกาสสำเร็จ +8%' : '') + ')' : viaNpc ? `🧑‍🏭 จ้าง${npc.name}ตีบวก — จ่ายค่าจ้างเป็นเงินจิอย่างเดียว ไม่ต้องเตรียมหินไป` : `<span class="miss">ยังตีบวกไม่ได้ — ${smith ? 'ไปที่ทั่งตีเหล็ก (สร้างในหมวดของในบ้าน)' : `ต้องเป็น ⚒️ ช่างตีเหล็ก (ลงแต้มสาย ${PERK_PTS[0]}) แล้วใช้ทั่งตีเหล็ก หรือจ้าง${npc?.name} ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}`}</span>`;
-    const can = anvil || viaNpc || friendOk, pc = (v) => Math.round(v * 100) + '%';
+    const where = friendOk ? '⚒️ ข้างทั่งตีเหล็ก — ถ้ามีเพื่อนช่างตีเหล็กยืนอยู่ใกล้ (6 ม.) เพื่อนจะตีให้ด้วยฝีมือของเพื่อน (ไม่เสียค่าจ้าง)' : anvil ? '⚒️ ตีบวกเองที่ทั่งตีเหล็ก (ไม่เสียค่าจ้าง' + (hasPerk(g.ch, 'blacksmith', 1) ? ' · โอกาสสำเร็จ +8%' : '') + ')' : viaNpc ? `🧑‍🏭 จ้าง${npc.name}ตีบวก — จ่ายค่าจ้างเป็นเงินจิอย่างเดียว ไม่ต้องเตรียมหินไป` : `🔨 ตีบวกเอง (ทำได้ทุกที่ ใช้หินของคุณ) — <span class="miss">โอกาสสำเร็จต่ำกว่าจ้าง NPC ${Math.round(SELF_PENALTY * 100)}%</span> · ได้โอกาสดีกว่า: จ้าง${npc?.name} ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''} (เตรียมไปแค่ไอเท็ม จ่ายค่าตี+ค่าหินเป็นเงินจิ)${smith ? ' หรือใช้ทั่งตีเหล็กของคุณ' : ' หรือให้ช่างตีเหล็กตีให้ที่ทั่ง'}`;
+    const can = true, selfMode = !anvil && !viaNpc, pc = (v) => Math.round(v * 100) + '%';
     const rows = Object.entries(g.inv).filter(([k, q]) => q > 0 && gearKind(k)).map(([k]) => {
-      const it = ITEMS[k], pet = gearKind(k) === 'pet', L = parseKey(k).plus, max = pet ? PET_PLUS_MAX : PLUS_MAX, st = enhanceStone(L, pet), sst = enhanceStone(L, pet, true), fee = viaNpc ? enhanceFee(L, pet) : 0, R = enhanceRates(L, pet, anvil ? g.ch : null), RS = shopPenalty(R, L, pet), showS = !viaNpc && !pet;
+      const it = ITEMS[k], pet = gearKind(k) === 'pet', L = parseKey(k).plus, max = pet ? PET_PLUS_MAX : PLUS_MAX, st = enhanceStone(L, pet), sst = enhanceStone(L, pet, true), fee = viaNpc ? enhanceFee(L, pet) : 0, R0 = enhanceRates(L, pet, anvil ? g.ch : null), R = selfMode ? shopPenalty(R0, L, pet, SELF_PENALTY) : R0, RS = shopPenalty(R, L, pet), showS = !viaNpc && !pet;
       const held = g.equipped === k && (g.inv[k] || 0) <= 1, base = can && L < max && !held && (g.inv.jicoin || 0) >= fee, okE = base && (viaNpc || (g.inv[st] || 0) > 0), okS = base && showS && (g.inv[sst] || 0) > 0;
       const rate = L >= max ? `<b>ตีบวกสูงสุดแล้ว (+${max})</b>` : `+${L} → +${L + 1}: ✅ ${pc(R.up)}${R.stay ? ` · ➖ คงเดิม ${pc(R.stay)}` : ''}${R.down ? ` · 📉 -1 ${pc(R.down)}` : ''}${R.brk ? ` · <span class="miss">💥 แตกหาย ${pc(R.brk)}</span>` : ''}`;
       return `<div class="recipe ${okE ? 'ready' : ''}"><div><b style="${L >= 6 ? `color:${PLUS_GLOW[Math.min(10, L)]}` : it.rarity ? `color:${RARITY[it.rarity].color}` : ''}">${it.icon} ${esc(it.name)}</b> <small>${pet ? '🐾 อุปกรณ์สัตว์เลี้ยง' : ''}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}<div class="need">${rate}${L < max ? (viaNpc ? ` · 🪙 ค่าจ้าง ${fee} (รวมค่าวัสดุ ไม่ต้องใช้หิน)` : ` · ใช้ ${ITEMS[st].icon}${ITEMS[st].name} (มี ${g.inv[st] || 0})`) : ''}${held ? ' · <span class="miss">เลิกถือก่อน</span>' : ''}</div></div>
@@ -383,7 +390,7 @@ export class UI {
     for (const [k, p] of Object.entries(PIECES)) if (!p.hidden) (cats[p.cat] ||= []).push([k, p]);
     const card = ([k, p]) => {
       const miss = Object.entries(p.cost).filter(([i, q]) => (g.inv[i] || 0) < q), lock = lvl < p.lvl;
-      const cc = coinCost(p, ITEMS), coinOnly = !!p.cost.jicoin;
+      const cc = coinCost(p, ITEMS), coinOnly = !!p.cost.jicoin || p.noCoin;
       return `<div class="pwrap"><button class="piece ${miss.length || lock || !hammer ? 'dis' : ''}" data-build="${k}"><span class="ic">${p.icon}</span><b>${esc(p.name)}</b><small>${Object.entries(p.cost).map(([i, q]) => `<span class="${(g.inv[i] || 0) >= q ? 'have' : 'miss'}">${ITEMS[i].icon}${g.inv[i] || 0}/${q}</span>`).join(' ')}${lock ? ` · 🔒 ก่อสร้าง Lv${p.lvl}` : ''}</small></button>${coinOnly ? '' : `<button class="coinbuy ${(g.inv.jicoin || 0) >= cc && !lock && hammer ? '' : 'dis'}" data-cbuild="${k}" title="ซื้อด้วยเงินจิแทนวัสดุ">🪙 ${cc}</button>`}</div>`;
     };
     return `<p class="hint">${hammer ? '' : '<b class="miss">ต้องมีค้อนก่อน — ประดิษฐ์ 🪵 ค้อนไม้ ได้จากรายการด้านล่างของหน้านี้</b><br>'}สร้างบ้านทีละชิ้นบนกริด: วาง <b>ฐานราก</b> → <b>ผนัง/ประตู/หน้าต่าง</b> รอบขอบ → <b>หลังคา</b> (ขึ้นไปยืนบนหลังคาแล้ววางผนังต่อเป็นชั้นสองได้) · วาง <b>เตียง</b> เพื่อตั้งเป็นจุดเกิด
@@ -397,7 +404,7 @@ export class UI {
   baseShopHTML() {
     const g = this.g, coins = g.inv.jicoin || 0, lvl = skillLevel(g.skills.building), hammer = canBuild(g.inv);
     const CATS2 = ['โครงบ้าน', 'รั้ว', 'ฐาน', 'ของในบ้าน'];
-    const groups = CATS2.map((c) => [c, Object.entries(PIECES).filter(([, p]) => p.cat === c && !p.hidden)]);
+    const groups = CATS2.map((c) => [c, Object.entries(PIECES).filter(([, p]) => p.cat === c && !p.hidden && !p.noCoin)]);
     const card = ([k, p]) => { const cc = coinCost(p, ITEMS), ok = coins >= cc && lvl >= p.lvl && hammer; return `<button class="piece ${ok ? '' : 'dis'}" data-cbuild="${k}"><span class="ic">${p.icon}</span><b>${esc(p.name)}</b><small><span class="${coins >= cc ? 'have' : 'miss'}">🪙 ${cc}</span>${lvl < p.lvl ? ` · 🔒 ก่อสร้าง Lv${p.lvl}` : ''}</small></button>`; };
     const mine = basesOf(g.world.structures, g.id).filter((b) => ['owner', 'deputy'].includes(roleIn(b, g.id)));
     const colors = mine.map((b) => `<h4>🎨 สีฐาน "${esc(b.name)}" <small>(เปลี่ยนครั้งละ 🪙 ${COLOR_COST} · ผนัง พื้น หลังคา รั้ว ประตู และป้ายในรั้วเปลี่ยนสีตาม)</small></h4>
@@ -410,7 +417,7 @@ export class UI {
         ประตูเข้าออก <select id="ring-g">${[1, 2, 3, 4].map((k) => `<option value="${k}" ${k === (this.ringG || 1) ? 'selected' : ''}>${k} ทาง</option>`).join('')}</select>
         <b class="${coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? 'have' : 'miss'}">🪙 ${fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS)}</b>
         <button data-ring="1" ${hammer && coins >= fenceRingPrice(this.ringN || 6, this.ringG || 1, ITEMS) ? '' : 'disabled'}>ล้อมรั้วตรงนี้</button></div>
-      <h4>🛒 ของพิเศษ</h4><div class="recipes">${COIN_GOODS.map(([k, c]) => `<div class="recipe ${coins >= c ? 'ready' : 'dis'}"><div><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b> <small>มี ${g.inv[k] || 0}</small><small class="st">${esc(ITEMS[k].desc || '')}</small></div><button data-coinbuy="${k}" ${coins >= c ? '' : 'disabled'}>🪙 ${c}</button></div>`).join('')}</div>
+      <h4>🛒 ของพิเศษ</h4><div class="recipes">${COIN_GOODS.map(([k, c]) => `<div class="recipe ${coins >= c ? 'ready' : 'dis'}"><div><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b> <small>มี ${g.inv[k] || 0}</small><small class="st">${esc(ITEMS[k].desc || '')}</small></div><input type="number" class="qty" id="cq-${k}" min="1" max="99" value="1" title="จำนวน"><button data-coinbuy="${k}" ${coins >= c ? '' : 'disabled'}>🪙 ${c}/ชิ้น</button></div>`).join('')}</div>
       <h4>🏠 บ้านน็อคดาวน์สำเร็จรูป <small>(ตั้งทั้งหลังทันที: ฐานราก ผนัง ประตู หน้าต่าง หลังคา · ประตูหันมาทางคุณ)</small></h4>
       <div class="ringbox">ขนาด <select id="pf-n">${[1, 2, 3].map((n) => `<option value="${n}" ${n === (this.pfN || 1) ? 'selected' : ''}>${n}×${n} ช่อง (${n * n} ห้อง)</option>`).join('')}</select>
         <b class="${coins >= prefabPrice(this.pfN || 1, ITEMS) ? 'have' : 'miss'}">🪙 ${prefabPrice(this.pfN || 1, ITEMS)}</b>
@@ -439,8 +446,8 @@ export class UI {
     if (s.type === 'basecore' && s.ok && roleIn(s, g.id)) {
       const role = roleIn(s, g.id), boss = role === 'owner' || role === 'deputy', need = HOUSE_UP[(s.lv || 1) + 1], L = HOUSE_LV[s.lv || 1], mine = s.pi?.[g.id] || {};
       if (need) html += `<h4>⬆️ อัปเกรดเป็นระดับ ${(s.lv || 1) + 1} — เติมของให้ครบรายการ (คลิกเพื่อเติม)</h4><div class="gifts">${Object.entries(need).map(([k, n]) => { const have = s.up?.[k] || 0; return `<span class="item small ${have >= n ? '' : 'dis'}" data-bup="${k}" title="${esc(ITEMS[k].name)} ${have}/${n} · คุณมี ${g.inv[k] || 0}">${ITEMS[k].icon}<b>${have}/${n}</b></span>`; }).join('')}</div>`;
-      html += `<div class="cols"><div><h4>🔐 คลังของส่วนตัว (${Object.keys(mine).length}/${L.ps} ช่อง · เห็นเฉพาะคุณ)</h4><div class="inv">${Object.entries(mine).map(([k, q]) => `<div class="item" data-pwd="${k}" title="คลิก = หยิบ 1 · คลิกขวา = ทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('') || '<p class="hint">ว่าง</p>'}</div></div>
-        <div><h4>🎒 กระเป๋า → ฝากเข้าคลังส่วนตัว</h4><div class="inv">${Object.entries(g.inv).filter(([k, q]) => q > 0 && !ITEMS[k].quest && k !== 'jicoin').map(([k, q]) => `<div class="item" data-pdep="${k}" title="คลิก = ฝาก 1 · คลิกขวา = ทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('')}</div></div></div>
+      html += this.qtyBar() + `<div class="cols"><div><h4>🔐 คลังของส่วนตัว (${Object.keys(mine).length}/${L.ps} ช่อง · เห็นเฉพาะคุณ)</h4><div class="inv">${Object.entries(mine).map(([k, q]) => `<div class="item" data-pwd="${k}" title="คลิก = หยิบตามจำนวนที่เลือก · คลิกขวา = ทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('') || '<p class="hint">ว่าง</p>'}</div></div>
+        <div><h4>🎒 กระเป๋า → ฝากเข้าคลังส่วนตัว</h4><div class="inv">${Object.entries(g.inv).filter(([k, q]) => q > 0 && !ITEMS[k].quest && k !== 'jicoin').map(([k, q]) => `<div class="item" data-pdep="${k}" title="คลิก = ฝากตามจำนวนที่เลือก · คลิกขวา = ทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('')}</div></div></div>
         <p class="hint">🧰 คลังส่วนรวมของบ้าน = หีบเก็บของที่วางในรั้ว (สมาชิกทุกคนเปิดได้) · คลังส่วนตัวอยู่ที่หลักบ้านนี้</p>`;
       const mem = Object.entries(s.mem || {});
       html += `<h4>👥 สมาชิกบ้าน (${mem.length + 1}/12)</h4><div class="recipes"><div class="recipe"><div><b>${ROLES.owner}</b> ${s.owner === g.id ? 'คุณ' : 'เจ้าของ'}</div></div>${mem.map(([id, m]) => `<div class="recipe"><div><b>${esc(m.n)}</b> <small>${ROLES[m.r]}</small></div>${boss && (role === 'owner' || m.r !== 'deputy') ? Object.keys(ROLES).filter((r) => r !== 'owner' && (role === 'owner' || r !== 'deputy')).map((r) => `<button data-hrole="${esc(id)}" data-r="${r}" ${m.r === r ? 'disabled' : ''}>${ROLES[r].split(' ')[0]}</button>`).join('') + `<button data-hrole="${esc(id)}" data-r="">✖</button>` : ''}</div>`).join('')}</div>`;
@@ -451,8 +458,8 @@ export class UI {
     }
     if (s.type === 'storage') {
       const inside = Object.entries(s.items || {}).filter(([, q]) => q > 0);
-      html += `<div class="cols"><div><h4>🧰 ในหีบ</h4><div class="inv">${inside.map(([k, q]) => `<div class="item" data-wd="${k}" title="คลิก = หยิบ 1 · คลิกขวา = หยิบทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('') || '<p class="hint">ว่าง</p>'}</div></div>
-        <div><h4>🎒 กระเป๋าของคุณ</h4><div class="inv">${Object.entries(g.inv).filter(([k, q]) => q > 0 && !ITEMS[k].quest).map(([k, q]) => `<div class="item" data-dep="${k}" title="คลิก = ฝาก 1 · คลิกขวา = ฝากทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('')}</div></div></div>`;
+      html += this.qtyBar() + `<div class="cols"><div><h4>🧰 ในหีบ</h4><div class="inv">${inside.map(([k, q]) => `<div class="item" data-wd="${k}" title="คลิก = หยิบตามจำนวนที่เลือก · คลิกขวา = หยิบทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('') || '<p class="hint">ว่าง</p>'}</div></div>
+        <div><h4>🎒 กระเป๋าของคุณ</h4><div class="inv">${Object.entries(g.inv).filter(([k, q]) => q > 0 && !ITEMS[k].quest).map(([k, q]) => `<div class="item" data-dep="${k}" title="คลิก = ฝากตามจำนวนที่เลือก · คลิกขวา = ฝากทั้งหมด"><span class="ic">${ITEMS[k].icon}</span><span>${ITEMS[k].name}</span><b>×${q}</b></div>`).join('')}</div></div></div>`;
     }
     return html;
   }
@@ -757,7 +764,7 @@ export class UI {
     const rows = SHOPS[n.job].map(([k, base, per]) => {
       const T = g.trade?.[n.id + ':' + k], left = per - (T && T.d === day ? T.n : 0), price = shopPrice(base, r.pts), ok = left > 0 && total >= price && !ITEMS[k].coinOnly;
       const cp = Math.ceil(price), cok = left > 0 && (g.inv.jicoin || 0) >= cp;
-      return `<div class="recipe ${ok || cok ? 'ready' : 'dis'}"><div><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b> <small>ราคา ${price}${disc ? ` (ลด ${disc}%)` : ''} · เหลือวันนี้ ${Math.max(0, left)}/${per}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</div><button data-tbuy="${k}" ${ok ? '' : 'disabled'}>แลก</button><button data-cbuy="${k}" data-cp="${cp}" ${cok ? '' : 'disabled'}>🪙 ${cp}</button></div>`;
+      return `<div class="recipe ${ok || cok ? 'ready' : 'dis'}"><div><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b> <small>ราคา ${price}${disc ? ` (ลด ${disc}%)` : ''} · เหลือวันนี้ ${Math.max(0, left)}/${per}</small>${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</div><button data-tbuy="${k}" ${ok ? '' : 'disabled'}>แลก</button><input type="number" class="qty" id="nq-${k}" min="1" max="${Math.max(1, left)}" value="1" title="จำนวนที่จะซื้อด้วยเงินจิ"><button data-cbuy="${k}" data-cp="${cp}" ${cok ? '' : 'disabled'}>🪙 ${cp}/ชิ้น</button></div>`;
     }).join('');
     const mine = Object.entries(g.inv).filter(([k, q]) => q > 0 && ITEMS[k].value && !ITEMS[k].quest && k !== g.equipped).map(([k, q]) => `<span class="item small" data-tpay="${k}" title="${esc(ITEMS[k].name)} มูลค่า ${tradeValue(k).toFixed(1)} · มี ${q}">${ITEMS[k].icon}<b>${q - (B[k] || 0)}</b></span>`).join('');
     const bask = Object.entries(B).map(([k, q]) => `<span class="item small" data-tunpay="${k}" title="คลิกเพื่อเอาออก">${ITEMS[k].icon}<b>×${q}</b></span>`).join('');
@@ -812,10 +819,11 @@ export class UI {
     if (d.tpay) { const B = (this.basket ||= {}); if ((B[d.tpay] || 0) < (g.inv[d.tpay] || 0)) B[d.tpay] = (B[d.tpay] || 0) + 1; return this.refreshPanels(); }
     if (d.tunpay) { const B = this.basket || {}; if (--B[d.tunpay] <= 0) delete B[d.tunpay]; return this.refreshPanels(); }
     if (d.tclear) { this.basket = {}; return this.refreshPanels(); }
-    if (d.cbuy) { g.auth.do('npctrade', { npc: this.person.id, buy: d.cbuy, pay: { jicoin: +d.cp } }); return this.refreshPanels(); }
+    if (d.cbuy) { const q = Math.max(1, Math.min(99, +($('#nq-' + CSS.escape(d.cbuy))?.value || 1) | 0)); g.auth.do('npctrade', { npc: this.person.id, buy: d.cbuy, pay: { jicoin: +d.cp * q }, q }); return setTimeout(() => this.refreshPanels(), 300); }
     if (d.bup) { const s = this.struct, need = HOUSE_UP[(s.lv || 1) + 1]?.[d.bup] || 0, q = Math.min(g.inv[d.bup] || 0, need - (s.up?.[d.bup] || 0)); if (q > 0) g.home.op(s, { o: 'contrib', item: d.bup, qty: q }); return this.refreshPanels(); }
-    if (d.pwd) { g.home.op(this.struct, { o: 'pitem', item: d.pwd, qty: -(ev.button === 2 ? (this.struct.pi?.[g.id]?.[d.pwd] || 1) : 1) }); return this.refreshPanels(); }
-    if (d.pdep) { const q = ev.button === 2 ? g.inv[d.pdep] : 1; if (g.hasItem(d.pdep, q)) g.home.op(this.struct, { o: 'pitem', item: d.pdep, qty: q }); return this.refreshPanels(); }
+    if (d.stq) { this.stQty = d.stq === 'all' ? 'all' : +d.stq; return this.refreshPanels(); }
+    if (d.pwd) { const have = this.struct.pi?.[g.id]?.[d.pwd] || 1; g.home.op(this.struct, { o: 'pitem', item: d.pwd, qty: -(ev.button === 2 ? have : this.stAmt(have)) }); return this.refreshPanels(); }
+    if (d.pdep) { const q = ev.button === 2 ? g.inv[d.pdep] : this.stAmt(g.inv[d.pdep] || 0); if (g.hasItem(d.pdep, q)) g.home.op(this.struct, { o: 'pitem', item: d.pdep, qty: q }); return this.refreshPanels(); }
     if (d.hadd) { const r = prompt(`ตั้ง ${d.n} เป็นหน้าที่อะไร?\nพิมพ์: deputy = รองเจ้าบ้าน · animal = ผู้ดูแลสัตว์ · plant = ผู้ดูแลพืช · resident = ผู้อาศัย`, 'resident'); if (r && ROLES[r.trim()]) g.home.op(this.struct, { o: 'member', id: d.hadd, name: d.n, role: r.trim() }); return this.refreshPanels(); }
     if (d.hrole !== undefined) { g.home.op(this.struct, { o: 'member', id: d.hrole, role: d.r || null }); return this.refreshPanels(); }
     if (d.slist) {
@@ -855,7 +863,7 @@ export class UI {
     if (d.enhs) { g.auth.do('enhance', { k: d.enhs, shop: 1 }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.enh) { g.auth.do('enhance', { k: d.enh }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.ident) { g.auth.do('identify', { k: d.ident }); setTimeout(() => this.refreshPanels(), 350); return; }
-    if (d.coinbuy) { g.auth.do('cbuy', { k: d.coinbuy, q: 1 }); setTimeout(() => this.refreshPanels(), 350); return; }
+    if (d.coinbuy) { g.auth.do('cbuy', { k: d.coinbuy, q: Math.max(1, Math.min(99, +($('#cq-' + CSS.escape(d.coinbuy))?.value || 1) | 0)) }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.prename) { const p = g.pets.find((x) => x.id === d.prename); const n = p && prompt(`ชื่อใหม่ของ ${p.name} (ไม่เกิน 16 ตัวอักษร · ใช้ป้ายเปลี่ยนชื่อ 1 ชิ้น)`, p.name); if (n && n.trim()) g.auth.do('renamepet', { id: p.id, name: n.trim() }); setTimeout(() => this.refreshPanels(), 350); return; }
     if (d.prefab) {
       // ตั้งบ้านข้างหน้าผู้เล่น: ช่องมุมบนซ้าย + ประตูหันกลับมาหาผู้เล่น
@@ -870,8 +878,8 @@ export class UI {
     if (d.build) { if (t.classList.contains('dis') && !canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน (🪵 ค้อนไม้ หรือ 🔨 ค้อนช่างไม้)', 'warn'); return g.builder.start(d.build); }
     if (d.demolish) { if (!canBuild(g.inv)) return this.toast('ต้องมีค้อนก่อน (🪵 ค้อนไม้ หรือ 🔨 ค้อนช่างไม้)', 'warn'); return g.builder.startDemolish(); }
     if (d.sact) { const a = this.structActs?.[+d.sact]; if (a && !a.dis) a.run(); return this.refreshPanels(); }
-    if (d.dep) { g.home.deposit(this.struct, d.dep, 1); return this.refreshPanels(); }
-    if (d.wd) { g.home.withdraw(this.struct, d.wd, 1); return this.refreshPanels(); }
+    if (d.dep) { g.home.deposit(this.struct, d.dep, this.stAmt(g.inv[d.dep] || 0)); return this.refreshPanels(); }
+    if (d.wd) { const s0 = g.world.structures.find((x) => x.id === this.struct.id) || this.struct; g.home.withdraw(this.struct, d.wd, this.stAmt(s0.items?.[d.wd] || 0)); return this.refreshPanels(); }
     if (d.pethome) { const p = g.pets[+d.pethome]; if (p.home) { p.home = null; this.toast(`${p.name} กลับมาตามคุณแล้ว`); } else { const P0 = g.player.pos; const h = g.world.nearestStructure(P0.x, P0.z, 5000, (s) => s.type === 'pethouse' && (!s.owner || s.owner === g.id)); if (!h) return this.toast('ต้องสร้าง 🏡 บ้านสัตว์เลี้ยงก่อน (เมนูสร้างบ้าน)', 'warn'); p.home = h.id; this.toast(`🏡 ${p.name} ไปอยู่บ้านสัตว์เลี้ยงแล้ว`); } return this.refreshPanels(); }
   }
 

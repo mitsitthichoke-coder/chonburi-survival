@@ -39,7 +39,7 @@ export const PIECES = {
   gate: { name: 'ประตูรั้ว', icon: '⛩️', cost: { wood: 3 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
   bed: { name: 'เตียงนอน (จุดเกิด)', icon: '🛏️', cost: { wood: 3, cloth: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   walllamp: { name: 'โคมไฟฟืนติดผนัง (เล็งที่ผนัง)', icon: '🏮', cost: { wood: 2, stone: 1, scrap: 1 }, snap: 'edge', cat: 'ของในบ้าน', lvl: 1 },
-  anvil: { name: 'ทั่งตีเหล็ก (ช่างตีเหล็กใช้ตีบวก)', icon: '⚒️', cost: { stone: 6, scrap: 6, wood: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
+  anvil: { name: 'ทั่งตีเหล็ก (ช่างตีเหล็กใช้ตีบวก)', icon: '⚒️', cost: { stone: 6, scrap: 6, wood: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1, noCoin: true }, // สร้างด้วยวัสดุเท่านั้น (ไม่ขายในร้านเงินจิ)
   chair: { name: 'เก้าอี้ไม้ (นั่งพักผ่อน)', icon: '🪑', cost: { wood: 3 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   storage: { name: 'หีบเก็บของ (ใช้ร่วมกันได้)', icon: '🧰', cost: { wood: 6 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },
   pethouse: { name: 'บ้านสัตว์เลี้ยง', icon: '🏡', cost: { wood: 6, cloth: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 1 },

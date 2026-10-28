@@ -348,8 +348,10 @@ export function enhanceRates(L, pet, ch) {
 // อุปกรณ์สัตว์เลี้ยงใช้พินสูง · ชุด/อาวุธ +1–+8 ใช้เหล็กพลัส · +9–+10 ใช้หินซุปเปอร์ (shop = ของจากร้านเงินจิ)
 export const enhanceStone = (L, pet, shop) => (pet ? 'pet_pin' : (shop ? 'shop_' : '') + (L >= 8 ? 'super_stone' : 'plus_stone'));
 // 🔷 หินจากร้านเงินจิ: โอกาสสำเร็จลดลง 30% (ส่วนที่หายไปกลายเป็นคงเดิม/ลดระดับ/แตก ตามช่วง)
-export function shopPenalty(r, L, pet) {
-  const cut = r.up * 0.3; r = { ...r, up: r.up - cut };
+// f = สัดส่วนที่โอกาสสำเร็จลดลง (หินร้านค้า 0.3 · ตีเองนอกทั่ง/ไม่ใช่ช่าง 0.2)
+export const SELF_PENALTY = 0.2;
+export function shopPenalty(r, L, pet, f = 0.3) {
+  const cut = r.up * f; r = { ...r, up: r.up - cut };
   if ((pet && L === 0) || (!pet && L < 5)) r.stay += cut;
   else if (r.brk) { r.down += cut / 2; r.brk += cut / 2; } else { r.stay += cut / 2; r.down += cut / 2; }
   return r;

@@ -2,7 +2,7 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, DAM_NEED, learnHint } from './data.js';
+import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, DAM_NEED, learnHint } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
@@ -174,6 +174,14 @@ const A = {
     const day = Math.floor(env.now() / DAY_MS), key = n.id + ':' + row[0], T = (ch.trade ||= {})[key], used = T && T.d === day ? T.n : 0;
     if (used >= row[2]) return { err: `วันนี้${n.name}ไม่มี${ITEMS[row[0]].name}เหลือแล้ว พรุ่งนี้มาใหม่นะ` };
     const price = shopPrice(row[1], ch.social?.rels?.[n.id]?.pts || 0);
+    // ซื้อด้วยเงินจิหลายชิ้นในครั้งเดียว (ไม่เกินจำนวนที่เหลือของวันนี้)
+    const coinOnlyPay = Object.keys(p.pay || {}).length === 1 && p.pay.jicoin;
+    if (coinOnlyPay && (p.q | 0) > 1) {
+      const q = Math.min(p.q | 0, row[2] - used), cost = Math.ceil(price) * q;
+      if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (${q} ชิ้น = ${cost})` };
+      ch.trade[key] = { d: day, n: used + q };
+      return { take: { jicoin: cost }, give: rollVariants({ [row[0]]: q }, env.rand), xp: { survival: 2 }, msg: `🤝 ซื้อ ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} ×${q} จาก${n.name} (🪙 ${cost})`, traded: true };
+    }
     let paid = 0; const take = {};
     if (ITEMS[row[0]].coinOnly && Object.keys(p.pay || {}).some((k) => k !== 'jicoin')) return { err: `${ITEMS[row[0]].name} ซื้อได้ด้วยเงินจิเท่านั้น` };
     for (const [k, q] of Object.entries(p.pay || {})) {
@@ -409,12 +417,12 @@ const A = {
     const P = env.pos(ch), anvil = env.near('anvil', P, 6), smith = hasPerk(ch, 'blacksmith', 0) && anvil, npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
     const friend = !smith && anvil && env.smithNear?.(P); // จ้างเพื่อนช่างตีเหล็กที่ยืนข้างทั่ง
     const viaNpc = !smith && !friend && np && dist(env, ch, np.x, np.z) <= 7;
-    if (!smith && !friend && !viaNpc) return { err: hasPerk(ch, 'blacksmith', 0) ? '⚒️ ต้องอยู่ใกล้ทั่งตีเหล็ก (สร้างได้ในหมวดของในบ้าน)' : `⚒️ ต้องเป็นช่างตีเหล็กและอยู่ใกล้ทั่ง หรือจ้าง${npc?.name || 'ช่างตีเหล็ก'}ที่${TOWNS.find((t) => t.key === npc?.town)?.name || ''}` };
+    const self = !smith && !friend && !viaNpc; // ตีเองได้ทุกที่ แต่โอกาสสำเร็จต่ำกว่าจ้าง NPC
     // จ้าง NPC: ไม่ต้องใช้หินของตัวเอง (รวมในค่าจ้างแล้ว)
     const shop = !viaNpc && !pet && !!p.shop, stone = viaNpc ? null : enhanceStone(L, pet, shop), fee = viaNpc ? enhanceFee(L, pet) : 0;
     if (stone && !has(ch, stone)) return { err: `ต้องมี ${ITEMS[stone].icon} ${ITEMS[stone].name} 1 ชิ้น${stone === 'super_stone' ? ' (ผสมจากเหล็กพลัส 3 ก้อนในหน้าประดิษฐ์)' : stone.startsWith('shop_') || stone === 'pet_pin' ? ' (ซื้อในร้านเงินจิ)' : ''}` };
     if (fee && !has(ch, 'jicoin', fee)) return { err: `🪙 ค่าจ้างตีบวก ${fee} เงินจิ` };
-    let R = enhanceRates(L, pet, smith ? ch : friend ? friend.ch : null); if (shop) R = shopPenalty(R, L, pet);
+    let R = enhanceRates(L, pet, smith ? ch : friend ? friend.ch : null); if (self) R = shopPenalty(R, L, pet, SELF_PENALTY); if (shop) R = shopPenalty(R, L, pet);
     const r = env.rand(), take = { [k]: 1 }; if (stone) take[stone] = 1; if (fee) take.jicoin = fee;
     const res = r < R.up ? 'up' : r < R.up + R.stay ? 'stay' : r < R.up + R.stay + R.down ? 'down' : 'brk';
     const to = res === 'up' ? L + 1 : res === 'down' ? L - 1 : L, nk = makeKey({ ...K, plus: to }), nm = ITEMS[makeKey({ ...K, plus: 0, opts: '' })]?.name || ITEMS[k].name;
@@ -440,7 +448,7 @@ const A = {
   // 🪙 ซื้อของพิเศษในร้านเงินจิ
   cbuy(ch, p) {
     const row = COIN_GOODS.find(([k]) => k === p.k); if (!row) return { err: 'ไม่มีสินค้านี้' };
-    const q = Math.min(10, Math.max(1, p.q | 0)), cost = row[1] * q;
+    const q = Math.min(99, Math.max(1, p.q | 0)), cost = row[1] * q;
     if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${cost})` };
     return { take: { jicoin: cost }, give: { [row[0]]: q }, msg: `🛒 ซื้อ ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} ×${q} แล้ว` };
   },
@@ -490,6 +498,7 @@ const A = {
       if (!canBuild(ch.inv)) return { err: 'ต้องมีค้อน (ค้อนไม้ หรือ ค้อนช่างไม้)' };
       if (lvl(ch, 'building') < P.lvl) return { err: `ต้องมีทักษะก่อสร้าง Lv${P.lvl}` };
       if (P.learn && !learned(ch, P.learn)) return { err: learnHint(P.learn) };
+      if (s.coin && P.noCoin) return { err: 'ชิ้นนี้ซื้อด้วยเงินจิไม่ได้ — สร้างด้วยวัสดุ' };
       const cost = s.coin || P.cost.jicoin ? { jicoin: coinCost(P, ITEMS) } : buildCost(ch, P.cost);
       for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: s.coin ? `🪙 เงินจิไม่พอ (ต้องใช้ ${cost.jicoin})` : 'วัสดุไม่พอ' };
       const pl = { ...clean, type: s.type }; if (cost.jicoin) pl.paid = cost.jicoin;

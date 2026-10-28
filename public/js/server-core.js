@@ -1,7 +1,7 @@
 // ตรรกะฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน: รันได้ทั้งบน Node (server.js) และในเบราว์เซอร์ของผู้เล่นที่เป็นโฮสต์ (room-net.js)
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
-import { tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
+import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -12,6 +12,7 @@ const SHEEP_FARM = landmark('sheep');
 
 export const emptyState = () => ({ startTime: Date.now(), res: {}, loot: {}, structures: [], rels: {}, preg: {}, children: [], profiles: {}, friends: {}, freq: {} });
 
+const FAUNA_IDX = Object.fromEntries(FAUNA_KINDS.map((k, i) => [k, i]));
 export class WorldCore {
   // send(id, msg) ส่งถึงผู้เล่นคนเดียว · broadcast(msg, exceptId) ส่งถึงทุกคน
   // relayState=false เมื่อการส่งตำแหน่งผู้เล่นทำผ่านช่องทางอื่น (presence ของ room)
@@ -631,7 +632,7 @@ export class WorldCore {
     this.tMs -= dt;
     if (this.tMs <= 0) {
       this.tMs = 0.25;
-      const K = { boar: 0, deer: 1, chicken: 2, dog: 3, cat: 4, bird: 5, npc: 6, raptor: 7, trike: 8, tiger: 9 };
+      const K = FAUNA_IDX;
       const m = [];
       for (const f of this.fauna.values()) m.push(f.k === 'npc' ? f.idx : f.id, K[f.k], Math.round(f.x * 10), Math.round(f.z * 10), Math.round(f.ry * 100), Math.round(f.spd * 10));
       this.broadcast({ t: 'ms', m });

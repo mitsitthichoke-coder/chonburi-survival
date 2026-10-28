@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldTool, setPetGear, setOutfit, SKINS, setInjury, tickInjury, ridePose, sleepPose, sitPose } from './models.js';
-import { ITEMS, WEAR_SLOTS, PET_SLOTS, BODY_R } from './data.js';
+import { ITEMS, WEAR_SLOTS, PET_SLOTS, BODY_R, FAUNA_KINDS } from './data.js';
 import { makeVehicle } from './structures3d.js';
 import { NPCS as NPC_LIST } from './data.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -188,7 +188,7 @@ export class Entities {
   }
   // ----- สัตว์ป่า สัตว์จรจัด NPC จากเซิร์ฟเวอร์ -----
   syncNetFauna(flat) {
-    const K = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike', 'tiger'];
+    const K = FAUNA_KINDS;
     this.netF ||= new Map();
     const seen = new Set();
     for (let i = 0; i + 5 < flat.length; i += 6) {
@@ -201,6 +201,7 @@ export class Entities {
       }
       seen.add(id);
       let e = this.netF.get(id);
+      if (!K[k] || !ANIMALS[K[k]] && K[k] !== 'npc') continue; // ชนิดที่เครื่องนี้ยังไม่รู้จัก (เวอร์ชันเก่า) ข้ามไป ไม่ให้เกมค้าง
       if (!e || e.dead) { e = this.spawnMob(K[k], t.x, t.z); e.netId = id; e.ry = t.ry; this.netF.set(id, e); }
       e.target = t;
     }

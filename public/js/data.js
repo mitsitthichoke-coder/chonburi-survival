@@ -886,6 +886,8 @@ export const WILD = {
   sheep: { name: 'แกะ', hp: 20, flee: 9, fleeSpd: 4, diet: 'herb', leash: 30 },
 };
 // สัตว์ป่าเฉพาะถิ่น: อยู่ในรัศมี r (เท่าของรัศมีเมือง) ของอำเภอนั้น มีโอกาส p ที่สัตว์ที่เกิดจะเป็นชนิดนี้
+// รหัสชนิดสัตว์ที่ส่งผ่านเครือข่าย (เซิร์ฟเวอร์ ↔ เครื่องผู้เล่น ต้องใช้ลำดับเดียวกัน · เพิ่มชนิดใหม่ต่อท้ายเท่านั้น)
+export const FAUNA_KINDS = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike', 'tiger', 'elephant', 'buffalo', 'sheep'];
 export const REGION_FAUNA = [
   { town: 'bothong', k: 'elephant', p: 0.45, r: 2.6 },
   { town: 'nongyai', k: 'buffalo', p: 0.45, r: 2.4 },

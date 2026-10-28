@@ -56,12 +56,14 @@ const rnd = {
   name() { $('#f-name').value = R(profile.sex === 'f' ? NAMES_F : profile.sex === 'm' ? NAMES_M : [...NAMES_M, ...NAMES_F]) + (Math.random() < 0.5 ? '' : Math.floor(Math.random() * 90 + 10)); $('#f-name').dispatchEvent(new Event('input')); },
   look() { profile.look = randomLook(profile.sex); },
   sex() { profile.sex = ['m', 'f', 'x'][Math.floor(Math.random() * 3)]; },
+  hand() { profile.hand = Math.random() < 0.5 ? 'l' : 'r'; },
+  job() { profile.job = R(Object.keys(JOBS)); jobInfo(); },
 };
 $('#f-rand').onclick = () => {
-  rnd.sex(); profile.job = R(Object.keys(JOBS)); profile.hand = Math.random() < 0.15 ? 'l' : 'r';
-  rnd.look(); rnd.name(); refreshSegs(); drawPreview();
+  rnd.hand(); rnd.sex(); rnd.job(); rnd.look(); rnd.name(); refreshSegs(); drawPreview(); // ชื่อสุ่มหลังเพศ ให้เข้ากับเพศ
 };
-document.querySelector('.randrow').addEventListener('click', (e) => { const k = e.target.closest('[data-rnd]')?.dataset.rnd; if (!k) return; rnd[k](); refreshSegs(); drawPreview(); });
+// ปุ่มสุ่มแยกตามหัวข้อ (ชื่อ · มือที่ถนัด · เพศ · อาชีพ · ลักษณะ) อยู่ในแต่ละหัวข้อตามลำดับการสร้างตัวละคร
+document.addEventListener('click', (e) => { const k = e.target.closest('[data-rnd]')?.dataset.rnd; if (!k || !rnd[k]) return; rnd[k](); refreshSegs(); drawPreview(); });
 function drawPreview() {
   // หน้าตรงแบบพิกเซล (ไม่ต้องโหลด 3D) ให้เห็นทรงผมและสี
   const c = $('#f-preview'); if (!c) return; const x = c.getContext('2d'), L = profile.look, st = styleOf(), P = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };

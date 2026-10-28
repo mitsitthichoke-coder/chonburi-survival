@@ -3026,5 +3026,9 @@ export default {
 "🛒 ซื้อของในร้านเงินจิและร้าน NPC ทีละหลายชิ้น (ใส่จำนวน)": "🛒 Buy several items at once in the Ji-Coin and NPC shops (enter a quantity)",
 "🧰 ฝาก/ถอนของเข้าหีบและคลังส่วนตัวตามจำนวนที่เลือก (1 / 5 / 10 / 50 / ทั้งหมด / กำหนดเอง)": "🧰 Deposit/withdraw chosen amounts in chests and private vaults (1 / 5 / 10 / 50 / all / custom)",
 "เอาทั่งตีเหล็กออกจากร้านเงินจิ (สร้างด้วยวัสดุเท่านั้น)": "Removed the anvil from the Ji-Coin shop (materials only)",
-"พิมพ์ตัวเลขในช่องจำนวนไม่ไปกดปุ่มลัดแล้ว": "Typing numbers in quantity boxes no longer triggers hotbar keys"
+"พิมพ์ตัวเลขในช่องจำนวนไม่ไปกดปุ่มลัดแล้ว": "Typing numbers in quantity boxes no longer triggers hotbar keys",
+"🎲 สุ่มมือที่ถนัด": "🎲 Random hand",
+"🎲 สุ่มอาชีพ": "🎲 Random job",
+"สุ่มสีผิว ทรงผม เสื้อผ้า และหน้าตา · หรือเลือกทีละส่วนด้านล่าง": "Randomise skin, hair, clothes and face · or pick each part below",
+"🎲 หน้าสร้างตัวละคร: ปุ่มสุ่มแยกในแต่ละหัวข้อตามลำดับ — ชื่อ · มือที่ถนัด · เพศ · อาชีพ · ลักษณะ (ข้างรูปตัวอย่าง)": "🎲 Character creation: a random button in each section, in order — name · hand · gender · job · looks (next to the preview)"
 };

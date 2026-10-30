@@ -5,12 +5,11 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, ridePose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { DAM_NEED, jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, meleeReach, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
+import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, meleeReach, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
 import { Quest } from './quest.js';
 import { inCampOf, WATER_TOWERS } from './quest-core.js';
-import { DAM_PUMP } from './landmarks.js';
 import { Boxes } from './boxes.js';
 import { jobKit, applyResult, repairCost } from './economy.js';
 const jobOfMe = (g) => jobOf(g.ch);
@@ -455,11 +454,7 @@ export class Game {
     if (this.player.climb) return { type: 'none', text: this.player.climb.dir === 'up' ? '🧗 กำลังปีน... (ถอยหลังเพื่อปล่อยมือ)' : '🧗 กำลังไต่ลง...' };
     const hs = this.home.target();
     if (hs) return { type: 'home', h: hs, text: hs.text };
-    // 💧 ภารกิจระบบน้ำที่โรงสูบน้ำเขื่อนเกาะจันทร์ · 🗼 ตักน้ำดิบจากหอถังน้ำ
-    if (Math.hypot(DAM_PUMP.x - P.x, DAM_PUMP.z - P.z) < 5) {
-      const done = this.boxes?.learn_water, need = DAM_NEED, ok = Object.entries(need).every(([k, q]) => this.hasItem(k, q));
-      return { type: 'quest', q: { act: () => this.auth.do('damfix') }, text: done ? '💧 โรงสูบน้ำทำงานแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ (หมวดระบบน้ำ)' : `🔧 ซ่อมโรงสูบน้ำเขื่อน (${Object.entries(need).map(([k, q]) => `${ITEMS[k].icon}${this.inv[k] || 0}/${q}`).join(' ')})${ok ? '' : ' — ของยังไม่ครบ'}` };
-    }
+    // 🗼 ตักน้ำดิบจากหอถังน้ำ
     const wt = WATER_TOWERS.find((w) => Math.hypot(w.x - P.x, w.z - P.z) < 4);
     if (wt) return { type: 'quest', q: { act: () => this.auth.do('fill', { kind: 'tower' }) }, text: this.hasItem('bottle') ? `🗼 ตักน้ำดิบจาก${wt.name} (${Math.min(10, this.inv.bottle || 0)} ขวด)` : `🗼 ${wt.name} — ต้นน้ำของท่อส่งน้ำ (มีขวดเปล่าตักน้ำดิบได้)` };
     if (this.wall && !this.player.swim) return { type: 'climb', text: `🧗 ปีนขึ้นที่สูง ${this.touch ? '(⤒)' : '(Space)'}` };

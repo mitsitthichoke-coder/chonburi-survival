@@ -7,7 +7,6 @@ import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqPr
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { WATER_TOWERS } from './quest-core.js';
-import { DAM_PUMP } from './landmarks.js';
 import { VOL_CH } from './audio.js';
 import { openGuide } from './guide-ui.js';
 import { fogName } from './weather-core.js';
@@ -323,9 +322,8 @@ export class UI {
     }
     const dot = (x, z, col, r) => { const [a, b] = toMap(x, z, W, H); c.fillStyle = col; c.beginPath(); c.arc(a, b, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 1; c.stroke(); };
     for (const s of g.world.structures) dot(s.x, s.z, '#f4a261', 3);
-    // 🗼 หอถังน้ำ · 💧 ภารกิจโรงสูบน้ำเขื่อน
+    // 🗼 หอถังน้ำ
     for (const w of WATER_TOWERS) dot(w.x, w.z, '#4dabf7', 4);
-    if (!g.boxes?.learn_water) { dot(DAM_PUMP.x, DAM_PUMP.z, '#74c0fc', 6); const [a, b] = toMap(DAM_PUMP.x, DAM_PUMP.z, W, H); c.fillStyle = '#74c0fc'; c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; const t = tr('💧 ภารกิจระบบน้ำ'); c.strokeText(t, a, b - 9); c.fillText(t, a, b - 9); }
     for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, g.party?.members?.some((m) => m.id === r.id) ? '#00f5d4' : '#4cc9f0', g.party?.members?.some((m) => m.id === r.id) ? 6 : 4);
     dot(g.player.pos.x, g.player.pos.z, '#ff006e', 5);
     const qt = g.quest.target();
@@ -403,7 +401,7 @@ export class UI {
   // ร้านซื้อส่วนประกอบฐานด้วยเงินจิ + เปลี่ยนสี/ชื่อฐาน
   baseShopHTML() {
     const g = this.g, coins = g.inv.jicoin || 0, lvl = skillLevel(g.skills.building), hammer = canBuild(g.inv);
-    const CATS2 = ['โครงบ้าน', 'รั้ว', 'ฐาน', 'ของในบ้าน'];
+    const CATS2 = ['โครงบ้าน', 'รั้ว', 'ฐาน', 'ของในบ้าน', 'ระบบน้ำ'];
     const groups = CATS2.map((c) => [c, Object.entries(PIECES).filter(([, p]) => p.cat === c && !p.hidden && !p.noCoin)]);
     const card = ([k, p]) => { const cc = coinCost(p, ITEMS), ok = coins >= cc && lvl >= p.lvl && hammer; return `<button class="piece ${ok ? '' : 'dis'}" data-cbuild="${k}"><span class="ic">${p.icon}</span><b>${esc(p.name)}</b><small><span class="${coins >= cc ? 'have' : 'miss'}">🪙 ${cc}</span>${lvl < p.lvl ? ` · 🔒 ก่อสร้าง Lv${p.lvl}` : ''}</small></button>`; };
     const mine = basesOf(g.world.structures, g.id).filter((b) => ['owner', 'deputy'].includes(roleIn(b, g.id)));

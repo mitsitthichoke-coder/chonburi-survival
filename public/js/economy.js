@@ -2,14 +2,13 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, DAM_NEED, learnHint } from './data.js';
+import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, learnHint } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
-import { DAM_PUMP } from './landmarks.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
 export const LOOT_RESPAWN = 15 * 60000;
@@ -470,16 +469,6 @@ const A = {
     if (!name) return { err: 'ตั้งชื่อก่อน' };
     const old = pet.name; pet.name = name;
     return { take: { name_tag: 1 }, petsChanged: true, petName: { id: pet.id, name }, msg: `🏷️ เปลี่ยนชื่อ ${old} เป็น "${name}" แล้ว` };
-  },
-
-  // 💧 ภารกิจระบบน้ำ: ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์ → ปลดล็อกท่อส่งน้ำ + หอถังน้ำสำรอง
-  damfix(ch, p, env) {
-    if (ch.boxes?.learn_water) return { err: '✅ คุณซ่อมโรงสูบน้ำไปแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ในหมวดระบบน้ำ' };
-    if (dist(env, ch, DAM_PUMP.x, DAM_PUMP.z) > 7) return { err: `ต้องอยู่ที่${DAM_PUMP.name}` };
-    const miss = Object.entries(DAM_NEED).filter(([k, q]) => !has(ch, k, q));
-    if (miss.length) return { err: `🔧 ต้องใช้ ${Object.entries(DAM_NEED).map(([k, q]) => `${ITEMS[k].icon}${ITEMS[k].name} ${ch.inv[k] || 0}/${q}`).join(' · ')}` };
-    (ch.boxes ||= {}).learn_water = 1;
-    return { take: { ...DAM_NEED }, give: { jicoin: 80 }, xp: { crafting: 40, survival: 30 }, sfx: 'quest', msg: '💧 ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์สำเร็จ! น้ำไหลเข้าระบบประปาแล้ว — ปลดล็อก 🚰 ท่อส่งน้ำ และ 🗼 หอถังน้ำสำรอง (หมวดระบบน้ำ) · +🪙 80', learnt: 'water' };
   },
 
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)

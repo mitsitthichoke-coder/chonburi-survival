@@ -4,7 +4,7 @@ import { TOWNS, LOOT_TABLE, QUEST_SPOTS } from './data.js';
 import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX, makeLabel, makeHuman, SKINS } from './models.js';
-import { LANDMARKS, DAM_PUMP } from './landmarks.js';
+import { LANDMARKS } from './landmarks.js';
 import { ROUTES, CAMPS, WATER_TOWERS } from './quest-core.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle, makeWaterTower } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
@@ -243,13 +243,11 @@ export class World {
       this.towerLights[tk] = B(0.5, 0.5, 0.5, '#ff4d4d', t.x, ty + 24.5, t.z);
       B(2, 1.4, 1.4, '#495057', t.x + 3, ty + 0.7, t.z); // ตู้ส่งสัญญาณ
     }
-    // 🗼 หอถังน้ำสำรองประจำอำเภอ + 💧 ป้ายโรงสูบน้ำเขื่อนเกาะจันทร์ (ภารกิจระบบน้ำ)
+    // 🗼 หอถังน้ำสำรองประจำอำเภอ
     for (const w of WATER_TOWERS) {
       const m = makeWaterTower(true); m.position.set(w.x, heightAt(w.x, w.z), w.z); this.scene.add(m);
       const lb = makeLabel(`🗼 ${w.name}`, '#74c0fc'); lb.position.set(w.x, heightAt(w.x, w.z) + 17, w.z); lb.scale.set(9, 2.2, 1); this.scene.add(lb);
     }
-    { const y = heightAt(DAM_PUMP.x, DAM_PUMP.z); B(0.15, 2.2, 0.15, '#495057', DAM_PUMP.x, y + 1.1, DAM_PUMP.z); B(1.6, 0.9, 0.08, '#1c7ed6', DAM_PUMP.x, y + 2.1, DAM_PUMP.z); this.damValve = B(0.5, 0.5, 0.5, '#ffd166', DAM_PUMP.x + 1.2, y + 0.4, DAM_PUMP.z);
-      const lb = makeLabel(`💧 ${DAM_PUMP.name} (ภารกิจระบบน้ำ)`, '#74c0fc'); lb.position.set(DAM_PUMP.x, y + 4, DAM_PUMP.z); lb.scale.set(10, 2.5, 1); this.scene.add(lb); }
     this.radioGlow = Object.values(this.radioGlows)[0]; this.towerLight = Object.values(this.towerLights)[0];
     // ค่ายกักกัน: รั้วสูง ประตูเหลือง เต็นท์ เสาธง ป้ายชื่อ
     for (const c of CAMPS) {

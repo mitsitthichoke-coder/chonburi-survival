@@ -636,7 +636,7 @@ export const RECIPES = [
 export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 }, water: { name: 'ระบบประปา', quest: true, how: 'ทำภารกิจซ่อมโรงสูบน้ำที่เขื่อนเกาะจันทร์ก่อน' } };
 // 💧 ภารกิจซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์: เอาของมาส่งครบ → ปลดล็อกท่อส่งน้ำและหอถังน้ำสำรอง
 export const DAM_NEED = { scrap: 6, copper_wire: 4, battery_pack: 1, fuel: 2 };
-export const learned = (ch, k) => !!ch?.boxes?.['learn_' + k];
+export const learned = (ch, k) => k === 'water' || !!ch?.boxes?.['learn_' + k]; // ระบบประปา (ท่อส่งน้ำ/หอถังน้ำ) ไม่ต้องผ่านภารกิจเขื่อนแล้ว — ภารกิจเขื่อนเหลือเป็นภารกิจเสริมรับเงินจิ
 export const learnHint = (k) => '🔒 ' + (LEARN[k]?.how || (k === 'wicker' ? 'ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) ก่อน' : `ต้องเรียน${LEARN[k]?.name || ''}ก่อน`));
 
 export const SKILLS = {

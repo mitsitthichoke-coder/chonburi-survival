@@ -231,8 +231,14 @@ export function ridePose(g, dt, speed, vt) {
 }
 // ท่านั่งพัก: นั่งพับขาบนพื้น มือวางบนเข่า
 export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.inner.position.z = 0; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
-// ท่านอนบนเตียง
-export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.inner.position.z = 0.9; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
+// ท่านอนบนเตียง (fit = นอนบนเตียงจริง: ย่อสัดส่วนเล็กน้อยและจัดกึ่งกลางให้พอดีเตียงยาว 2.2 ม. ไม่ให้ตัวยื่นออกนอกเตียง)
+export function sleepPose(g, fit = false) {
+  const u = g.userData; if (u.baseS === undefined) u.baseS = u.inner.scale.x;
+  const k = fit ? 0.86 : 1; u.inner.scale.setScalar(u.baseS * k);
+  u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35;
+  u.inner.position.z = fit ? (1.98 * u.baseS * k) / 2 - 0.05 : 0.9; // ปลายเท้า = +z · หัวไปทางหมอน (-z)
+  u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0;
+}
 // ✨ ระดับตีบวกจากรหัสไอเท็ม (ชื่อ~R7+6*d3 → 6)
 const plusLv = (k) => +((/\+(\d{1,2})/.exec(String(k || '').split('~')[1] || '') || [])[1] || 0);
 const GLOW_C = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };

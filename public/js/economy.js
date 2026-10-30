@@ -474,7 +474,7 @@ const A = {
 
   // 💧 ภารกิจระบบน้ำ: ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์ → ปลดล็อกท่อส่งน้ำ + หอถังน้ำสำรอง
   damfix(ch, p, env) {
-    if (learned(ch, 'water')) return { err: '✅ คุณซ่อมโรงสูบน้ำไปแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ในหมวดระบบน้ำ' };
+    if (ch.boxes?.learn_water) return { err: '✅ คุณซ่อมโรงสูบน้ำไปแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ในหมวดระบบน้ำ' };
     if (dist(env, ch, DAM_PUMP.x, DAM_PUMP.z) > 7) return { err: `ต้องอยู่ที่${DAM_PUMP.name}` };
     const miss = Object.entries(DAM_NEED).filter(([k, q]) => !has(ch, k, q));
     if (miss.length) return { err: `🔧 ต้องใช้ ${Object.entries(DAM_NEED).map(([k, q]) => `${ITEMS[k].icon}${ITEMS[k].name} ${ch.inv[k] || 0}/${q}`).join(' · ')}` };

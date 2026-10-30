@@ -532,6 +532,10 @@ export class Game {
     const where = this.restSpot();
     if (!where) return this.ui.toast('⚠️ พักได้เฉพาะที่ปลอดภัย: ในฐาน ศาลา/บ้าน ข้างกองไฟ หรือค่ายผู้รอดชีวิต (และต้องไม่มีผู้ติดเชื้ออยู่ใกล้)', 'warn');
     this.resting = { mode: R ? 'lie' : 'sit', t: 0, ht: R?.ht || 0, x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z };
+    if (R) { // นอนใกล้เตียง (ของตัวเอง/เพื่อน/สมาชิกบ้าน) → ขึ้นไปนอนบนเตียง จัดกึ่งกลางและหันหัวไปทางหมอน
+      const P = this.player.pos, me = this.id, bed = this.world.nearestStructure(P.x, P.z, 2.4, (s) => s.type === 'bed' && Math.abs(baseY(s) - P.y) < 2 && (!s.owner || s.owner === me || s.mem?.[me] || (this.friends || []).some((f) => f.id === s.owner)));
+      if (bed) Object.assign(this.resting, { bed: true, x: bed.x, z: bed.z, y: baseY(bed) + 0.37, ry: (bed.rot & 3) * Math.PI / 2 });
+    }
     this.ui.toast(R ? `😌 นอนพักที่${where} — ฟื้นตัวเร็วขึ้น (กด Z อีกครั้งหรือเดินเพื่อลุก)` : `🧘 นั่งพักที่${where} — ฟื้นพลัง ลดความเครียด (กด Z อีกครั้งเพื่อนอนพัก)`);
   }
   // 🪑 นั่งพักบนเก้าอี้ (หันตามเก้าอี้) — พักได้ทุกที่ที่ไม่มีผู้ติดเชื้ออยู่ใกล้
@@ -543,8 +547,10 @@ export class Game {
     this.ui.toast('🪑 นั่งพักบนเก้าอี้ — ฟื้นพลัง ลดความเครียด (เดินเพื่อลุก)');
   }
   stopRest(msg) {
-    if (!this.resting) return; this.resting = null;
+    const R0 = this.resting; if (!R0) return; this.resting = null;
     const u = this.player.mesh.userData; u.inner.rotation.x = 0; u.inner.position.y = 0; u.inner.position.z = 0;
+    if (u.baseS !== undefined) u.inner.scale.setScalar(u.baseS);
+    if (R0.bed) this.player.pos.set(R0.x + Math.cos(R0.ry) * 1.2, R0.y - 0.37, R0.z - Math.sin(R0.ry) * 1.2); // ลุกลงข้างเตียง
     if (msg) this.ui.toast(msg, 'warn');
   }
   updateRest(dt, moving) {
@@ -555,7 +561,7 @@ export class Game {
     const p = this.player, lie = R.mode === 'lie';
     p.pos.set(R.x, R.y, R.z); p.vy = 0; p.speedNow = 0;
     if (R.ry !== undefined) { p.ry = R.ry; p.mesh.rotation.y = R.ry; }
-    if (lie) sleepPose(p.mesh); else { sitPose(p.mesh); if (R.mode === 'chair') p.mesh.userData.inner.position.y = -0.02; }
+    if (lie) sleepPose(p.mesh, !!R.bed); else { sitPose(p.mesh); if (R.mode === 'chair') p.mesh.userData.inner.position.y = -0.02; }
     this.restTick(dt, lie ? 1.8 : R.mode === 'chair' ? 1.3 : 1, lie ? 50 : 90);
     return true;
   }

@@ -29,6 +29,8 @@ import { hash2 } from './terrain.js';
 const SAVE_KEY = 'cbs_save_v1';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// วัสดุก่อสร้างพื้นฐาน: ไม่กินช่องกระเป๋า
+const SLOT_FREE = new Set(['wood', 'stone', 'scrap', 'fiber', 'raw_fiber', 'twig', 'pebble', 'bamboo', 'rubber_wood', 'concrete', 'house_mat']);
 export class Game {
   constructor(profile, net, sfx = new Sfx()) {
     this.profile = profile; this.net = net; this.id = profile.id; this.sfx = sfx;
@@ -171,7 +173,7 @@ export class Game {
     this.auth.do('unequip', { slot });
   }
   maxSlots() { return BASE_SLOTS + wearStats(this.wear).carry + extraSlots(this.auth.ch); }
-  usedSlots() { let n = 0; for (const [k, q] of Object.entries(this.inv)) if (q > 0 && !ITEMS[k]?.quest && k !== 'jicoin') n += Math.ceil(q / stackOf(k)); return n; } // เงินจิไม่กินช่องกระเป๋า
+  usedSlots() { let n = 0; for (const [k, q] of Object.entries(this.inv)) if (q > 0 && !ITEMS[k]?.quest && k !== 'jicoin' && !SLOT_FREE.has(k)) n += Math.ceil(q / stackOf(k)); return n; } // เงินจิไม่กินช่องกระเป๋า
   overloaded() { return this.usedSlots() > this.maxSlots(); }
   dropItem(k, q) { if (this.hasItem(k, q)) this.auth.do('drop', { k, q }); }
 
@@ -211,11 +213,15 @@ export class Game {
     const hearth = (this.world.pavilions || []).find((p) => p.hearth && (p.lit || 0) > now && Math.hypot(p.x - P.x, p.z - P.z) < 7);
     const fire = this.nearFire || !!hearth, inside = !!sh || this.inCampNow;
     this.shelter = sh; this.hearthNear = hearth;
+    // ประตูค่ายของเรา: เปิดเมื่อเข้าใกล้ ปิดเมื่อเดินออกห่าง (หลังทำภารกิจหลักจบ)
+    if (this.quest?.done && this.quest.camp) { const c = this.quest.camp, gt = this.world.layout.gates[c.key], d = Math.hypot(P.x - c.x, P.z - (c.z - c.size / 2)); this.world.setGate(c.key, d < (gt?.opened ? 16 : 11)); }
     // เปียก
     let dw = -1;
     if (this.player.swim) dw = 25; else if (!inside && !this.vehicle?.s?.vt?.includes?.('car') && W.rain) dw = 4; else if (!inside && W.snow) dw = 1.5;
     if (fire) dw -= 5; else if (inside) dw -= 1.5;
     s.wet = clamp(s.wet + dw * dt, 0, 100);
+    // ลูกเห็บ: โดนทุก 3 วินาทีถ้าอยู่กลางแจ้ง (หลบในที่กำบัง/ค่าย/รถได้)
+    if (W.hail && !inside && !this.dead && !this.vehicle?.s?.vt?.includes?.('car')) { this.hailT = (this.hailT || 0) - dt; if (this.hailT <= 0) { this.hailT = 3; this.player.hurt(2, { src: 'ลูกเห็บ' }); } }
     // อุณหภูมิ
     const air = airTemp(W, this.isNight(), P.y), warm = wearStats(this.wear).warm + (inside && sh?.warm ? 0.3 : 0);
     const target = bodyTarget({ air, wet: s.wet, warm, fire, shelter: inside });
@@ -505,7 +511,7 @@ export class Game {
     if (fade) fade.style.opacity = Math.min(0.75, S.t / 2.5);
     if (S.t > 3 && !S.fired) { S.fired = true; S.done?.(); }
     if (S.t > 3) this.restTick(dt, 2.2, 35); // นอนบนเตียง: พักได้ผลดีที่สุด นอนต่อจนกว่าจะขยับ
-    if (moving && S.t > 0.6) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; }
+    if (moving && S.t > 0.6) { this.sleeping = null; p.pos.set(S.x + Math.sin(S.ry) * 1.4, S.y, S.z + Math.cos(S.ry) * 1.4); p.mesh.userData.inner.rotation.x = 0; p.mesh.userData.inner.position.y = 0; p.mesh.userData.inner.position.z = 0; }
     return true;
   }
   // 🧘 นั่ง/นอนพัก (ปุ่ม Z) — ทำได้เฉพาะที่ปลอดภัย: ในฐาน ศาลา/บ้าน ข้างกองไฟ ค่ายผู้รอดชีวิต และไม่มีผู้ติดเชื้ออยู่ใกล้
@@ -538,7 +544,7 @@ export class Game {
   }
   stopRest(msg) {
     if (!this.resting) return; this.resting = null;
-    const u = this.player.mesh.userData; u.inner.rotation.x = 0; u.inner.position.y = 0;
+    const u = this.player.mesh.userData; u.inner.rotation.x = 0; u.inner.position.y = 0; u.inner.position.z = 0;
     if (msg) this.ui.toast(msg, 'warn');
   }
   updateRest(dt, moving) {
@@ -754,6 +760,7 @@ export class Game {
       if (k === 'escape') { if (this.builder.active) this.builder.stop(); this.ui.closeAll(); return; }
       if (k === 'b' && !e.repeat) { if (this.builder.active) { this.builder.stop(); return; } return this.ui.togglePanel('build'); }
       if (k === 'q' && !e.repeat && this.builder.type) return this.builder.rotateNext();
+      if (k === 'q' && !e.repeat) return this.ui.togglePanel('quest');
       if (k === 'x' && !e.repeat) { if (this.builder.demolish) this.builder.stop(); else if (!this.builder.active && !this.ui.open && this.quickDemolish()) return; else if (canBuild(this.inv)) this.builder.startDemolish(); return; }
       if (k === 'l' && !e.repeat && !this.ui.open) return this.home.toggleLock();
       if (k === 'enter') { this.ui.chatting = true; document.exitPointerLock?.(); document.getElementById('chat-input').focus(); e.preventDefault(); return; }
@@ -1110,7 +1117,7 @@ export class Game {
 
   updateStats(dt) {
     const s = this.stats, preg = this.social.preg[this.id], surv = skillLevel(this.skills.survival);
-    const hungerRate = 0.055 * (preg ? 1.4 : 1) * (this.player.speedNow > 6 ? 1.5 : 1) * (1 - (surv - 1) * 0.03);
+    const hungerRate = 0.055 * (preg ? 1.4 : 1) * (this.player.speedNow > 6 ? 1.5 : 1) * (1 - (surv - 1) * 0.03) * (this.resting || this.sleeping ? 0.4 : 1); // นั่ง/นอนพัก: หิวช้าลง
     s.hunger = Math.max(0, s.hunger - hungerRate * dt * (s.sick > 0 ? 1.5 : 1) * (this.tempState === 'cold' || this.tempState === 'freeze' ? 1.3 : 1)); // หนาว = หิวเร็ว
     s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1) * (this.tempState === 'hot' ? 1.6 : 1));
     if (s.sick > 0) s.sick -= dt;
@@ -1190,13 +1197,14 @@ export class Game {
     // ฝน / หิมะ / หมอก (คำนวณจากเวลา ทุกคนเห็นตรงกัน)
     const wx = weatherAt(this.now()), Wp = this.weather;
     if (wx.rain !== Wp.rain && wx.rain) this.ui.toast('🌧️ ฝนเริ่มตก — หลบในศาลา/บ้านเพื่อไม่ให้เปียก · รองน้ำฝนได้ (กด E)');
+    if (wx.hail && !Wp.hail) this.ui.toast('🧊 ลูกเห็บตก! หลบเข้าศาลา/บ้าน/ค่าย หรือเข้าไปในรถ ไม่งั้นจะเจ็บตัว', 'warn');
     if (wx.snow && !Wp.snow) this.ui.toast('❄️ หิมะตก! อากาศหนาวจัด — ใส่เสื้อกันหนาว ก่อไฟ หรือหลบในศาลาที่มีเตาผิง', 'warn');
     if (wx.fog >= 0.7 && Wp.fog < 0.7) this.ui.toast('🌫️ หมอกลงหนา มองเห็นได้ไม่ไกล ระวังผู้ติดเชื้อ!', 'warn');
     Object.assign(Wp, wx);
     const fall = Wp.rain || Wp.snow; this.rain.visible = fall;
     if (fall) {
       const pos = this.rain.geometry.attributes.position, sp = Wp.snow ? 3.2 : 30, M = this.rain.material;
-      M.color.set(Wp.snow ? '#ffffff' : '#aac'); M.size = Wp.snow ? 0.13 : 0.1; M.opacity = Wp.snow ? 0.55 : 0.45;
+      M.color.set(Wp.snow || Wp.hail ? '#ffffff' : '#aac'); M.size = Wp.snow ? 0.13 : Wp.hail ? 0.2 : 0.1; M.opacity = Wp.snow ? 0.55 : 0.45;
       for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) - sp * dt; if (y < -10) y += 40; pos.setY(i, y); if (Wp.snow) pos.setX(i, pos.getX(i) + Math.sin(y + i) * dt * 0.6); }
       pos.needsUpdate = true; this.rain.position.set(P.x, P.y + 10, P.z);
     }
@@ -1220,7 +1228,7 @@ export class Game {
     if (this.world._rt <= 0) { this.world._rt = 2; this.world.tickRespawn(Date.now()); }
     this.xpT += dt; if (this.xpT > 60) { this.xpT = 0; this.gainXp('survival', 4); for (const p of this.pets) if (!p.home) p.loyal = Math.max(0, p.loyal - (p.gear.neck === 'pet_bandana' ? 1 : 2)); }
     // แมวนำเนื้อมาให้
-    for (const p of this.pets) if ((p.type === 'cat' || p.type === 'chicken') && !p.stay && !p.home) { p.t = (p.t || 0) + dt; if (p.t > 180) { p.t = 0; this.auth.do('petgift', { id: p.id, kind: p.type === 'cat' ? 'meat' : 'egg' }); } }
+    for (const p of this.pets) if ((p.type === 'cat' || p.type === 'chicken' || p.type === 'duck') && !p.stay && !p.home) { p.t = (p.t || 0) + dt; if (p.t > 180) { p.t = 0; this.auth.do('petgift', { id: p.id, kind: p.type === 'cat' ? 'meat' : 'egg' }); } }
     this.radioT -= dt; if (this.radioT <= 0) { this.radioT = 150 + Math.random() * 120; this.ui.chat('', RADIO[Math.floor(Math.random() * RADIO.length)], true); }
     this.saveT -= dt; if (this.saveT <= 0) { this.saveT = 15; this.save(); }
     this.overT = (this.overT || 0) - dt;

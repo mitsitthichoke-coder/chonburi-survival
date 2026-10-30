@@ -18,6 +18,7 @@ const ANIMALS = {
   boar: { hp: 35, speed: 1.4, flee: 4.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]], hostileWhenHit: true },
   deer: { hp: 25, speed: 1.2, flee: 6.5, drops: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]] },
   chicken: { hp: 8, speed: 0.8, flee: 3.5, drops: [['raw_meat', 1]] },
+  duck: { hp: 8, speed: 0.8, flee: 3.5, drops: [['raw_meat', 1], ['duck_feather', 0.5]] },
   raptor: { hp: 70, speed: 2.2, flee: 0, drops: [] }, tiger: { hp: 90, speed: 1.8, flee: 0, drops: [] }, trike: { hp: 170, speed: 1.0, flee: 0, drops: [] },
   elephant: { hp: 400, speed: 0.9, flee: 0, drops: [] }, buffalo: { hp: 90, speed: 0.9, flee: 0, drops: [] }, sheep: { hp: 20, speed: 0.9, flee: 4, drops: [] },
   dog: { hp: 30, speed: 1.4, stray: true }, cat: { hp: 20, speed: 1.0, stray: true }, bird: { hp: 10, speed: 1.8, stray: true, fly: true },
@@ -418,6 +419,8 @@ export class Entities {
           // กลัวกองไฟของผู้เล่น: ถอยออก ไม่ไล่ใครที่ยืนข้างกองไฟ
           const fires = this.fireList(), fire = !T.boss && nearFireOf(fires, e.pos.x, e.pos.z, FIRE_SAFE + 2);
           if (fire) { this.steer(e, fire.f.x, fire.f.z, 2.5, dt, true); animateHuman(e.mesh, dt, e.speed); break; }
+          // ถือคบเพลิงอยู่ในมือ (ไม่ใช่แค่มีในกระเป๋า): ผู้ติดเชื้อธรรมดาถอยหนีในระยะ 8 ม.
+          if (!T.boss && g.equipped === 'torch' && !g.dead && dP < 8) { this.steer(e, P.x, P.z, 2.8, dt, true); animateHuman(e.mesh, dt, e.speed); break; }
           // ฐานที่ยังป้องกันอยู่: ผู้ติดเชื้อเข้าไม่ได้ และไม่ไล่คนที่อยู่ในฐาน
           const bases = this.baseList(), now = g.now(), sb = safeBaseAt(bases, e.pos.x, e.pos.z, now, 1);
           if (sb) { this.steer(e, (sb.box[0] + sb.box[2]) / 2, (sb.box[1] + sb.box[3]) / 2, 3, dt, true); animateHuman(e.mesh, dt, e.speed); break; }

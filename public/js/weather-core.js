@@ -3,9 +3,9 @@
 import { hash2 } from './terrain.js';
 export const WX_SLOT = 150000;
 export function weatherAt(now) {
-  const s = Math.floor(now / WX_SLOT), rain = hash2(s, 77) < 0.3, snow = !rain && hash2(s, 91) < 0.08;
+  const s = Math.floor(now / WX_SLOT), rain = hash2(s, 77) < 0.3, snow = !rain && hash2(s, 91) < 0.08, hail = rain && hash2(s, 63) < 0.18; // hail = ลูกเห็บ (18% ของช่วงที่ฝนตก)
   const fr = hash2(s, 55), fog = fr < 0.12 ? 0.85 : fr < 0.3 ? 0.45 : rain ? 0.2 : 0; // 0.85 หนา · 0.45 บาง
-  return { rain, snow, fog };
+  return { rain, snow, fog, hail };
 }
 export const fogName = (f) => (f >= 0.7 ? 'หมอกลงหนา' : f >= 0.35 ? 'หมอกบาง' : '');
 // อุณหภูมิอากาศ (°C) ตามเวลา/สภาพอากาศ — ชลบุรีปกติร้อน กลางคืนเย็นลง

@@ -3,12 +3,12 @@ import { WORLD, heightAt, waterAt, coastX, fbm, mulberry32, LAKES, ISLANDS, MOUN
 import { TOWNS, LOOT_TABLE, QUEST_SPOTS } from './data.js';
 import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
-import { mat, GFX, makeLabel } from './models.js';
+import { mat, GFX, makeLabel, makeHuman, SKINS } from './models.js';
 import { LANDMARKS, DAM_PUMP } from './landmarks.js';
 import { ROUTES, CAMPS, WATER_TOWERS } from './quest-core.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle, makeWaterTower } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
-import { isHalloween, onTheme } from './theme.js';
+import { isHalloween, onTheme, theme } from './theme.js';
 import { mat as tintMat } from './models.js';
 import { collidersFor } from './building-core.js';
 
@@ -31,7 +31,7 @@ export class World {
     this.buildTowns();
     this.buildResources();
     this.buildMinimap();
-    this.buildHalloween(); onTheme(() => this.applyTheme()); this.applyTheme();
+    this.buildHalloween(); this.buildSanta(); onTheme(() => this.applyTheme()); this.applyTheme();
   }
 
   colorAt(x, z, h, out) {
@@ -273,10 +273,14 @@ export class World {
   }
 
   // เปิดประตูค่ายของเส้นทางเรา (เมื่อทำภารกิจหลักจบ)
-  openGate(key = 'navy') {
-    const g = this.layout.gates[key]; if (!g || g.opened) return; g.opened = true;
-    const i = this.baseBuildings.indexOf(g); if (i >= 0) { this.baseBuildings.splice(i, 1); this.rebuildColliders(); }
-    if (this.gateMeshes?.[key]) this.gateMeshes[key].position.x += g.w;
+  openGate(key = 'navy') { this.setGate(key, true); }
+  // เปิด/ปิดประตูค่ายอัตโนมัติ (เรียกซ้ำได้ ไม่ทำอะไรถ้าสถานะเท่าเดิม)
+  setGate(key, open) {
+    const g = this.layout.gates[key]; if (!g || !!g.opened === !!open) return; g.opened = !!open;
+    const i = this.baseBuildings.indexOf(g);
+    if (open && i >= 0) { this.baseBuildings.splice(i, 1); this.rebuildColliders(); }
+    else if (!open && i < 0) { this.baseBuildings.push(g); this.rebuildColliders(); }
+    if (this.gateMeshes?.[key]) this.gateMeshes[key].position.x += open ? g.w : -g.w;
   }
 
   // ---------- ธีมฮาโลวีน: ฟักทองแกะสลักเรืองแสงตามเมือง + ค้างคาวบินรอบตัว ----------
@@ -311,7 +315,26 @@ export class World {
     }
     g.visible = false; this.scene.add(g); this.halloween = g;
   }
-  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); }
+  // 🎅 ธีมคริสต์มาส: ยามซานต้ายืนเฝ้าสองข้างประตูทุกค่ายกักกัน (แค่ตั้งประดับ ไม่มีบทบาทในระบบ NPC)
+  buildSanta() {
+    this.santa = new THREE.Group();
+    for (const c of CAMPS) {
+      const g = this.layout.gates[c.key]; if (!g) continue;
+      for (const sd of [-1, 1]) {
+        const x = g.x + sd * (g.w / 2 + 1.4), z = c.z - c.size / 2 - 1.4;
+        const m = makeHuman('m', { skin: SKINS[0], shirt: '#c1121f', pants: '#8d0801', hair: '#f8f9fa' });
+        m.position.set(x, heightAt(x, z), z); m.rotation.y = Math.PI;
+        const hat = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.5, 8), mat('#d00000')); hat.position.y = 0.42;
+        const pom = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#ffffff')); pom.position.y = 0.7;
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), mat('#ffffff')); brim.position.y = 0.2;
+        m.userData.head?.add(hat, pom, brim);
+        const lb = makeLabel('🎅 ยามซานต้า', '#ffd166'); lb.position.y = 2.3; m.add(lb);
+        this.santa.add(m);
+      }
+    }
+    this.scene.add(this.santa);
+  }
+  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); if (this.santa) this.santa.visible = theme() === 'christmas'; }
   tickHalloween(dt, P, night) {
     if (!this.halloween?.visible) return;
     for (const b of this.bats) {
@@ -383,6 +406,12 @@ export class World {
       bamboo: [...[[0, 0], [0.35, 0.2], [-0.3, 0.25], [0.15, -0.35], [-0.2, -0.25]].map(([x, z], i) => [new THREE.CylinderGeometry(0.07, 0.09, 6 - i * 0.5, 5).translate(x, 3 - i * 0.25, z), i % 2 ? '#7aa33a' : '#93b84a']), [new THREE.ConeGeometry(1.1, 2.4, 6).translate(0, 5.6, 0), '#6a994e']],
       // ดอกไม้สวยงาม: ก้านเขียว ดอกสีชมพู/เหลือง/ม่วง
       wildflower: [[new THREE.ConeGeometry(0.2, 0.5, 4).translate(0, 0.25, 0), '#52b788'], [new THREE.SphereGeometry(0.13, 6, 4).translate(0, 0.55, 0), '#ff8fab'], [new THREE.SphereGeometry(0.11, 6, 4).translate(0.18, 0.45, 0.1), '#ffd166'], [new THREE.SphereGeometry(0.1, 6, 4).translate(-0.15, 0.48, -0.08), '#c77dff']],
+      // อ้อย: ลำเรียวสูงมีข้อ ใบยาวด้านบน
+      sugarcane: [...[[0, 0, 3.0], [0.28, 0.12, 2.6], [-0.25, 0.2, 3.2], [0.1, -0.3, 2.8]].map(([x, z, h], i) => [new THREE.CylinderGeometry(0.045, 0.06, h, 5).translate(x, h / 2, z), i % 2 ? '#8fbc3a' : '#6b8e23']), [new THREE.ConeGeometry(0.55, 1.1, 5).translate(0, 3.2, 0), '#7cb518']],
+      // ยางพารา: ลำต้นเรียวสีเทาอ่อน พุ่มโปร่ง
+      rubber_tree: [[new THREE.CylinderGeometry(0.14, 0.22, 4.4, 5).translate(0, 2.2, 0), '#a39a86'], [new THREE.IcosahedronGeometry(1.25, 0).scale(1, 0.85, 1).translate(0, 5.0, 0), '#3a7d2c'], [new THREE.IcosahedronGeometry(0.8, 0).translate(0.7, 4.3, 0.3), '#4c9a2a']],
+      // ยางนา: ต้นสูงใหญ่ ลำต้นตรง เรือนยอดกว้าง
+      yang_na: [[new THREE.CylinderGeometry(0.3, 0.46, 8, 6).translate(0, 4, 0), '#7a6a58'], [new THREE.IcosahedronGeometry(2.5, 0).scale(1, 1.15, 1).translate(0, 9.2, 0), '#2f5d34'], [new THREE.IcosahedronGeometry(1.6, 0).translate(1.4, 7.6, 0.6), '#3b7a3e']],
       pebble: [[new THREE.DodecahedronGeometry(0.22, 0).translate(0, 0.08, 0), '#9a9a92'], [new THREE.DodecahedronGeometry(0.14, 0).translate(0.3, 0.05, 0.15), '#7d7d76']],
     };
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
@@ -394,7 +423,7 @@ export class World {
       for (const [type, arr] of Object.entries(types)) {
         this.resMesh[ck][type] = parts[type].map(([g, c]) => {
           const im = new THREE.InstancedMesh(g, mat(c), arr.length);
-          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock' || type === 'orange_tree' || type === 'durian_tree' || type === 'bamboo';
+          im.castShadow = type === 'tree' || type === 'palm' || type === 'rock' || type === 'orange_tree' || type === 'durian_tree' || type === 'bamboo' || type === 'rubber_tree' || type === 'yang_na';
           arr.forEach((r, i) => {
             Q.setFromEuler(new THREE.Euler(0, r.ry, 0)); S.setScalar(r.s);
             M.compose(new THREE.Vector3(r.x, r.y - 0.1, r.z), Q, S); im.setMatrixAt(i, M);
@@ -498,6 +527,13 @@ export class World {
   }
   rebuildColliders() { this.buildings = [...this.baseBuildings, ...this.structures.flatMap(collidersFor)]; }
   tickStructures(now, dt, P) {
+    // บ้านโปร่ง: เมื่อเข้าไปอยู่ในบ้าน ซ่อนหลังคา/พื้นชั้นบนที่อยู่เหนือหัวในระยะ 12 ม. เพื่อให้มองเห็นภายใน
+    const inHouse = this.shelterAt(P.x, P.z, P.y)?.kind === 'house';
+    for (const s of this.structures) {
+      if (s.type !== 'roof') continue;
+      const rm = this.structureMeshes.get(s.id); if (!rm) continue;
+      rm.visible = !(inHouse && s.y > P.y + 1.2 && Math.abs(s.x - P.x) < 12 && Math.abs(s.z - P.z) < 12);
+    }
     for (const m of this.structureMeshes.values()) {
       if (Math.abs(m.position.x - P.x) > 120 || Math.abs(m.position.z - P.z) > 120) continue;
       updateStructureMesh(m, now, dt);

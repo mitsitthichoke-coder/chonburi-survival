@@ -88,7 +88,7 @@ drawPreview();
 // คุณภาพกราฟิก (จำไว้ในเครื่อง)
 let gfx = 'normal'; try { gfx = localStorage.getItem('cbs_gfx') || (isTouchDevice() ? 'low' : 'normal'); } catch { /* ignore */ }
 // ธีม: โลกล่มสลาย / ฮาโลวีน
-const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : 'วันล่มสลาย'; };
+const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : theme() === 'christmas' ? 'คริสต์มาสล่มสลาย 🎄' : theme() === 'newyear' ? 'ปีใหม่ 2027 🎆' : 'วันล่มสลาย'; };
 $('#guide-btn').onclick = (e) => { e.preventDefault(); openGuide(); };
 bindLangButton($('#lang-menu')); bindLangButton($('#lang-btn'));
 $('#ver-menu').textContent = 'v' + VERSION; $('#ver-game').textContent = 'v' + VERSION;
@@ -124,6 +124,7 @@ function showAccount() {
   $('#f-name-label').textContent = 'ชื่อตัวละคร (ห้ามซ้ำกับผู้เล่นคนอื่น)';
   // มีตัวละครแล้ว: แค่เข้าสู่ระบบด้วยชื่อผู้ใช้ + รหัสผ่าน แล้วกดเข้าเกม ไม่ต้องตั้งค่าตัวละครใหม่
   $('#f-have').hidden = !C; $('#f-create').hidden = !!C;
+  $('#f-edit').style.display = C ? 'none' : ''; // กลับเข้าเกมซ้ำ: ไม่แสดงปุ่ม/เมนูแก้ไขตัวละคร
   if (C) $('#f-have-name').textContent = `${C.name} · ${JOBS[C.job]?.icon || ''} ${JOBS[C.job]?.name || ''}`;
   if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; profile.hand = C.hand === 'l' ? 'l' : 'r'; refreshSegs(); }
   $('#b-online').textContent = C ? '▶️ เข้าเกม' : '✨ สร้างตัวละครและเข้าเกม';

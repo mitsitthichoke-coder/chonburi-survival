@@ -254,7 +254,11 @@ export function makeStructureMesh(s) {
     }
     case 'coop': {
       add(box(2.8, 0.12, 2.8, '#d4a373', 0, 0.06, 0));
-      for (const [x, z, w, d] of [[0, -1.4, 2.8, 0.1], [0, 1.4, 2.8, 0.1], [-1.4, 0, 0.1, 2.8], [1.4, 0, 0.1, 2.8]]) add(box(w, 1.1, d, '#b08968', x, 0.55, z));
+      // เล้าโปร่ง: รั้วซี่ไม้ (ราง 2 ชั้น + เสา) มองเห็นไก่ข้างใน
+      for (const [x, z, w, d] of [[0, -1.4, 2.8, 0.1], [0, 1.4, 2.8, 0.1], [-1.4, 0, 0.1, 2.8], [1.4, 0, 0.1, 2.8]]) {
+        for (const y of [0.35, 0.85]) add(box(w, 0.07, d, '#b08968', x, y, z));
+        for (let i = 0; i < 6; i++) { const t = -1.3 + i * 0.52; add(box(w > d ? 0.07 : d, 1.1, w > d ? d : 0.07, '#b08968', w > d ? t : x, 0.55, w > d ? z : t)); }
+      }
       add(box(1.4, 1.2, 1.2, WOOD, -0.6, 0.7, -0.7)); const r = box(1.6, 0.1, 1.5, ROOF, -0.6, 1.35, -0.7); r.rotation.z = 0.15; add(r);
       root.userData.hens = [makeAnimal('chicken'), makeAnimal('chicken')];
       root.userData.hens.forEach((h, i) => { h.position.set(0.3 + i * 0.5, 0.12, 0.4 - i * 0.6); root.add(h); });

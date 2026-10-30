@@ -3,7 +3,7 @@ import { SELF_PENALTY, shopPenalty, gearKind, parseKey, enhanceRates, enhanceSto
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
 import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
 import { pieceInfo } from './homestead.js';
-import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress } from './economy.js';
+import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress, SQ_DAILY } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { WATER_TOWERS } from './quest-core.js';
@@ -466,7 +466,7 @@ export class UI {
 
   refreshPanels() {
     if (this.open !== 'panel') return;
-    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]'], ['guide', '📖 คู่มือ']];
+    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]'], ['quest', '📜 ภารกิจ [Q]'], ['guide', '📖 คู่มือ']];
     if (this.tab === 'forge') tabs.splice(1, 0, ['forge', '⚒️ ตีบวก']);
     let html = `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${this.tab === k ? 'on' : ''}">${n}</button>`).join('')}<button data-close="1" class="x">✕</button></div><div class="body">`;
     if (this.person) html += this.personHTML();
@@ -474,6 +474,7 @@ export class UI {
     else if (this.tab === 'char') html += this.charHTML();
     else if (this.tab === 'equip') html += this.equipHTML();
     else if (this.tab === 'rel') html += this.relHTML();
+    else if (this.tab === 'quest') html += this.questHTML();
     else if (this.tab === 'pets') html += this.petsHTML();
     else if (this.tab === 'build') html += this.buildHTML();
     else if (this.tab === 'bshop') html += this.baseShopHTML();
@@ -483,6 +484,20 @@ export class UI {
     else if (this.tab === 'map') html += `<div class="mapbar"><button data-mz="1">➕ ซูมเข้า</button><button data-mz="-1">➖ ซูมออก</button><button data-mz="0">📍 กลับมาที่ฉัน</button><span class="hint">ซูม ×${(this.mapZoom || 1).toFixed(1)} · หมุนล้อเมาส์/หยิกสองนิ้วเพื่อซูม · ลากเพื่อเลื่อน</span></div><canvas id="bigmap" width="${Math.round(700 * (WORLD.maxX - WORLD.minX) / (WORLD.maxZ - WORLD.minZ))}" height="700" style="max-width:100%;height:auto"></canvas><p class="hint">🟣 คุณ · 🔵 เพื่อน · 🟠 ที่พัก/กองไฟ · 🟢 เพื่อน · ⭐ เป้าหมายภารกิจ · 🟦 กล่องภารกิจ (🔒 แดง = ยังล็อก, เขียว = เปิดได้) · 💜 กล่องหายาก — แผนที่สร้างจากพิกัดจริงของจังหวัดชลบุรี</p>`;
     $('#panel').innerHTML = html + '</div>';
     if (this.tab === 'map') this.drawBigMap();
+  }
+
+  // 📜 หน้าภารกิจ (กด Q): ภารกิจหลัก + ภารกิจสุ่ม
+  questHTML() {
+    const g = this.g, q = g.sq, qh = g.quest.trackerHTML();
+    let h = `<h4>📜 ภารกิจหลัก</h4><div class="hint">${qh || '<small>ทำภารกิจหลักจบแล้ว — ค่ายกักกันเป็นเขตปลอดภัยของคุณ</small>'}</div><h4>🎲 ภารกิจสุ่ม</h4>`;
+    const day = Math.floor(g.now() / 86400000), done = g.boxes?.sqd === day ? g.boxes.sqc || 0 : 0;
+    h += `<p><small>วันนี้ทำสำเร็จแล้ว ${done}/${SQ_DAILY} ครั้ง</small></p>`;
+    if (!q || q.exp < g.now()) h += '<button data-sqt="1">🟢 ง่าย</button> <button data-sqt="2">🟡 ปานกลาง (รางวัล ×2)</button> <button data-sqt="3">🔴 ยาก (รางวัล ×3.5)</button>';
+    else {
+      const [a, b] = sqProgress(g.ch, q, g.player.pos), left = Math.max(0, Math.ceil((q.exp - g.now()) / 60000));
+      h += `<p><small>เหลือ ${left} นาที · รางวัล 🪙 ${q.coin}</small><br><b>${esc(sqText(q))}</b> <small>(${a}/${b})</small></p><button data-sq="done" ${a >= b ? '' : 'disabled'}>✅ ส่งภารกิจ</button> <button data-sq="drop">✖ ยกเลิก</button>`;
+    }
+    return h;
   }
 
   invHTML() {
@@ -804,6 +819,8 @@ export class UI {
     if (d.close) return this.closeAll();
     if (d.tab === 'guide') { openGuide(); return; }
     if (d.tab) { this.person = null; this.tab = d.tab; return this.refreshPanels(); }
+    if (d.sq) { g.auth.do('sq' + d.sq); return this.refreshPanels(); }
+    if (d.sqt) { g.auth.do('sqnew', { tier: +d.sqt }); return this.refreshPanels(); }
     if (d.back) { this.person = null; return this.refreshPanels(); }
     if (d.dropmode) { this.dropMode = !this.dropMode; this.salvMode = false; return this.refreshPanels(); }
     if (d.salvmode) { this.salvMode = !this.salvMode; this.dropMode = false; return this.refreshPanels(); }

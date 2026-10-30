@@ -33,7 +33,7 @@ const CAMP_DEFS = [
   { key: 'transport', name: 'ค่ายกักกัน ในสถานีขนส่งจังหวัดชลบุรี (หนองใหญ่)', ...P(13.168, 101.342), size: 30 },
   { key: 'tech', name: 'ค่ายกักกัน ในโรงเรียนเทคนิคชลบุรี (บ้านบึง)', ...P(13.298, 101.079), size: 30 },
 ];
-export const CAMPS = CAMP_DEFS.map((c) => ({ ...c, ...landNear(c.x, c.z, c.key.length * 13, 3, 30), size: c.size || 30 }));
+export const CAMPS = CAMP_DEFS.map((c) => ({ ...c, ...landNear(c.x, c.z, c.key.length * 13, 3, 30), size: (c.size || 30) + 14 })); // ขยายค่ายให้กว้างขึ้น
 export const campOf = (k) => CAMPS.find((c) => c.key === k) || CAMPS[0];
 export const inAnyCamp = (x, z, pad = 0) => CAMPS.some((c) => Math.abs(x - c.x) < c.size / 2 + pad && Math.abs(z - c.z) < c.size / 2 + pad);
 export const inCampOf = (k, x, z, pad = 0) => { const c = campOf(k); return Math.abs(x - c.x) < c.size / 2 + pad && Math.abs(z - c.z) < c.size / 2 + pad; };

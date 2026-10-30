@@ -230,9 +230,9 @@ export function ridePose(g, dt, speed, vt) {
   } else { u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; u.lArm.rotation.x = u.rArm.rotation.x = -1.0; u.inner.rotation.x = 0.12; }
 }
 // ท่านั่งพัก: นั่งพับขาบนพื้น มือวางบนเข่า
-export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
+export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.inner.position.z = 0; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
 // ท่านอนบนเตียง
-export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
+export function sleepPose(g) { const u = g.userData; u.inner.rotation.x = -Math.PI / 2; u.inner.position.y = 0.35; u.inner.position.z = 0.9; u.lLeg.rotation.x = u.rLeg.rotation.x = 0; u.lArm.rotation.x = u.rArm.rotation.x = 0.15; u.head.rotation.x = 0; }
 // ✨ ระดับตีบวกจากรหัสไอเท็ม (ชื่อ~R7+6*d3 → 6)
 const plusLv = (k) => +((/\+(\d{1,2})/.exec(String(k || '').split('~')[1] || '') || [])[1] || 0);
 const GLOW_C = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };
@@ -332,7 +332,7 @@ export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
     u.lArm.rotation.x = -2.7 + a * 0.45; u.rArm.rotation.x = -2.7 - a * 0.45;
     u.lArm.rotation.z = -0.15; u.rArm.rotation.z = 0.15;
     u.lLeg.rotation.x = -0.7 - Math.max(0, -a) * 0.6; u.rLeg.rotation.x = -0.7 - Math.max(0, a) * 0.6;
-    u.inner.rotation.x = 0.18; u.head.rotation.x = -0.35; u.inner.position.y = 0;
+    u.inner.rotation.x = 0.18; u.head.rotation.x = -0.35; u.inner.position.y = 0; u.inner.position.z = 0;
     return;
   }
   if (mode === 'crouch' || mode === 'crawl') {
@@ -352,7 +352,7 @@ export function animateHuman(g, dt, speed, attacking = 0, mode = null) {
     }
     return;
   }
-  u.lArm.rotation.z = 0; u.rArm.rotation.z = 0; u.inner.rotation.x = 0; u.head.rotation.x = 0; u.inner.position.y = 0;
+  u.lArm.rotation.z = 0; u.rArm.rotation.z = 0; u.inner.rotation.x = 0; u.head.rotation.x = 0; u.inner.position.y = 0; u.inner.position.z = 0;
   u.phase += dt * (2 + speed * 1.6);
   const sw = Math.min(1, speed / 4) * 0.8;
   const a = Math.sin(u.phase) * sw;
@@ -550,6 +550,7 @@ const PET_BODY = {
   deer: [0.5, 0.55, 1.2, 1.1, 1.35, 0.5, 1.55, 0.65, 0.3, [0.18, 0.45]],
   boar: [0.7, 0.6, 1.2, 0.75, 0.85, 0.55, 0.85, 0.75, 0.45, [0.22, 0.4]],
   chicken: [0.3, 0.3, 0.4, 0.35, 0.5, 0.15, 0.6, 0.18, 0.18, [0.06, 0.0]],
+  duck: [0.3, 0.3, 0.45, 0.33, 0.48, 0.18, 0.58, 0.2, 0.18, [0.06, 0.0]],
   raptor: [0.5, 0.55, 1.1, 1.05, 1.3, 0.4, 1.45, 0.65, 0.36, [0.18, -0.1]],
   trike: [1.4, 1.2, 2.4, 1.4, 1.6, 1.15, 1.8, 1.55, 0.9, [0.5, 0.8]],
   tiger: [0.6, 0.55, 1.4, 0.85, 1.0, 0.65, 1.15, 0.85, 0.5, [0.22, 0.5]],

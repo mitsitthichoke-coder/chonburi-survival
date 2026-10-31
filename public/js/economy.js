@@ -8,6 +8,7 @@ import { heightAt, waterAt } from './terrain.js';
 import { GUILD_COST, TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
+import { fortOf, FORT_UP_COST } from './fortress.js';
 import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
@@ -425,6 +426,23 @@ const A = {
     const q = Math.min(Math.max(1, p.q | 0), 100000); if (!has(ch, 'jicoin', q)) return { err: '🪙 เงินจิไม่พอ' };
     const r = env.guildDonate(q); if (r.err) return { err: r.err };
     return { take: { jicoin: q }, sfx: 'coin', msg: `🏰 บริจาค 🪙 ${q} เข้ากองทุนกิลด์ (รวม ${r.ok.fund})` };
+  },
+  // 🏰 ใช้สิ่งอำนวยความสะดวก / ซื้อของในป้อมกิลด์ (เฉพาะสมาชิกกิลด์ที่ครองป้อม · ต้องอยู่ในเขตป้อม)
+  fortuse(ch, p, env) {
+    const F = fortOf(p.key), P = F && env.fortPerm?.(F.key); if (!P) return { err: '🏰 ใช้ได้เฉพาะสมาชิกกิลด์ที่ครองป้อมนี้' };
+    if (dist(env, ch, F.x, F.z) > F.r) return { err: 'ต้องอยู่ในเขตป้อม' };
+    const f = F.fac.find((x) => x.id === p.fac); if (!f) return { err: 'ไม่มีสิ่งอำนวยความสะดวกนี้' };
+    if ((P.r[f.sys] | 0) < f.lv) return { err: `${f.sys === 'water' ? '💧 ระบบน้ำ' : '⚡ ระบบไฟ'} ต้องพัฒนาถึงระดับ ${f.lv} ก่อน` };
+    if (!cool(ch, 'fort_' + f.id, 60, env.now())) return { err: 'ใช้ได้ทุก 60 วินาที', silent: true };
+    return { fx: { fort: { ...f.fx, name: f.n } }, sfx: 'level' };
+  },
+  fortbuy(ch, p, env) {
+    const F = fortOf(p.key), P = F && env.fortPerm?.(F.key); if (!P) return { err: '🏰 ร้านนี้ขายเฉพาะสมาชิกกิลด์ที่ครองป้อม' };
+    if (dist(env, ch, F.x, F.z) > F.r) return { err: 'ต้องอยู่ในเขตป้อม' };
+    const row = F.shop.find((x) => x[0] === p.k); if (!row) return { err: 'ไม่มีสินค้านี้' };
+    if ((P.r.power | 0) < row[2]) return { err: `⚡ ต้องพัฒนาระบบไฟถึงระดับ ${row[2]} จึงจะมีสินค้านี้` };
+    const q = Math.min(99, Math.max(1, p.q | 0)), cost = row[1] * q; if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${cost})` };
+    return { take: { jicoin: cost }, give: { [row[0]]: q }, msg: `🛒 ซื้อ ${ITEMS[row[0]].icon} ${ITEMS[row[0]].name} ×${q} แล้ว` };
   },
   // 🏡 ซื้อฐานสำเร็จรูปประจำอำเภอ (อำเภอละ 1 ฐาน · คนละ 1 ฐาน) ด้วยเงินจิที่ป้ายราคา
   buybase(ch, p, env) {

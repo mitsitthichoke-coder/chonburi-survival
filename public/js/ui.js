@@ -8,6 +8,7 @@ import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { WATER_TOWERS } from './quest-core.js';
 import { VOL_CH } from './audio.js';
+import { forts as FORTS, FORT_UP_COST } from './fortress.js';
 import { openGuide } from './guide-ui.js';
 import { fogName } from './weather-core.js';
 
@@ -708,6 +709,21 @@ export class UI {
   }
 
   // 🏰 หน้ากิลด์
+  // 🏰 ป้อมกิลด์ 3 แห่ง: สถานะ · ยึด · พัฒนาน้ำ/ไฟ · ใช้สิ่งอำนวยความสะดวก · ร้านค้า
+  fortsHTML(G) {
+    const g = this.g, me = G?.members.find((m) => m.id === g.id), boss = me && ['leader', 'officer'].includes(me.r), lead = G && G.leader === g.id, P = g.player?.pos || null;
+    const mine = G && Object.entries(g.forts || {}).find(([, v]) => v && v.gid === G.id)?.[0];
+    return '<h4>🏰 ป้อมกิลด์ (เรือนจำ 3 แห่ง)</h4>' + FORTS().map((F) => {
+      const st = g.forts?.[F.key], own = st && G && st.gid === G.id, d = P ? Math.round(Math.hypot(P.x - F.x, P.z - F.z)) : null, inside = d !== null && d < F.r;
+      let h = `<div class="recipe"><div><b>${F.icon} ${esc(F.name)}</b> <small>${esc(F.theme)}${d !== null ? ` · ห่าง ${d} ม.` : ''}</small><br>${st ? `ครอบครองโดย <b>${esc(st.gname)}</b> · 💧 ระดับ ${st.water} · ⚡ ระดับ ${st.power}` : `ว่าง · ยึดด้วยกองทุน 🪙${F.cost} · กิลด์เลเวล ${F.lvReq}+`}</div><div>`;
+      if (!st && lead && !mine) h += `<button data-fcap="${F.key}" ${G.lv >= F.lvReq && G.fund >= F.cost ? '' : 'disabled'}>⚔️ ยึดป้อม</button>`;
+      if (own && boss) h += ['water', 'power'].map((sy) => (st[sy] < 3 ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[st[sy] + 1] ? '' : 'disabled'}>${sy === 'water' ? '💧' : '⚡'} ขึ้นระดับ ${st[sy] + 1} (🪙${FORT_UP_COST[st[sy] + 1]})</button>` : '')).join(' ');
+      if (own && lead) h += ` <button data-frel="${F.key}">ปล่อยคืน</button>`;
+      h += '</div></div>';
+      if (own) h += `<div class="recipe"><div><small>${inside ? '📍 คุณอยู่ในเขตป้อม — ใช้ได้เลย' : '🚶 ต้องเดินทางไปที่ป้อมก่อนถึงจะใช้ได้'}</small><br>${F.fac.map((f) => `<button data-ffac="${F.key}:${f.id}" ${inside && st[f.sys] >= f.lv ? '' : 'disabled'} title="ต้อง${f.sys === 'water' ? 'ระบบน้ำ' : 'ระบบไฟ'}ระดับ ${f.lv}">${f.n}</button>`).join(' ')}<br>🛒 ${F.shop.map(([k, pr, lv]) => `<button data-fbuy="${F.key}:${k}" ${inside && st.power >= lv ? '' : 'disabled'}>${ITEMS[k].icon} ${esc(ITEMS[k].name)} 🪙${pr}${lv ? ` (⚡${lv})` : ''}</button>`).join(' ')}</div></div>`;
+      return h;
+    }).join('');
+  }
   guildHTML() {
     const g = this.g, G = g.guild;
     if (!g.net.online) return '<h3>🏰 กิลด์</h3><p class="hint">กิลด์ใช้ได้เมื่อเล่นออนไลน์</p>';
@@ -726,7 +742,7 @@ export class UI {
       <h4>👥 สมาชิก</h4><div class="recipes">${G.members.map((m) => `<div class="recipe"><div><b>${m.r === 'leader' ? '👑 ' : m.r === 'officer' ? '🎖️ ' : ''}${esc(m.name)}</b> ${m.online ? '🟢' : '⚪'}${m.id === g.id ? ' <small>(คุณ)</small>' : ''}</div>${lead && m.id !== g.id ? `<button data-gpro="${esc(m.id)}">${m.r === 'officer' ? '⬇️ ถอดรอง' : '🎖️ ตั้งรอง'}</button> <button data-gtr="${esc(m.id)}">👑 โอนหัวหน้า</button>` : ''}${boss && m.id !== g.id && m.r !== 'leader' && !(m.r === 'officer' && !lead) ? ` <button data-gkick="${esc(m.id)}">นำออก</button>` : ''}</div>`).join('')}</div>
       ${boss ? `<p><b>➕ เชิญ:</b> ${cands.map(([id, n]) => `<button data-ginv="${esc(id)}">${esc(n)}</button>`).join(' ') || '<span class="hint">ไม่มีผู้เล่น/เพื่อนออนไลน์ใกล้ ๆ</span>'}</p>` : ''}
       <p><button data-gleave="1">🚪 ออกจากกิลด์</button> ${lead ? '<button data-gdis="1">💥 ยุบกิลด์</button>' : ''}</p>
-      <p class="hint">💬 แชทกิลด์: กดปุ่มช่องแชทที่มุมจอสลับเป็น 🏰 กิลด์ · <small>หมู่บ้านกิลด์ ร้านชุดกิลด์ และโรงตีเหล็ก/เตาหลอมกิลด์ จะเปิดในอัปเดตถัดไป</small></p>`;
+      ${this.fortsHTML(G)}<p class="hint">💬 แชทกิลด์: กดปุ่มช่องแชทที่มุมจอสลับเป็น 🏰 กิลด์ · <small>หมู่บ้านกิลด์ ร้านชุดกิลด์ และโรงตีเหล็ก/เตาหลอมกิลด์ จะเปิดในอัปเดตถัดไป</small></p>`;
   }
   partyHTML() {
     const g = this.g, P = g.party;
@@ -887,6 +903,11 @@ export class UI {
     if (d.petsup) { g.callPetsUp(); return; }
     if (d.treq) { g.net.send({ t: 'trade', a: 'req', to: d.treq }); return; }
     if (d.gcreate) { const n = ($('#guild-name')?.value || '').trim(); if (n.length < 2) return this.toast('ตั้งชื่อกิลด์ก่อน (อย่างน้อย 2 ตัวอักษร)', 'warn'); g.auth.do('gcreate', { name: n }); setTimeout(() => g.net.send({ t: 'guild', a: 'hello' }), 600); return; }
+    if (d.fcap) { g.net.send({ t: 'guild', a: 'fcap', key: d.fcap }); return; }
+    if (d.fup) { const [key, sys] = d.fup.split(':'); g.net.send({ t: 'guild', a: 'fup', key, sys }); return; }
+    if (d.frel) { this.confirm('ปล่อยป้อมคืน? ระดับน้ำ/ไฟที่พัฒนาไว้จะหายไป', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'frel', key: d.frel }); }); return; }
+    if (d.ffac) { const [key, fac] = d.ffac.split(':'); g.auth.do('fortuse', { key, fac }); return; }
+    if (d.fbuy) { const [key, k] = d.fbuy.split(':'); g.auth.do('fortbuy', { key, k, q: 1 }); return; }
     if (d.gdon) { g.auth.do('gdonate', { q: +d.gdon }); return; }
     if (d.ginv) { g.net.send({ t: 'guild', a: 'invite', to: d.ginv }); return; }
     if (d.gacc) { g.net.send({ t: 'guild', a: 'accept', gid: d.gacc }); this.guildInvites = (this.guildInvites || []).filter((i) => i.gid !== d.gacc); return; }

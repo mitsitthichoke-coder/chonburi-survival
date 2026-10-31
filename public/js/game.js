@@ -298,6 +298,11 @@ export class Game {
       if (f.sick && Math.random() < f.sick * (hasPerk(this.ch, 'chef', 0) ? 0.5 : 1)) { s.sick = 60; this.ui.toast('🤢 ท้องไส้ปั่นป่วน... อาหารเป็นพิษ! (กินยาสมุนไพรหรือรอให้หาย)', 'warn'); }
       else this.ui.toast(`กิน ${it.name} แล้ว`);
     }
+    if (fx.fort) {
+      const f = fx.fort; s.thirst = clamp(s.thirst + (f.thirst || 0), 0, 100); s.hunger = clamp(s.hunger + (f.hunger || 0), 0, 100); s.hp = clamp(s.hp + (f.hp || 0), 0, this.maxHp());
+      if (f.stamina) s.stamina = clamp(s.stamina + f.stamina, 0, this.maxStamina()); if (f.stress) s.stress = clamp((s.stress || 0) + f.stress, 0, 100); if (f.stopBleed) s.bleeding = false;
+      this.ui.toast(`🏰 ใช้ ${f.name} แล้ว`, 'level');
+    }
     if (fx.fan) {
       // พัดสาน: ลดอุณหภูมิร่างกาย (ถ้าร้อน) และคลายร้อน
       const was = s.temp ?? 37; s.temp = Math.max(36.8, was - (was > 37.4 ? 0.9 : 0.3)); s.stress = Math.max(0, (s.stress || 0) - 2);
@@ -855,7 +860,7 @@ export class Game {
           this.timeOffset = m.now - Date.now(); this.startTime = m.startTime;
           if (m.theme) setTheme(m.theme, true);
           for (const [i, until] of Object.entries(m.hearth || {})) this.setHearth(+i, until);
-          this.lib = m.lib || {}; this.guild = m.guild || null;
+          this.lib = m.lib || {}; this.guild = m.guild || null; this.forts = m.forts || {};
           for (const [id, until] of Object.entries(m.res)) if (until > m.now) this.world.setResState(+id, until - this.timeOffset);
           for (const [id, until] of Object.entries(m.loot)) if (until > m.now) this.world.setLootState(id, until - this.timeOffset);
           {
@@ -877,6 +882,7 @@ export class Game {
         case 'chat': if (m.ch === 'pm' && m.from !== this.id) this.lastPm = m.name; this.ui.chat(m.name, m.text, m.from === 'system', m.ch, m.toName, m.from === this.id); break;
         case 'theme': setTheme(m.v, true); this.ui.toast(m.v === 'halloween' ? '🎃 เจ้าของเซิร์ฟเวอร์เปิดธีมฮาโลวีน!' : '🌆 เจ้าของเซิร์ฟเวอร์เปลี่ยนกลับเป็นธีมโลกล่มสลาย'); break;
         case 'party': this.party = m.id ? m : null; this.ui.refreshPanels(); break;
+        case 'forts': this.forts = m.f || {}; if (this.ui.open === 'panel' && this.ui.tab === 'guild') this.ui.refreshPanels(); break;
         case 'guild': this.guild = m.g; if (this.ui.open === 'panel' && this.ui.tab === 'guild') this.ui.refreshPanels(); break;
         case 'guildinv': this.sfx.play('love'); (this.ui.guildInvites ||= []).push({ gid: m.gid, name: m.name, from: m.from }); this.ui.toast(`🏰 ${m.from} ชวนคุณเข้ากิลด์ ${m.name} (ดูที่แท็บ 🏰 กิลด์)`); break;
         case 'partyinv': this.sfx.play('love'); this.ui.confirm(`👥 ${m.name} ชวนคุณเข้าปาร์ตี้ ตกลงไหม?`, (ok) => { if (ok) this.net.send({ t: 'party', a: 'accept', pid: m.pid }); }); break;
@@ -1182,6 +1188,7 @@ export class Game {
     } else if (m.kind === 'abos') {
       this.sfx.play('groan', { vol: 0.8 });
       this.ui.toast(`🗺️ ${m.boss || 'บอสพื้นที่'}ปรากฏตัวที่${m.name}`, 'warn');
+    } else if (m.kind === 'fort') { this.sfx.play('level'); this.ui.toast(m.text, 'level'); this.ui.chat('', m.text, true);
     } else if (m.kind === 'abosdown') this.ui.chat('', `🗺️ ${m.name}ถูกล้มแล้ว`, true);
     else if (m.kind === 'admiral') {
       this.sfx.play('groan', { vol: 1 }); this.sfx.play('gate');

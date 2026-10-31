@@ -4,6 +4,7 @@ import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-
 import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
 import { guildLevel, GUILD_LV, GUILD_MEMBERS, GUILD_MAX } from './building-core.js';
 import { baseSites, baseSiteStructs } from './basesites.js';
+import { forts, fortOf, FORT_UP_COST } from './fortress.js';
 import { npcCampSpot } from './quest-core.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
@@ -104,6 +105,10 @@ export class WorldCore {
     if (!G) return null; const lv = guildLevel(G.fund), nx = GUILD_LV[lv + 1] ?? null;
     return { id: G.id, name: G.name, leader: G.leader, lv, fund: G.fund, next: nx, max: GUILD_MEMBERS[lv], members: Object.entries(G.members).map(([id, m]) => ({ id, name: m.n, r: m.r, online: this.players.has(id) })) };
   }
+  // 🏰 ป้อมกิลด์ (db.forts[key] = { gid, water, power, since })
+  fortsView() { const o = {}; for (const f of forts()) { const r = this.db.forts?.[f.key]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0 } : null; } return o; }
+  fortsSync() { this.broadcast({ t: 'forts', f: this.fortsView() }); }
+  fortPerm(id, key) { const G = this.guildOf(id), r = this.db.forts?.[key]; return G && r && r.gid === G.id ? { G, r, boss: ['leader', 'officer'].includes(G.members[id]?.r), lead: G.leader === id } : null; }
   guildSync(G) { const v = this.guildView(G); for (const id of Object.keys(G.members)) if (this.players.has(id)) this.send(id, { t: 'guild', g: v }); }
   guildCreate(id, name) {
     this.db.guilds ||= {}; this.db.guildOf ||= {};
@@ -127,7 +132,21 @@ export class WorldCore {
     this.db.guilds ||= {}; this.db.guildOf ||= {};
     const G = this.guildOf(id);
     switch (m.a) {
-      case 'hello': return this.send(id, { t: 'guild', g: this.guildView(G) });
+      case 'hello': this.send(id, { t: 'forts', f: this.fortsView() }); return this.send(id, { t: 'guild', g: this.guildView(G) });
+      case 'fcap': { // ยึดป้อม (หัวหน้ากิลด์ · เลเวลถึง · จ่ายจากกองทุน · ถือได้ทีละ 1 ป้อม)
+        const F = fortOf(m.key); this.db.forts ||= {}; if (!F || !G || G.leader !== id) return say(id, 'ต้องเป็นหัวหน้ากิลด์ถึงจะยึดป้อมได้');
+        if (this.db.forts[F.key] && this.db.guilds[this.db.forts[F.key].gid]) return say(id, 'ป้อมนี้มีกิลด์ครอบครองแล้ว');
+        if (Object.values(this.db.forts).some((r) => r.gid === G.id)) return say(id, 'กิลด์ถือครองป้อมได้ทีละ 1 แห่ง');
+        if (guildLevel(G.fund) < F.lvReq) return say(id, `ต้องเป็นกิลด์เลเวล ${F.lvReq} ขึ้นไป`); if (G.fund < F.cost) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${F.cost})`);
+        G.fund -= F.cost; this.db.forts[F.key] = { gid: G.id, water: 0, power: 0, since: Date.now() }; this.dirty(); this.guildSync(G); this.fortsSync();
+        this.broadcast({ t: 'announce', kind: 'fort', text: `🏰 กิลด์ ${G.name} ยึด ${F.icon} ${F.name} ได้สำเร็จ!` }); return;
+      }
+      case 'fup': { // พัฒนาระบบน้ำ/ไฟ (หัวหน้า/รอง · จ่ายจากกองทุน)
+        const P = this.fortPerm(id, m.key), sys = m.sys === 'power' ? 'power' : 'water'; if (!P || !P.boss) return say(id, 'ต้องเป็นหัวหน้า/รองหัวหน้ากิลด์ที่ครองป้อมนี้');
+        const nx = (P.r[sys] | 0) + 1; if (nx > 3) return say(id, 'ระบบอยู่ระดับสูงสุดแล้ว'); if (P.G.fund < FORT_UP_COST[nx]) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${FORT_UP_COST[nx]})`);
+        P.G.fund -= FORT_UP_COST[nx]; P.r[sys] = nx; this.dirty(); this.guildSync(P.G); this.fortsSync(); return say(id, `${sys === 'water' ? '💧 ระบบน้ำ' : '⚡ ระบบไฟ'} ขึ้นเป็นระดับ ${nx} แล้ว`);
+      }
+      case 'frel': { const P = this.fortPerm(id, m.key); if (!P || !P.lead) return; delete this.db.forts[m.key]; this.dirty(); this.fortsSync(); return say(id, 'ปล่อยป้อมคืนแล้ว'); }
       case 'invite': {
         if (!G) return say(id, 'ยังไม่ได้อยู่ในกิลด์'); if (!['leader', 'officer'].includes(G.members[id].r)) return say(id, 'เชิญได้เฉพาะหัวหน้า/รองหัวหน้ากิลด์');
         const to = m.to, other = this.players.get(to); if (!other) return say(id, 'ผู้เล่นไม่ได้ออนไลน์');
@@ -162,7 +181,8 @@ export class WorldCore {
       case 'disband': {
         if (!G || G.leader !== id) return;
         for (const i of Object.keys(G.members)) { delete this.db.guildOf[i]; this.send(i, { t: 'guild', g: null }); say(i, `🏰 กิลด์ ${G.name} ถูกยุบ`); }
-        delete this.db.guilds[G.id]; this.dirty(); return;
+        for (const k of Object.keys(this.db.forts || {})) if (this.db.forts[k].gid === G.id) delete this.db.forts[k];
+        delete this.db.guilds[G.id]; this.dirty(); this.fortsSync(); return;
       }
     }
   }
@@ -263,7 +283,7 @@ export class WorldCore {
     for (const [k, r] of Object.entries(this.db.rels)) { const [a, b] = k.split('|'); if (a === id) rels[b] = r; else if (b === id) rels[a] = r; }
     this.send(id, {
       t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, hearth: this.db.hearth || {}, structures: this.db.structures,
-      guild: this.guildView(this.guildOf(id)), rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse', lib: this.lib || {},
+      guild: this.guildView(this.guildOf(id)), forts: this.fortsView(), rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse', lib: this.lib || {},
       players: this.relayState ? [...this.players.values()].filter((p) => p.id !== id).map((p) => this.pub(p)) : [],
     });
     this.sendFriends(id);

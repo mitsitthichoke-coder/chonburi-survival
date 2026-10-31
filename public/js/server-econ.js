@@ -38,7 +38,7 @@ export function installEconomy(core) {
       smithNear: (P) => { for (const [oid, o] of self.players) { if (oid === id || !o.p) continue; const c = self.chars.get(oid); if (c && hasPerk(c, 'blacksmith', 0) && Math.hypot(o.p[0] - P.x, o.p[2] - P.z) < 6) return { ch: c, name: o.name }; } return null; },
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
-      guildCreate: (name) => self.guildCreate(id, name), guildDonate: (amt) => self.guildDonate(id, amt),
+      fortPerm: (key) => self.fortPerm(id, key), guildCreate: (name) => self.guildCreate(id, name), guildDonate: (amt) => self.guildDonate(id, amt),
       // 🏡 ฐานสำเร็จรูป: เปลี่ยนเจ้าของทั้งชุด / คืนสู่ตลาด
       claimBase: (key, uid, cost, nm) => {
         for (const o of self.db.structures) if (o.prefab === key) { o.owner = uid; if (o.type === 'basecore') Object.assign(o, { paid: cost, name: `บ้านของ${nm || 'ฉัน'}`.slice(0, 20), prot: Date.now(), mem: {} }); }

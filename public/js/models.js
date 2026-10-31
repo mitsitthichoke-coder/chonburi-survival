@@ -2,14 +2,19 @@ import * as THREE from 'three';
 import { tr, onLang } from './i18n.js';
 
 const matCache = new Map();
+// 🎨 โหมดการ์ตูน: วัสดุ toon แบ่งโทนแสง 4 ขั้น + สีพาสเทลสว่างใส
+let toonGrad = null;
+const gradient = () => toonGrad ||= (() => { const t = new THREE.DataTexture(new Uint8Array([95, 95, 95, 255, 170, 170, 170, 255, 225, 225, 225, 255, 255, 255, 255, 255]), 4, 1, THREE.RGBAFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const pastel = (hex) => { const c = new THREE.Color(hex), h = {}; c.getHSL(h); c.setHSL(h.h, Math.min(1, h.s * 0.9 + 0.04), Math.min(0.88, h.l * 0.62 + 0.34)); return c; };
+export const toonMat = (opts = {}, boost = 1) => { const t = new THREE.MeshToonMaterial({ ...opts, gradientMap: gradient() }); if (boost !== 1) t.color.setRGB(boost, boost, boost); return t; };
 export function mat(color, opts = {}) {
-  const k = color + JSON.stringify(opts);
-  if (!matCache.has(k)) matCache.set(k, new THREE.MeshLambertMaterial({ color, ...opts }));
+  const k = color + JSON.stringify(opts) + GFX.mode;
+  if (!matCache.has(k)) matCache.set(k, GFX.mode === 'toon' && !opts.emissive ? new THREE.MeshToonMaterial({ ...opts, color: pastel(color), gradientMap: gradient() }) : new THREE.MeshLambertMaterial({ color, ...opts }));
   return matCache.get(k);
 }
 // คุณภาพกราฟิก: low (ประหยัด) · normal (ปกติ) · smooth (ละมุน: ขอบมน แสงนุ่ม)
 export const GFX = { mode: 'normal' };
-export function setGfx(mode) { GFX.mode = ['low', 'normal', 'smooth'].includes(mode) ? mode : 'normal'; }
+export function setGfx(mode) { GFX.mode = ['low', 'normal', 'smooth', 'toon'].includes(mode) ? mode : 'normal'; }
 // กล่องขอบมน: ดันจุดยอดที่มุม/ขอบให้โค้ง แล้วตั้งค่าแนวตั้งฉากให้แสงไล่เฉดนุ่ม
 const geoCache = new Map();
 function roundedBox(w, h, d) {
@@ -26,7 +31,7 @@ function roundedBox(w, h, d) {
   geoCache.set(k, g); return g;
 }
 const box = (w, h, d, color, x = 0, y = 0, z = 0) => {
-  const m = new THREE.Mesh(GFX.mode === 'smooth' ? roundedBox(w, h, d) : new THREE.BoxGeometry(w, h, d), mat(color));
+  const m = new THREE.Mesh(GFX.mode === 'smooth' || GFX.mode === 'toon' ? roundedBox(w, h, d) : new THREE.BoxGeometry(w, h, d), mat(color));
   m.position.set(x, y, z); m.castShadow = true; return m;
 };
 const limb = (w, h, d, color, x, y, z) => {
@@ -110,6 +115,7 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   const body = box(shoulder, 0.7, 0.3, shirt, 0, 1.25, 0); inner.add(body);
   if (sex === 'f') inner.add(box(0.56, 0.22, 0.34, shirt, 0, 0.98, 0));
   const head = new THREE.Group(); head.position.set(0, 1.62, 0); inner.add(head);
+  if (GFX.mode === 'toon' && kind !== 'zombie') head.scale.setScalar(1.3); // หัวโตน่ารักแบบ chibi
   head.add(box(0.34, 0.36, 0.34, skin, 0, 0.12, 0));
   addHair(head, kind === 'zombie' ? (sex === 'f' ? 'long' : 'short') : look.style, sex, hair);
   // ตา

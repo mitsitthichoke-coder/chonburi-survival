@@ -78,7 +78,7 @@ export class Game {
   }
 
   initRenderer() {
-    const q = GFX.mode, smooth = q === 'smooth', low = q === 'low';
+    const q = GFX.mode, smooth = q === 'smooth' || q === 'toon', low = q === 'low';
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: !low, powerPreference: 'high-performance' });
     r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : smooth ? Math.min(devicePixelRatio, 2) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 1.5)); r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = !low; r.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -88,7 +88,7 @@ export class Game {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog('#a8b8a0', 60, 420);
     this.camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 900);
-    this.hemi = new THREE.HemisphereLight('#e6efff', '#6a6a4c', 1.0); // โทนสว่างใสขึ้นเล็กน้อย this.scene.add(this.hemi);
+    this.hemi = new THREE.HemisphereLight('#e6efff', '#6a6a4c', GFX.mode === 'toon' ? 1.3 : 1.0); // โทนสว่างใสขึ้นเล็กน้อย (การ์ตูน: สว่างกว่า) this.scene.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight('#fff2d6', 1.4);
     sun.castShadow = !low; const sm = smooth && !this.lowSpec ? 4096 : this.lowSpec ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
     Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 300 });

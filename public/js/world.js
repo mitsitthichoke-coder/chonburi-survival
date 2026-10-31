@@ -3,7 +3,7 @@ import { WORLD, heightAt, waterAt, coastX, fbm, mulberry32, LAKES, ISLANDS, MOUN
 import { TOWNS, LOOT_TABLE, QUEST_SPOTS } from './data.js';
 import { getLayout, collideBoxes, roofUnder, inCamp } from './citygen.js';
 import { RES_TYPES, getResources } from './resources-core.js';
-import { mat, GFX, makeLabel, makeHuman, SKINS } from './models.js';
+import { mat, GFX, makeLabel, makeHuman, SKINS, toonMat } from './models.js';
 import { LANDMARKS } from './landmarks.js';
 import { ROUTES, CAMPS, WATER_TOWERS } from './quest-core.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle, makeWaterTower } from './structures3d.js';
@@ -54,7 +54,7 @@ export class World {
 
   buildTerrain() {
     const w = WORLD.maxX - WORLD.minX, d = WORLD.maxZ - WORLD.minZ;
-    const seg = GFX.mode === 'smooth' ? 4 : GFX.mode === 'low' ? 8 : 6; // ละมุน = พื้นละเอียดขึ้น
+    const seg = GFX.mode === 'smooth' || GFX.mode === 'toon' ? 4 : GFX.mode === 'low' ? 8 : 6; // ละมุน = พื้นละเอียดขึ้น
     const geo = new THREE.PlaneGeometry(w, d, Math.round(w / seg), Math.round(d / seg));
     geo.rotateX(-Math.PI / 2);
     geo.translate((WORLD.minX + WORLD.maxX) / 2, 0, (WORLD.minZ + WORLD.maxZ) / 2);
@@ -70,7 +70,7 @@ export class World {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.computeVertexNormals();
-    this.terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.terrain = new THREE.Mesh(geo, GFX.mode === 'toon' ? toonMat({ vertexColors: true }, 1.18) : new THREE.MeshLambertMaterial({ vertexColors: true }));
     this.terrain.receiveShadow = true;
     this.scene.add(this.terrain);
   }
@@ -121,11 +121,11 @@ export class World {
     const boxes = L.boxes.map((b) => ({ ...b, color: new THREE.Color(...b.rgb) }));
     const cars = L.cars.map((c) => ({ ...c, color: new THREE.Color().setHSL(c.hue, 0.4, 0.35) }));
     // อาคาร (instanced)
-    const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), boxes.length);
+    const toon = GFX.mode === 'toon', bm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), toon ? toonMat({}, 1.05) : new THREE.MeshLambertMaterial(), boxes.length);
     const M = new THREE.Matrix4();
     boxes.forEach((b, i) => {
       M.compose(new THREE.Vector3(b.x, b.y0 + b.h / 2, b.z), new THREE.Quaternion(), new THREE.Vector3(b.w, b.h, b.d));
-      bm.setMatrixAt(i, M); bm.setColorAt(i, b.burnt ? b.color.clone().multiplyScalar(0.45) : b.color);
+      bm.setMatrixAt(i, M); bm.setColorAt(i, toon ? b.color.clone().lerp(new THREE.Color(b.burnt ? '#b8a99a' : '#ffffff'), b.burnt ? 0.45 : 0.28) : b.burnt ? b.color.clone().multiplyScalar(0.45) : b.color);
     });
     bm.castShadow = true; bm.receiveShadow = true; this.scene.add(bm);
     // หน้าต่าง (แถบมืด)

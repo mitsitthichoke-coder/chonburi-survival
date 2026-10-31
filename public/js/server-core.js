@@ -763,16 +763,25 @@ export class WorldCore {
     if (this.tMs <= 0) {
       this.tMs = 0.25;
       const K = FAUNA_IDX;
-      const m = [];
-      for (const f of this.fauna.values()) m.push(f.k === 'npc' ? f.idx : f.id, K[f.k], Math.round(f.x * 10), Math.round(f.z * 10), Math.round(f.ry * 100), Math.round(f.spd * 10));
-      this.broadcast({ t: 'ms', m });
+      // 📡 ลดแลค: ส่งเฉพาะสัตว์/NPC ที่อยู่ใกล้ผู้เล่นแต่ละคน (รัศมี 240) แทนการส่งทั้งโลกให้ทุกคน
+      const rows = []; for (const f of this.fauna.values()) rows.push([f.x, f.z, f.k === 'npc' ? f.idx : f.id, K[f.k], Math.round(f.x * 10), Math.round(f.z * 10), Math.round(f.ry * 100), Math.round(f.spd * 10)]);
+      for (const p of this.players.values()) {
+        if (!p.p) continue; const m = [];
+        for (const r of rows) if (Math.abs(r[0] - p.p[0]) < 240 && Math.abs(r[1] - p.p[2]) < 240) m.push(r[2], r[3], r[4], r[5], r[6], r[7]);
+        this.send(p.id, { t: 'ms', m });
+      }
     }
     this.tZs -= dt;
     if (this.tZs <= 0) {
       this.tZs = 0.16;
-      const z = [...this.zombies.values()].map((zb) => [zb.id, Math.round(zb.x * 10) / 10, Math.round(zb.z * 10) / 10, Math.round(zb.ry * 100) / 100, Math.round(zb.spd * 10) / 10, zb.tier | 0, Math.max(1, Math.round((zb.hp / zb.maxHp) * 100))]);
-      if (z.length || this._hadZ) this.broadcast({ t: 'zs', z });
-      this._hadZ = z.length > 0;
+      // 📡 ส่งเฉพาะผู้ติดเชื้อในรัศมี 170 รอบผู้เล่นแต่ละคน (บอสเห็นได้ไกลกว่า) — ลดข้อมูลต่อวินาทีมาก เมื่อมีผู้ติดเชื้อทั้งโลกจำนวนมาก
+      const all = [...this.zombies.values()];
+      for (const p of this.players.values()) {
+        if (!p.p) continue; const z = [];
+        for (const zb of all) { const R = ZTIERS[zb.tier | 0]?.boss ? 320 : 170; if (Math.abs(zb.x - p.p[0]) < R && Math.abs(zb.z - p.p[2]) < R) z.push([zb.id, Math.round(zb.x * 10) / 10, Math.round(zb.z * 10) / 10, Math.round(zb.ry * 100) / 100, Math.round(zb.spd * 10) / 10, zb.tier | 0, Math.max(1, Math.round((zb.hp / zb.maxHp) * 100))]); }
+        if (z.length || p._hadZ) this.send(p.id, { t: 'zs', z });
+        p._hadZ = z.length > 0;
+      }
     }
     this.tSlow -= dt; if (this.tSlow <= 0) { this.tSlow = 5; this.slowTick(); }
     this.tBoss -= dt * 1000; if (this.tBoss <= 0) { this.tBoss = BOSS_EVERY; if (Math.random() < BOSS_CHANCE) this.spawnBoss(); }

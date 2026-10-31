@@ -84,8 +84,16 @@ function buildLayout() {
   }
   for (let i = 0; i < roadPts.length; i++) if (rng() < 0.03) {
     const [x, z] = roadPts[i]; const ox = (rng() - 0.5) * 3;
+    if (inAnyCamp(x + ox, z, 8)) continue; // ไม่มีรถร้างในค่ายกักกัน
     cars.push({ x: x + ox, z, ry: rng() * Math.PI, hue: rng() });
     loot.push({ x: x + ox, z, kind: 'car' });
+  }
+  // ทุกเมืองต้องมีรถร้างข้างถนน (นอกค่าย) อย่างน้อย 1 คัน ไว้เก็บแบตเตอรี่ของภารกิจเริ่มต้น
+  for (const t of TOWNS) {
+    if (loot.some((l) => l.kind === 'car' && Math.hypot(l.x - t.x, l.z - t.z) < t.r * 1.2)) continue;
+    let best = null, bd = 1e9;
+    for (const [x, z] of roadPts) { const d = Math.hypot(x - t.x, z - t.z); if (d < bd && d > 6 && !inAnyCamp(x + 2, z, 8)) { bd = d; best = [x + 2, z]; } }
+    if (best) { cars.push({ x: best[0], z: best[1], ry: rng() * Math.PI, hue: rng() }); loot.push({ x: best[0], z: best[1], kind: 'car' }); }
   }
   // จักรยานจอดทิ้งข้างถนน: ครึ่งหนึ่งขี่ได้เลย อีกครึ่งพังต้องซ่อมก่อน
   for (let i = 0; i < roadPts.length; i++) if (rng() < 0.014) {

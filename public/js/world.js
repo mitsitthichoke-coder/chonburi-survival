@@ -326,13 +326,13 @@ export class World {
         const pom = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#ffffff')); pom.position.y = 0.7;
         const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), mat('#ffffff')); brim.position.y = 0.2;
         m.userData.head?.add(hat, pom, brim);
-        const lb = makeLabel('🎅 ยามซานต้า', '#ffd166'); lb.position.y = 2.3; m.add(lb);
+        const lb = makeLabel('🎅 ยามรักษาความปลอดภัย', '#ffd166'); lb.position.y = 2.3; m.add(lb);
         this.santa.add(m);
       }
     }
     this.scene.add(this.santa);
   }
-  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); if (this.santa) this.santa.visible = theme() === 'christmas'; }
+  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); if (this.santa) this.santa.visible = true; /* ยามซานต้าประจำค่ายอยู่ตลอดปี */ }
   tickHalloween(dt, P, night) {
     if (!this.halloween?.visible) return;
     for (const b of this.bats) {

@@ -69,3 +69,11 @@ export const QUEST_KEEPOUT = [
   ...CAMPS.map((c) => ({ x: c.x, z: c.z, r: c.size / 2 + 8 })),
   ...WATER_TOWERS.map((w) => ({ x: w.x, z: w.z, r: 7 })),
 ];
+
+// 🏕️ NPC อาศัยอยู่ในค่ายกักกันที่ใกล้เมืองเดิมที่สุด (ยืนชิดรั้วด้านประตู ให้คนข้างนอกคุย/ซื้อขายได้) · ผู้ติดต่อเควสเริ่มต้น (แก้ว) อยู่ข้างนอกในเมือง
+export function npcCampSpot(npcs, i) {
+  const n = npcs[i]; if (!n || Object.values(ROUTES).some((r) => r.contact === n.id)) return null;
+  const t = town(n.town), near = (m) => { let b = CAMPS[0], bd = 1e9; for (const c of CAMPS) { const d = Math.hypot(c.x - m.x, c.z - m.z); if (d < bd) { bd = d; b = c; } } return b; };
+  const c = near(t), mates = npcs.map((m, j) => [m, j]).filter(([m]) => !Object.values(ROUTES).some((r) => r.contact === m.id) && near(town(m.town)) === c), k = mates.findIndex(([, j]) => j === i);
+  return { camp: c.key, x: +(c.x + (k - (mates.length - 1) / 2) * 4).toFixed(2), z: +(c.z - c.size / 2 + 2.2).toFixed(2) };
+}

@@ -8,10 +8,12 @@ import { theme, setTheme, isHalloween } from './theme.js';
 import { openGuide } from './guide-ui.js';
 import { bindLangButton } from './i18n.js';
 import { VERSION } from './version.js';
+import { initDrag } from './drag.js';
 import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
 import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
 const $ = (s) => document.querySelector(s);
+initDrag();
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem('cbs_save_v1'))?.profile; } catch { /* no storage */ }

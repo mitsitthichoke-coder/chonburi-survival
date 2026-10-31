@@ -3,6 +3,7 @@ import { makeHuman, animateHuman, makeAnimal, animateAnimal, makeLabel, setHeldT
 import { ITEMS, WEAR_SLOTS, PET_SLOTS, BODY_R, FAUNA_KINDS } from './data.js';
 import { makeVehicle } from './structures3d.js';
 import { NPCS as NPC_LIST } from './data.js';
+import { npcCampSpot } from './quest-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { TOWNS, NPCS, PET_TYPES } from './data.js';
 import { relName, relColor } from './social-core.js';
@@ -78,9 +79,9 @@ export class Entities {
   spawnNPC(n) {
     const town = TOWNS.find((t) => t.key === n.town);
     const look = { skin: SKINS[(n.id.length * 7) % SKINS.length], shirt: ['#6a994e', '#bc4749', '#386641', '#e9c46a', '#264653', '#e76f51'][n.id.length % 6], hair: n.sex === 'f' ? '#2b1d14' : '#111' };
-    const { x, z } = this.findLand(town.x, town.z, 12);
+    const cs = npcCampSpot(NPCS, NPCS.indexOf(n)), { x, z } = cs ? cs : this.findLand(town.x, town.z, 12);
     const e = this.base('npc', 'human', makeHuman(n.sex, look), x, z);
-    Object.assign(e, { id: n.id, def: n, sex: n.sex, name: n.name, home: { x: town.x, z: town.z }, hp: 100, maxHp: 100, follow: false });
+    Object.assign(e, { id: n.id, def: n, sex: n.sex, name: n.name, home: cs ? { x: cs.x, z: cs.z } : { x: town.x, z: town.z }, campNpc: !!cs, hp: 100, maxHp: 100, follow: false });
     e.label = makeLabel(n.name); e.label.position.y = 2.3; e.mesh.add(e.label);
     this.add(e);
   }
@@ -543,7 +544,7 @@ export class Entities {
             if (d > 70) { const s = this.findLand(P.x, P.z, 3); e.pos.set(s.x, heightAt(s.x, s.z), s.z); }
             if (d > 3) this.steer(e, P.x, P.z, Math.min(g.player.speedNow + 0.8, 7), dt); else { e.speed = 0; e.ry = Math.atan2(P.x - e.pos.x, P.z - e.pos.z); }
           } else if (dP < 5) { e.speed = 0; e.ry = Math.atan2(P.x - e.pos.x, P.z - e.pos.z); }
-          else this.wanderAround(e, e.home.x, e.home.z, 20, 1.2, dt);
+          else this.wanderAround(e, e.home.x, e.home.z, e.campNpc ? 3 : 20, 1.2, dt);
           const preg = g.social.preg[e.id];
           e.mesh.userData.belly.visible = !!preg;
           e.label.userData.set(`${e.name} · ${relName(g.social.rel(e.id))}${preg ? ' 🤰' : ''}`, relColor(g.social.rel(e.id)));

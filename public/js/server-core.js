@@ -2,6 +2,7 @@
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
 import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
+import { npcCampSpot } from './quest-core.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
@@ -30,7 +31,9 @@ export class WorldCore {
       const t = TOWNS.find((x) => x.key === n.town);
       let x = t.x, z = t.z;
       for (let k = 0; k < 40; k++) { const a = t.x + (Math.random() - 0.5) * 24, b = t.z + (Math.random() - 0.5) * 24; if (this.validSpot(a, b)) { x = a; z = b; break; } }
-      this.fauna.set(100000 + i, { id: 100000 + i, k: 'npc', idx: i, x, z, home: { x: t.x, z: t.z }, ry: 0, spd: 0, t: 0, hp: 1e9 });
+      const cs = npcCampSpot(NPCS, i); let home = { x: t.x, z: t.z }, rad = 20;
+      if (cs) { x = cs.x; z = cs.z; home = { x: cs.x, z: cs.z }; rad = 3; }
+      this.fauna.set(100000 + i, { id: 100000 + i, k: 'npc', idx: i, x, z, home, rad, ry: 0, spd: 0, t: 0, hp: 1e9 });
     });
   }
 
@@ -409,7 +412,7 @@ export class WorldCore {
           if (d > 70) { m.x = F.p[0] + 2; m.z = F.p[2] + 2; }
           else if (d > 3) this.moveMob(m, F.p[0], F.p[2], Math.min(7, 2 + d * 0.5), dt); else { m.spd = 0; m.ry = Math.atan2(F.p[0] - m.x, F.p[2] - m.z); }
         } else if (dP < 5) { m.spd = 0; m.ry = Math.atan2(P.p[0] - m.x, P.p[2] - m.z); }
-        else this.wander(m, m.home.x, m.home.z, 20, 1.2, dt);
+        else this.wander(m, m.home.x, m.home.z, m.rad || 20, 1.2, dt);
         continue;
       }
       if (['dog', 'cat', 'bird'].includes(m.k)) {

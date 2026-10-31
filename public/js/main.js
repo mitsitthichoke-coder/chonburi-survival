@@ -36,7 +36,11 @@ if (profile.hand !== 'l') profile.hand = 'r';
 seg($('#f-hand'), [], () => profile.hand, (v) => (profile.hand = v));
 // อาชีพ
 if (!JOBS[profile.job]) profile.job = 'engineer';
-$('#f-job').innerHTML = Object.entries(JOBS).map(([k, J]) => `<button data-v="${k}" class="job"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></button>`).join('');
+// 🖼️ การ์ดอาชีพ: มีรูปตัวละครของอาชีพไหน (ไฟล์ img/jobs/<รหัสอาชีพ>.webp) ก็แสดงเป็นการ์ดรูป ที่ยังไม่มีรูปแสดงแบบข้อความเดิม
+const JOB_IMG = new Set(['it', 'monk', 'engineer', 'electrician', 'doctor']);
+$('#f-job').innerHTML = Object.entries(JOBS).map(([k, J]) => JOB_IMG.has(k)
+  ? `<button data-v="${k}" class="job img"><img src="img/jobs/${k}.webp" alt="${J.name}" loading="lazy"><span class="jt"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></span></button>`
+  : `<button data-v="${k}" class="job img"><span class="ph">${J.icon}</span><span class="jt"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></span></button>`).join('');
 const jobInfo = () => { const J = JOBS[profile.job]; $('#f-job-info').innerHTML = `<b>${J.icon} ${J.name}</b> — ความสามารถขั้นสูง:<br>${J.perks.map(([l, t], i) => J.free ? `• ${i ? `เลเวลตัวละคร ${l}` : 'เริ่มต้น'}: ${t}` : `• สเตตัสสายนี้ ${PERK_PTS[i]} แต้ม: ${t}`).join('<br>')}${J.free ? '' : '<br>🎓 เริ่มต้นได้ 5 แต้มในสายนี้ · ทุกเลเวลได้ +1 แต้ม ลงสายอื่นได้'}${J.happyNote ? '<br>' + J.happyNote : ''}<br>🎁 ชุดเริ่มต้น: ${Object.entries(J.kit).map(([k, q]) => `${ITEMS[k].icon} ${ITEMS[k].name} ×${q}`).join(', ')}`; };
 seg($('#f-job'), [], () => profile.job, (v) => { profile.job = v; applyJobLook(); jobInfo(); refreshSegs(); drawPreview(); });
 jobInfo();

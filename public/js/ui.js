@@ -507,7 +507,7 @@ export class UI {
     const items = all0.filter(([k]) => ic === 'all' || catOf(k) === ic).sort((a, b) => ORD.indexOf(catOf(a[0])) - ORD.indexOf(catOf(b[0])));
     const inv = items.length ? items.map(([k, q]) => {
       const it = ITEMS[k];
-      const tag = it.ammo ? (g.ammoPref?.[it.ammo.g] === k ? 'เลือกอยู่' : 'เลือกยิง') : it.tool ? (g.equipped === k ? 'ถืออยู่' : 'ถือ') : it.instrument ? 'เล่น' : it.food ? 'กิน' : it.med ? 'ใช้' : it.place ? 'วาง' : it.wear ? 'สวม' : it.petGear ? 'ให้สัตว์' : '';
+      const tag = it.ammo ? (g.ammoPref?.[it.ammo.g] === k ? 'เลือกอยู่' : 'เลือกยิง') : it.tool ? (g.equipped === k ? 'ถืออยู่' : 'ถือ') : it.instrument ? 'เล่น' : it.food ? 'กิน' : it.med || it.box ? 'ใช้' : it.place ? 'วาง' : it.wear ? 'สวม' : it.petGear ? 'ให้สัตว์' : '';
       return `<div class="item" data-item="${k}" data-drag="item:${k}" title="คลิก = ${tag || 'ดู'} · ลากไปวางที่ช่องลัด 1–6 · คลิกขวา = เมนู (ปักช่องลัด / ♻️ ย่อย)"><span class="ic">${it.icon}</span><span ${it.plus >= 6 ? `style="color:${PLUS_GLOW[Math.min(10, it.plus)]};text-shadow:0 0 6px ${PLUS_GLOW[Math.min(10, it.plus)]}"` : it.rarity ? `style="color:${RARITY[it.rarity].color}"` : ''}>${it.name}${it.bonus ? ` <small>(${it.bonus})</small>` : ''}${statText(k) ? `<small class="st">${statText(k)}</small>` : ''}</span><b>×${q}</b>${tag ? `<em>${tag}</em>` : ''}${g.hotbar.includes(k) ? '<i>📌</i>' : ''}</div>`;
     }).join('') : '<p class="hint">กระเป๋าว่างเปล่า — ลองเก็บไม้ หิน หญ้า หรือค้นกล่องเสบียงในเมือง</p>';
     const fire = g.nearFire;

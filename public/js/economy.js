@@ -329,6 +329,12 @@ const A = {
     const it = ITEMS[p.k]; if (!it || !has(ch, p.k)) return { err: 'ไม่มีของชิ้นนี้' };
     if (it.food) return { take: { [p.k]: 1 }, give: it.returns ? { [it.returns]: 1 } : null, fx: { food: it.food, item: p.k }, quietGive: true };
     if (it.med) return { take: { [p.k]: 1 }, fx: { med: it.med, item: p.k }, xp: { medicine: 6 } };
+    if (it.box) { // 🎁 กล่องสุ่ม: ได้ของอย่างน้อยระดับ ★ดี
+      const pool = Object.keys(ITEMS).filter((k) => ITEMS[k][it.box] && !ITEMS[k].quest && !ITEMS[k].coinOnly);
+      if (!pool.length) return { err: 'กล่องว่างเปล่า' };
+      const k = pool[Math.floor(env.rand() * pool.length)], r = env.rand(), tier = r < 0.01 ? 'L' : r < 0.06 ? 'E' : r < 0.3 ? 'R' : 'U', nk = `${k}~${tier}${Math.floor(env.rand() * 1296).toString(36)}`;
+      return { take: { [p.k]: 1 }, give: { [nk]: 1 }, sfx: 'level', msg: `🎁 เปิดกล่อง ได้ ${ITEMS[nk].icon} ${ITEMS[nk].name}!` };
+    }
     if (it.chant) { if (!cool(ch, 'chant', 30, env.now())) return { err: '🙏 สวดมนต์ได้ทุก 30 วินาที' }; return { fx: { chant: true, item: p.k }, xp: { spirit: 12 } }; }
     if (it.device?.scout) { if (!cool(ch, 'drone', 90, env.now())) return { err: '🛸 โดรนกำลังชาร์จแบต (ใช้ได้ทุก 90 วินาที)' }; return { fx: { drone: true, item: p.k }, xp: { tech: 10 } }; }
     if (it.respec) { const used = Object.values(jobPts(ch)).reduce((a, b) => a + b, 0); if (!used) return { err: 'ยังไม่ได้ลงแต้มสเตตัสเลย' }; ch.jp = {}; return { take: { [p.k]: 1 }, statup: true, msg: `🔄 ล้างแต้มสเตตัสแล้ว ได้คืน ${used} แต้ม — เปิดหน้าตัวละคร (K) เพื่อลงแต้มใหม่` }; }
@@ -633,7 +639,7 @@ const A = {
       case 'tower': if (q.step !== 3 || !ch.t?.transmit || env.now() - ch.t.transmit < 55000 || !near(R.tower, 35)) return { silent: true, err: '-' }; ch.t.transmit = 0; return { quest: 4, questMsg: 'tower', xp: { survival: 20 } };
       case 'fail': if (q.step === 3) { ch.t ||= {}; ch.t.transmit = 0; return { quest: 2 }; } return { silent: true };
       case 'kaew': case 'contact': if (q.step !== 4) return { silent: true, err: '-' }; return { quest: 5, questMsg: 'kaew' };
-      case 'gate': if (q.step !== 5 || !near(G, 6)) return { err: 'ต้องอยู่ที่ประตูค่าย' }; return { give: { antibiotic: 3, machete: 1, canned: 5, clean_water: 3, bandage: 3 }, xp: { survival: 120 }, quest: 6, questMsg: 'gate' };
+      case 'gate': if (q.step !== 5 || !near(G, 6)) return { err: 'ต้องอยู่ที่ประตูค่าย' }; return { give: { antibiotic: 3, machete: 1, canned: 5, clean_water: 3, bandage: 3, jicoin: 500, box_outfit: 5, box_petgear: 5 }, xp: { survival: 120 }, quest: 6, questMsg: 'gate' };
     }
     return { err: 'ไม่รู้จักขั้นภารกิจ' };
   },

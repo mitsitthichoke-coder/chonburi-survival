@@ -246,6 +246,8 @@ const RAW_ITEMS = {
   shop_plus_stone: { name: 'เหล็กพลัส (ร้านค้า)', icon: '🔷', value: 10, desc: 'เหล็กพลัสจากร้านเงินจิ ใช้แทนเหล็กพลัสได้ แต่โอกาสตีบวกสำเร็จต่ำกว่า (-30%)' },
   shop_super_stone: { name: 'หินซุปเปอร์ (ร้านค้า)', icon: '🔶', value: 30, desc: 'หินซุปเปอร์จากร้านเงินจิ ใช้ตีบวก +9/+10 แต่โอกาสสำเร็จต่ำกว่า (-30%)' },
   magnifier: { name: 'แว่นขยายส่องออฟชั่น', icon: '🔍', value: 40, coinOnly: true, desc: 'ส่องอาวุธ/ชุดเพื่อเปิดออฟชั่นพิเศษ 1–3 อย่าง (ส่องใหม่ = สุ่มใหม่) · ซื้อในร้านเงินจิ' },
+  box_outfit: { name: 'กล่องสุ่มชุดผู้เล่น', icon: '🎁', value: 200, coinOnly: true, box: 'wear', desc: 'เปิดแล้วได้ชุด/หมวก/รองเท้าสุ่ม 1 ชิ้น ความหายากอย่างน้อย ★ดี · ได้จากภารกิจ หรือซื้อในร้านเงินจิ' },
+  box_petgear: { name: 'กล่องสุ่มอุปกรณ์สัตว์เลี้ยง', icon: '🎀', value: 200, coinOnly: true, box: 'petGear', desc: 'เปิดแล้วได้อุปกรณ์สัตว์เลี้ยงสุ่ม 1 ชิ้น ความหายากอย่างน้อย ★ดี · ได้จากภารกิจ หรือซื้อในร้านเงินจิ' },
   name_tag: { name: 'ป้ายเปลี่ยนชื่อสัตว์เลี้ยง', icon: '🏷️', value: 30, coinOnly: true, desc: 'ตั้งชื่อสัตว์เลี้ยงใหม่ได้ 1 ครั้ง · ซื้อในร้านเงินจิ' },
   respec_potion: { name: 'ยาล้างแต้มสเตตัส', icon: '🔄', value: 250, coinOnly: true, respec: true, desc: 'คืนแต้มสเตตัสสายอาชีพทั้งหมด ให้กระจายใหม่ได้ (ซื้อด้วยเงินจิเท่านั้น)' },
   jicoin: { name: 'เงินจิ (Ji-Coin)', icon: '🪙', value: 1, coin: true, desc: 'สกุลเงินของผู้รอดชีวิต ใช้ซื้อขายกับ NPC แผงขายของ และผู้เล่นอื่น' },
@@ -372,7 +374,7 @@ export function tradeable(k) {
 }
 export const TRADE_RULE = 'ชุด/อาวุธ/อุปกรณ์ต้องเป็น ★หายาก ขึ้นไป หรือตีบวก +6 ขึ้นไป (อุปกรณ์สัตว์เลี้ยง +2 ขึ้นไป) จึงจะแลก/วางขายได้';
 // 🪙 ของที่ซื้อได้ในร้านเงินจิ
-export const COIN_GOODS = [['shop_plus_stone', 50], ['shop_super_stone', 180], ['pet_pin', 40], ['magnifier', 80], ['name_tag', 60]];
+export const COIN_GOODS = [['shop_plus_stone', 50], ['shop_super_stone', 180], ['pet_pin', 40], ['magnifier', 80], ['name_tag', 60], ['box_outfit', 2000], ['box_petgear', 2000]];
 export const PLUS_GLOW = { 6: '#4cc9f0', 7: '#52b788', 8: '#c77dff', 9: '#ff9f1c', 10: '#ffd60a' };
 const SCALE = { tool: ['dmg', 'gather'], wear: ['def', 'bite', 'spd', 'stam', 'block', 'gather'], petGear: ['atk', 'def', 'hp'] };
 const BONUS = {

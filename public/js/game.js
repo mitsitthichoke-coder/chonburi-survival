@@ -263,7 +263,7 @@ export class Game {
       if (this.pets.length === 1) return equipPet(this, this.pets[0], k);
       this.ui.togglePanel('pets'); return this.ui.toast(`เลือกสัตว์ที่จะใส่ ${it.name} ในเมนู 🐾`);
     }
-    if (it.food || it.instrument) return this.auth.do('use', { k });
+    if (it.food || it.instrument || it.box) return this.auth.do('use', { k });
     if (it.device) return this.ui.toast(`${it.icon} ${it.name} ทำงานอัตโนมัติเมื่ออยู่ในกระเป๋า — ดูบนแผนที่มุมขวาบน`);
     if (it.med) {
       const m = it.med;

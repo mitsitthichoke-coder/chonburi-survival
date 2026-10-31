@@ -36,7 +36,8 @@ export class World {
   }
 
   // 🏰 อัปเดตธง/ป้ายป้อมกิลด์ตามผู้ครอบครอง
-  setForts(f = {}) { for (const [k, o] of Object.entries(this.fortFlags || {})) { const st = f[k]; o.flag.material.color.set(st ? '#e63946' : '#adb5bd'); o.lb.userData.set(st ? `${o.F.icon} ${o.F.name} · 🏰 ${st.gname}` : `${o.F.icon} ${o.F.name} (ว่าง)`, st ? '#ffa8a8' : '#ffd43b'); } }
+  setForts(f = {}) { for (const [k, o] of Object.entries(this.fortFlags || {})) { const st = f[k]; o.flag.material.color.set(st ? '#e63946' : '#adb5bd'); for (const l of o.lamps) { l.material = l.material.clone(); l.material.color.set(st?.power ? '#ffe066' : '#6c757d'); l.material.emissive?.set(st?.power ? '#ffd43b' : '#000000'); } for (const t of o.tanks) { t.material = t.material.clone(); t.material.color.set(st?.water ? '#4dabf7' : '#868e96'); }
+    o.lb.userData.set(st ? `${o.F.icon} ${o.F.name} · 🏰 ${st.gname}` : `${o.F.icon} ${o.F.name} (ว่าง)`, st ? '#ffa8a8' : '#ffd43b'); } }
   colorAt(x, z, h, out) {
     const d = distToCoast(x, z);
     const n = fbm(x * 0.05, z * 0.05, 2);
@@ -259,7 +260,16 @@ export class World {
       const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, 0.8, 10), mat('#868e96')); base.position.y = 0.4; grp.add(base);
       const flag = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.6, 0.12), mat('#adb5bd')); flag.position.set(2.3, 14.4, 0); grp.add(flag);
       const lb = makeLabel(`${F.icon} ${F.name}`, '#ffd43b'); lb.position.set(0, 18.4, 0); lb.scale.set(9, 2.2, 1); grp.add(lb);
-      this.scene.add(grp); this.fortFlags[F.key] = { flag, lb, F };
+      // อาคารประจำป้อม (ต่างกันตามธีม) — ไฟ/น้ำสว่างขึ้นตามระดับที่กิลด์พัฒนา
+      const bx = (w, h, d, c, x, y, z, emi) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c)); m.position.set(x, y, z); grp.add(m); return m; };
+      const lamps = [], tanks = [];
+      const lamp = (x, z) => { bx(0.25, 4, 0.25, '#495057', x, 2, z); const l = bx(0.8, 0.5, 0.8, '#6c757d', x, 4.2, z); lamps.push(l); };
+      const tank = (x, z) => { const t = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3, 12), mat('#868e96')); t.position.set(x, 4.5, z); grp.add(t); bx(0.3, 3, 0.3, '#495057', x - 1, 1.5, z - 1); bx(0.3, 3, 0.3, '#495057', x + 1, 1.5, z + 1); tanks.push(t); };
+      if (F.key === 'chonburi') { bx(10, 4, 6, '#adb5bd', -9, 2, -8); bx(10.4, 0.5, 6.4, '#6c757d', -9, 4.2, -8); bx(6, 3.4, 5, '#f1f3f5', 8, 1.7, -9); bx(2.4, 0.5, 0.6, '#e03131', 8, 3.4, -6.4); bx(0.6, 2.4, 0.6, '#e03131', 8, 3.4, -6.4); tank(-12, 6); }
+      else if (F.key === 'banbueng') { bx(9, 4, 6, '#bc6c25', -9, 2, -8); bx(9.4, 0.4, 6.4, '#8d5524', -9, 4.2, -8); for (let i = 0; i < 3; i++) bx(5, 0.3, 2.4, '#6b4423', 8, 0.2, -10 + i * 3.4); const si = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 7, 12), mat('#ced4da')); si.position.set(12, 3.5, 6); grp.add(si); tank(-12, 7); }
+      else { bx(11, 5, 7, '#74c0fc', -9, 2.5, -8); bx(11.4, 0.5, 7.4, '#f1f3f5', -9, 5.2, -8); for (const x of [6, 10]) { bx(0.2, 3.4, 0.2, '#868e96', x, 1.7, -8); bx(3.2, 0.2, 3.2, x === 6 ? '#ff6b6b' : '#fcc419', x, 3.5, -8); } bx(7, 0.15, 4, '#4dabf7', 8, 0.1, 6); tank(-12, 7); }
+      lamp(-16, 0); lamp(16, 0); lamp(0, 16); lamp(0, -16);
+      this.scene.add(grp); this.fortFlags[F.key] = { flag, lb, F, lamps, tanks };
     }
     this.radioGlow = Object.values(this.radioGlows)[0]; this.towerLight = Object.values(this.towerLights)[0];
     // ค่ายกักกัน: รั้วสูง ประตูเหลือง เต็นท์ เสาธง ป้ายชื่อ

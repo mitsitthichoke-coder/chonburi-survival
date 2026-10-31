@@ -83,12 +83,12 @@ export class Game {
     r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : smooth ? Math.min(devicePixelRatio, 2) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 1.5)); r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = !low; r.shadowMap.type = THREE.PCFSoftShadowMap;
     // ละมุน: โทนสีแบบภาพยนตร์ แสงไม่แข็ง
-    if (smooth) { r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15; }
+    if (smooth) { r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.22; }
     document.getElementById('canvas-wrap').appendChild(r.domElement);
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog('#a8b8a0', 60, 420);
     this.camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 900);
-    this.hemi = new THREE.HemisphereLight('#dfe9f3', '#5a5a40', 0.9); this.scene.add(this.hemi);
+    this.hemi = new THREE.HemisphereLight('#e6efff', '#6a6a4c', 1.0); // โทนสว่างใสขึ้นเล็กน้อย this.scene.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight('#fff2d6', 1.4);
     sun.castShadow = !low; const sm = smooth && !this.lowSpec ? 4096 : this.lowSpec ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
     Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 300 });
@@ -730,6 +730,14 @@ export class Game {
     this.auth.do('hit', { id: r.id, hand });
   }
 
+  // 🤢😱 เอฟเฟกต์จอตามสภาพร่างกาย: ติดเชื้อ = ภาพเบลอ+ขอบเขียว · กลัว/เครียดจัด = ขอบแดงเต้น+กล้องสั่น
+  tickFx(dt) {
+    const s = this.stats, inf = clamp(((s.infection || 0) - 25) / 60, 0, 1), fear = clamp(((s.stress || 0) - 55) / 40, 0, 1);
+    const els = this.fxEls ||= { sick: document.getElementById('fx-sick'), fear: document.getElementById('fx-fear'), wrap: document.getElementById('canvas-wrap') };
+    const blur = Math.round(inf * 3 * 2) / 2, key = blur + ':' + Math.round(inf * 10) + ':' + Math.round(fear * 10);
+    if (key !== this.fxKey) { this.fxKey = key; els.wrap.style.filter = blur > 0 ? `blur(${blur}px) saturate(${1 - inf * 0.25})` : ''; els.sick.style.opacity = inf; els.fear.style.opacity = fear * 0.9; }
+    this.shakeAmp = this.dead ? 0 : Math.max(inf * 0.035, fear * 0.045);
+  }
   // กากบาทกลางจอ: ถือปืน/ธนู/หน้าไม้/หนังสติ๊กแล้วขยายเป็นวงเล็ง
   tickCrosshair() {
     const el = this.xhEl ||= document.getElementById('crosshair'); if (!el) return;
@@ -985,7 +993,7 @@ export class Game {
     S('ภารกิจ', () => { this.quest.update(dt); this.boxUI.update(dt); });
     S('สัตว์เลี้ยง', () => tickPetTraits(this, dt));
     S('มือถือ', () => this.touch?.update());
-    S('ก่อสร้าง', () => { this.tickCrosshair(); this.placingTick(); this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
+    S('ก่อสร้าง', () => { this.tickFx(dt); this.tickCrosshair(); this.placingTick(); this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
     if (this._bClass !== this.builder.active) { this._bClass = this.builder.active; document.body.classList.toggle('building', this.builder.active); }
     S('สภาพแวดล้อม', () => this.updateEnv(dt));
     S('กล้อง', () => this.updateCamera());
@@ -1299,6 +1307,7 @@ export class Game {
     const cam = head.clone().add(off);
     const gy = heightAt(cam.x, cam.z) + 0.4; if (cam.y < gy) cam.y = gy;
     this.camera.position.copy(cam); this.camera.lookAt(head);
+    if (this.shakeAmp > 0.001) { const t = performance.now() * 0.03; this.camera.position.x += Math.sin(t * 1.7) * this.shakeAmp; this.camera.position.y += Math.cos(t * 2.3) * this.shakeAmp; this.camera.rotation.z += Math.sin(t) * this.shakeAmp * 0.4; }
   }
 
   timers(dt) {

@@ -9,6 +9,7 @@ import { openGuide } from './guide-ui.js';
 import { bindLangButton } from './i18n.js';
 import { VERSION } from './version.js';
 import { initDrag } from './drag.js';
+import { initPreview3d, updatePreview3d } from './preview3d.js';
 import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
 import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
@@ -67,6 +68,7 @@ $('#f-rand').onclick = () => {
 // ปุ่มสุ่มแยกตามหัวข้อ (ชื่อ · มือที่ถนัด · เพศ · อาชีพ · ลักษณะ) อยู่ในแต่ละหัวข้อตามลำดับการสร้างตัวละคร
 document.addEventListener('click', (e) => { const k = e.target.closest('[data-rnd]')?.dataset.rnd; if (!k || !rnd[k]) return; rnd[k](); refreshSegs(); drawPreview(); });
 function drawPreview() {
+  try { updatePreview3d(profile.sex, profile.look); } catch { /* ใช้ภาพพิกเซลแทน */ }
   // หน้าตรงแบบพิกเซล (ไม่ต้องโหลด 3D) ให้เห็นทรงผมและสี
   const c = $('#f-preview'); if (!c) return; const x = c.getContext('2d'), L = profile.look, st = styleOf(), P = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
   x.clearRect(0, 0, 96, 96); P(L.shirt, 30, 62, 36, 34); P(L.skin, 32, 22, 32, 36);
@@ -85,6 +87,7 @@ function drawPreview() {
     braid: () => { P(hc, 30, 16, 36, 10); for (let i = 0; i < 4; i++) P(hc, 64, 26 + i * 9, 8 - i, 8); }, twin: () => { P(hc, 30, 16, 36, 10); P(hc, 20, 26, 9, 22); P(hc, 67, 26, 9, 22); }, bald: () => {} })[st]?.();
 }
 for (const id of ['#f-skin', '#f-shirt', '#f-sex', '#f-hair', '#f-style', '#f-eyes', '#f-brows', '#f-mouth', '#f-extra']) $(id).addEventListener('click', () => { marks.forEach((m) => m()); drawPreview(); });
+initPreview3d($('#f-preview'));
 drawPreview();
 
 // คุณภาพกราฟิก (จำไว้ในเครื่อง)

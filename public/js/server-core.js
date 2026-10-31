@@ -10,7 +10,7 @@ import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
-import { WARLORD_OF, AREA_OF, districtOf, DISTRICT_NAME, WARLORD_RESPAWN, LIBERATE_MS, ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
+import { WARLORD_OF, AREA_OF, districtOf, DISTRICT_NAME, WARLORD_RESPAWN, LIBERATE_MS, ZTIERS, ZT, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
 import { NAVY, inNavy, landmark } from './landmarks.js';
 const SHEEP_FARM = landmark('sheep');
 
@@ -106,7 +106,7 @@ export class WorldCore {
     return { id: G.id, name: G.name, leader: G.leader, lv, fund: G.fund, next: nx, max: GUILD_MEMBERS[lv], members: Object.entries(G.members).map(([id, m]) => ({ id, name: m.n, r: m.r, online: this.players.has(id) })) };
   }
   // 🏰 ป้อมกิลด์ (db.forts[key] = { gid, water, power, since })
-  fortsView() { const o = {}; for (const f of forts()) { const r = this.db.forts?.[f.key]; const sg = r?.siege && this.db.guilds?.[r.siege.gid]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0, shield: Math.max(0, (r.shield || 0) - Date.now()), siege: sg ? { gname: this.db.guilds[r.siege.gid].name, gid: r.siege.gid, meter: Math.round(r.siege.meter), left: Math.max(0, r.siege.end - Date.now()) } : null } : null; } return o; }
+  fortsView() { const o = { _c: {} }; for (const f of forts()) { const c = (this.db.fortCleared?.[f.key] || 0) - Date.now(); if (c > 0) o._c[f.key] = c; } for (const f of forts()) { const r = this.db.forts?.[f.key]; const sg = r?.siege && this.db.guilds?.[r.siege.gid]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0, shield: Math.max(0, (r.shield || 0) - Date.now()), siege: sg ? { gname: this.db.guilds[r.siege.gid].name, gid: r.siege.gid, meter: Math.round(r.siege.meter), left: Math.max(0, r.siege.end - Date.now()) } : null } : null; } return o; }
   fortsSync() { this.broadcast({ t: 'forts', f: this.fortsView() }); }
   // ⚔️ ศึกชิงป้อม: กิลด์ผู้ท้าต้องมีสมาชิกในเขตป้อมมากกว่าฝ่ายป้องกัน เกจถึง 100% = ยึดป้อม (ครบ 10 นาทีไม่สำเร็จ = ฝ่ายป้องกันชนะ)
   tickForts(dt) {
@@ -155,6 +155,7 @@ export class WorldCore {
         if (this.db.forts[F.key] && this.db.guilds[this.db.forts[F.key].gid]) return say(id, 'ป้อมนี้มีกิลด์ครอบครองแล้ว');
         if (Object.values(this.db.forts).some((r) => r.gid === G.id)) return say(id, 'กิลด์ถือครองป้อมได้ทีละ 1 แห่ง');
         if (guildLevel(G.fund) < F.lvReq) return say(id, `ต้องเป็นกิลด์เลเวล ${F.lvReq} ขึ้นไป`); if (G.fund < F.cost) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${F.cost})`);
+        if ((this.db.fortCleared?.[F.key] || 0) < Date.now()) return say(id, 'ต้องล้มผู้เฝ้าป้อมก่อน (เดินเข้าไปใกล้ป้อมแล้วผู้เฝ้าจะปรากฏตัว)'); delete this.db.fortCleared[F.key];
         G.fund -= F.cost; this.db.forts[F.key] = { gid: G.id, water: 0, power: 0, since: Date.now() }; this.dirty(); this.guildSync(G); this.fortsSync();
         this.broadcast({ t: 'announce', kind: 'fort', text: `🏰 กิลด์ ${G.name} ยึด ${F.icon} ${F.name} ได้สำเร็จ!` }); return;
       }
@@ -647,7 +648,7 @@ export class WorldCore {
     const zb = this.zombies.get(zid); if (!zb) return;
     const AT = ZTIERS[zb.tier | 0]; if (AT?.armor) dmg *= AT.armor;
     zb.hp -= dmg; zb.alert = 10; zb.alertId = by;
-    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); if (zb.town && ZTIERS[zb.tier | 0]?.warlord) this.liberate(zb.town, by); else if (zb.town && ZTIERS[zb.tier | 0]?.area) { (this.dbRespawn ||= {})[zb.town] = Date.now() + WARLORD_RESPAWN; this.broadcast({ t: 'announce', kind: 'abosdown', name: ZTIERS[zb.tier | 0].name, by }); } }
+    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); if (zb.town && ZTIERS[zb.tier | 0]?.warlord) this.liberate(zb.town, by); else if (zb.fort && ZTIERS[zb.tier | 0]?.fort) this.fortCleared(zb.fort, by); else if (zb.town && ZTIERS[zb.tier | 0]?.area) { (this.dbRespawn ||= {})[zb.town] = Date.now() + WARLORD_RESPAWN; this.broadcast({ t: 'announce', kind: 'abosdown', name: ZTIERS[zb.tier | 0].name, by }); } }
   }
   horde(x, z, n, by) {
     for (let i = 0; i < n; i++) {
@@ -777,12 +778,32 @@ export class WorldCore {
       }
     }
   }
+  // 🏰 ผู้เฝ้าป้อม: ป้อมว่างและยังไม่มีใครล้มผู้เฝ้า → เกิดเมื่อมีผู้เล่นเข้าใกล้ · ล้มแล้วเปิดช่วงยึดป้อม 30 นาที
+  fortGuards(alive) {
+    const now = Date.now(); this.db.fortCleared ||= {}; this.db.forts ||= {};
+    for (const F of forts()) {
+      if ((this.db.forts[F.key] && this.db.guilds?.[this.db.forts[F.key].gid]) || (this.db.fortCleared[F.key] || 0) > now) continue;
+      if ([...this.zombies.values()].some((z) => z.fort === F.key)) continue;
+      if (!alive.some((p) => Math.hypot(p.p[0] - F.x, p.p[2] - F.z) < F.r + 45)) continue;
+      const tier = ZT['fb_' + F.key]; if (tier == null) continue;
+      for (let k = 0; k < 50; k++) {
+        const a = Math.random() * 6.28, r = Math.random() * F.r * 0.6, x = F.x + Math.cos(a) * r, z = F.z + Math.sin(a) * r;
+        if (!this.validSpot(x, z) || alive.some((p) => Math.hypot(p.p[0] - x, p.p[2] - z) < 14)) continue;
+        const zb = this.spawnZombie(x, z, null, tier); zb.fort = F.key; this.broadcast({ t: 'announce', kind: 'fort', text: `⚠️ ${ZTIERS[tier].name} ปรากฏตัวที่ ${F.icon} ${F.name}!` }); break;
+      }
+    }
+  }
+  fortCleared(key, by) {
+    const F = fortOf(key); this.db.fortCleared ||= {}; this.db.fortCleared[key] = Date.now() + 30 * 60000; this.dirty(); this.fortsSync();
+    this.broadcast({ t: 'announce', kind: 'fort', text: `🏆 ผู้เฝ้า ${F.icon} ${F.name} ถูกล้มแล้ว! หัวหน้ากิลด์ยึดป้อมได้ภายใน 30 นาที` });
+  }
   liberate(town, by) {
     this.lib ||= {}; this.dbRespawn ||= {}; const until = Date.now() + LIBERATE_MS; this.lib[town] = until; this.dbRespawn[town] = Date.now() + WARLORD_RESPAWN;
     const bt = ZTIERS.find((x) => x.town === town); this.broadcast({ t: 'liberate', town, until, by, buff: bt?.buff, buffText: bt?.buffText });
   }
   slowTick() {
     this.districtBosses([...this.players.values()].filter((p) => p.p && p.hp > 0));
+    this.fortGuards([...this.players.values()].filter((p) => p.p && p.hp > 0));
     const list = [...this.players.values()];
     for (const p of list) if (this.friendIds(p.id).length) this.sendFriends(p.id); // อัปเดตตำแหน่ง/สถานะเพื่อน
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {

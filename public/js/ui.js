@@ -720,7 +720,8 @@ export class UI {
       if (st?.siege) h += `<br><b>⚔️ ศึกชิงป้อม: ${esc(st.siege.gname)} บุก</b> <progress value="${st.siege.meter}" max="100"></progress> ${st.siege.meter}% · เหลือ ${Math.ceil(st.siege.left / 60000)} นาที<small> (ยืนในเขตป้อมให้มากกว่าฝ่ายตรงข้ามเพื่อเพิ่มเกจ)</small>`;
       if (st?.shield > 0) h += `<br><small>🛡️ โล่คุ้มครองอีก ${Math.ceil(st.shield / 60000)} นาที</small>`;
       if (st && !own && !mine && boss && G.lv >= F.lvReq && !st.siege && !(st.shield > 0)) h += ` <button data-fsiege="${F.key}" ${G.fund >= 1000 ? '' : 'disabled'}>⚔️ ประกาศศึก (🪙1000)</button>`;
-      if (!st && lead && !mine) h += `<button data-fcap="${F.key}" ${G.lv >= F.lvReq && G.fund >= F.cost ? '' : 'disabled'}>⚔️ ยึดป้อม</button>`;
+      if (!st) h += `<br><small>${g.forts?._c?.[F.key] ? `✅ ล้มผู้เฝ้าแล้ว — ยึดได้อีก ${Math.ceil(g.forts._c[F.key] / 60000)} นาที` : '⚠️ มีผู้เฝ้าป้อมคุมอยู่ — เดินเข้าใกล้ป้อมแล้วรวมพลังล้มผู้เฝ้าก่อนจึงจะยึดได้'}</small>`;
+      if (!st && lead && !mine) h += `<button data-fcap="${F.key}" ${G.lv >= F.lvReq && G.fund >= F.cost && g.forts?._c?.[F.key] ? '' : 'disabled'}>⚔️ ยึดป้อม</button>`;
       if (own && boss) h += ['water', 'power'].map((sy) => (st[sy] < 3 ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[st[sy] + 1] ? '' : 'disabled'}>${sy === 'water' ? '💧' : '⚡'} ขึ้นระดับ ${st[sy] + 1} (🪙${FORT_UP_COST[st[sy] + 1]})</button>` : '')).join(' ');
       if (own && lead) h += ` <button data-frel="${F.key}">ปล่อยคืน</button>`;
       h += '</div></div>';

@@ -44,6 +44,13 @@ export const AREA_BOSSES = [
   { town: 'jomtien', name: '🌅 ผู้เฝ้าหาดจอมเทียน', hp: 10, spd: 1.0, dmg: 2.0, infect: 0.2, scale: 1.8, color: '#4cc9f0', regen: 0.012, drops: { clean_water: 5, raw_fish: 4, bandage: 4 } },
 ];
 for (const b of AREA_BOSSES) ZTIERS.push({ key: 'ab_' + b.town, w: 0, day: 0, xp: 150 + Math.round(b.hp * 10), boss: true, area: true, ...b, drops: 3, bossDrops: b.drops });
+// 🏰 ผู้เฝ้าป้อมกิลด์ (เรือนจำ 3 แห่ง): ป้อมที่ไม่มีเจ้าของมีผู้เฝ้า — ล้มแล้วหัวหน้ากิลด์ยึดป้อมได้ภายใน 30 นาที (ต่อท้าย ZTIERS เท่านั้น เพราะเป็นรหัสบนเครือข่าย)
+export const FORT_BOSSES = [
+  { fort: 'chonburi', name: '⛓️ ผู้คุมใหญ่เรือนจำกลางชลบุรี', hp: 13, spd: 1.0, dmg: 2.8, infect: 0.2, scale: 2.0, color: '#495057', armor: 0.6, drops: { scrap: 10, bandage: 6, jicoin: 60 } },
+  { fort: 'banbueng', name: '🌾 นายฟาร์มทัณฑสถานบ้านบึง', hp: 12, spd: 1.1, dmg: 2.6, infect: 0.25, scale: 1.9, color: '#8d6e3f', rage: 1.3, drops: { raw_meat: 8, seeds_veg: 6, jicoin: 50 } },
+  { fort: 'pattaya', name: '🏖️ เจ้าสำราญเรือนจำพัทยา', hp: 12, spd: 1.3, dmg: 2.5, infect: 0.25, scale: 1.8, color: '#f72585', rage: 1.3, drops: { energy_drink: 5, canned: 5, jicoin: 80 } },
+];
+for (const b of FORT_BOSSES) ZTIERS.push({ key: 'fb_' + b.fort, w: 0, day: 0, xp: 200 + Math.round(b.hp * 10), boss: true, ...b, drops: 3, bossDrops: b.drops });
 export const ZT = Object.fromEntries(ZTIERS.map((t, i) => [t.key, i]));
 export const AREA_OF = Object.fromEntries(AREA_BOSSES.map((b) => [b.town, ZT['ab_' + b.town]]));
 export const WARLORD_OF = Object.fromEntries(DISTRICT_BOSSES.map((b) => [b.town, ZT['wl_' + b.town]])), BOSS = ZT.boss, SOLDIER = ZT.soldier, ADMIRAL = ZT.admiral;

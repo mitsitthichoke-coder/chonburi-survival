@@ -326,6 +326,7 @@ export class UI {
     for (const s of g.world.structures) dot(s.x, s.z, '#f4a261', 3);
     // 🗼 หอถังน้ำ
     for (const w of WATER_TOWERS) dot(w.x, w.z, '#4dabf7', 4);
+    for (const F of FORTS()) dot(F.x, F.z, g.forts?.[F.key] ? '#e63946' : '#ffd43b', 6); // 🏰 ป้อมกิลด์
     for (const r of g.ents.remotes.values()) dot(r.pos.x, r.pos.z, g.party?.members?.some((m) => m.id === r.id) ? '#00f5d4' : '#4cc9f0', g.party?.members?.some((m) => m.id === r.id) ? 6 : 4);
     dot(g.player.pos.x, g.player.pos.z, '#ff006e', 5);
     const qt = g.quest.target();

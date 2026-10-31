@@ -6,6 +6,7 @@ import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX, makeLabel, makeHuman, SKINS, toonMat } from './models.js';
 import { LANDMARKS } from './landmarks.js';
 import { ROUTES, CAMPS, WATER_TOWERS } from './quest-core.js';
+import { forts as FORTS } from './fortress.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle, makeWaterTower } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
 import { isHalloween, onTheme, theme } from './theme.js';
@@ -34,6 +35,8 @@ export class World {
     this.buildHalloween(); this.buildSanta(); onTheme(() => this.applyTheme()); this.applyTheme();
   }
 
+  // 🏰 อัปเดตธง/ป้ายป้อมกิลด์ตามผู้ครอบครอง
+  setForts(f = {}) { for (const [k, o] of Object.entries(this.fortFlags || {})) { const st = f[k]; o.flag.material.color.set(st ? '#e63946' : '#adb5bd'); o.lb.userData.set(st ? `${o.F.icon} ${o.F.name} · 🏰 ${st.gname}` : `${o.F.icon} ${o.F.name} (ว่าง)`, st ? '#ffa8a8' : '#ffd43b'); } }
   colorAt(x, z, h, out) {
     const d = distToCoast(x, z);
     const n = fbm(x * 0.05, z * 0.05, 2);
@@ -247,6 +250,16 @@ export class World {
     for (const w of WATER_TOWERS) {
       const m = makeWaterTower(true); m.position.set(w.x, heightAt(w.x, w.z), w.z); this.scene.add(m);
       const lb = makeLabel(`🗼 ${w.name}`, '#74c0fc'); lb.position.set(w.x, heightAt(w.x, w.z) + 17, w.z); lb.scale.set(9, 2.2, 1); this.scene.add(lb);
+    }
+    // 🏰 ป้อมกิลด์: เสาธงสูง + ผ้าธง + ป้ายชื่อ (เปลี่ยนตามกิลด์ที่ครอบครอง)
+    this.fortFlags = {};
+    for (const F of FORTS()) {
+      const fy = heightAt(F.x, F.z), grp = new THREE.Group(); grp.position.set(F.x, fy, F.z);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 16, 8), mat('#d9d9d9')); pole.position.y = 8; grp.add(pole);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, 0.8, 10), mat('#868e96')); base.position.y = 0.4; grp.add(base);
+      const flag = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.6, 0.12), mat('#adb5bd')); flag.position.set(2.3, 14.4, 0); grp.add(flag);
+      const lb = makeLabel(`${F.icon} ${F.name}`, '#ffd43b'); lb.position.set(0, 18.4, 0); lb.scale.set(9, 2.2, 1); grp.add(lb);
+      this.scene.add(grp); this.fortFlags[F.key] = { flag, lb, F };
     }
     this.radioGlow = Object.values(this.radioGlows)[0]; this.towerLight = Object.values(this.towerLights)[0];
     // ค่ายกักกัน: รั้วสูง ประตูเหลือง เต็นท์ เสาธง ป้ายชื่อ

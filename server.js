@@ -367,3 +367,9 @@ const shutdown = () => {
 };
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
 server.listen(PORT, () => console.log(`🌏 Chonburi Survival online server: http://localhost:${PORT}  (data: ${DATA_DIR}, max ${MAX_PLAYERS} players)`));
+// ⏰ กัน Render แพลนฟรีหลับ: ยิง /healthz ของตัวเองผ่าน URL สาธารณะทุก 10 นาที (Render หลับเมื่อไม่มีคำขอเข้า 15 นาที)
+// ใช้ได้เมื่อรันบน Render (มี RENDER_EXTERNAL_URL) · ปิดได้ด้วย KEEP_AWAKE=0 · ไม่ช่วยตอนเซิร์ฟเวอร์หลับไปแล้ว (ต้องมีคนเข้าหรือใช้ตัวยิงภายนอกเช่น UptimeRobot)
+if (process.env.RENDER_EXTERNAL_URL && process.env.KEEP_AWAKE !== '0') {
+  const ping = () => fetch(process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '') + '/healthz').catch(() => {});
+  setInterval(ping, 10 * 60 * 1000).unref();
+}

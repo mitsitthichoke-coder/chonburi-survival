@@ -80,7 +80,8 @@ export class Game {
   initRenderer() {
     const q = GFX.mode, smooth = q === 'smooth' || q === 'toon', low = q === 'low';
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: !low, powerPreference: 'high-performance' });
-    r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 2)); // คมชัด: เรนเดอร์ตามความละเอียดจอจริง (สูงสุด 2×) r.setSize(innerWidth, innerHeight);
+    r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 2));
+    r.setSize(innerWidth, innerHeight); // คมชัด: เรนเดอร์ตามความละเอียดจอจริง (สูงสุด 2×)
     r.shadowMap.enabled = !low; r.shadowMap.type = THREE.PCFSoftShadowMap;
     // ละมุน: โทนสีแบบภาพยนตร์ แสงไม่แข็ง
     if (smooth) { r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.22; }

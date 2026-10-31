@@ -80,7 +80,7 @@ export class Game {
   initRenderer() {
     const q = GFX.mode, smooth = q === 'smooth' || q === 'toon', low = q === 'low';
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: !low, powerPreference: 'high-performance' });
-    r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : smooth ? Math.min(devicePixelRatio, 2) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 1.5)); r.setSize(innerWidth, innerHeight);
+    r.setPixelRatio(low ? Math.min(devicePixelRatio, 0.85) : this.lowSpec ? 1 : Math.min(devicePixelRatio, 2)); // คมชัด: เรนเดอร์ตามความละเอียดจอจริง (สูงสุด 2×) r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = !low; r.shadowMap.type = THREE.PCFSoftShadowMap;
     // ละมุน: โทนสีแบบภาพยนตร์ แสงไม่แข็ง
     if (smooth) { r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.22; }
@@ -734,7 +734,8 @@ export class Game {
   tickFx(dt) {
     const s = this.stats, inf = clamp(((s.infection || 0) - 25) / 60, 0, 1), fear = clamp(((s.stress || 0) - 55) / 40, 0, 1);
     const els = this.fxEls ||= { sick: document.getElementById('fx-sick'), fear: document.getElementById('fx-fear'), wrap: document.getElementById('canvas-wrap') };
-    const blur = Math.round(inf * 3 * 2) / 2, key = blur + ':' + Math.round(inf * 10) + ':' + Math.round(fear * 10);
+    const blur = Math.round(inf * 1.2 * 2) / 2, // เบลอเบามาก (สูงสุด ~1px) เพื่อไม่ให้ตัวละครดูไม่คมตอนติดเชื้อ
+       key = blur + ':' + Math.round(inf * 10) + ':' + Math.round(fear * 10);
     if (key !== this.fxKey) { this.fxKey = key; els.wrap.style.filter = blur > 0 ? `blur(${blur}px) saturate(${1 - inf * 0.25})` : ''; els.sick.style.opacity = inf; els.fear.style.opacity = fear * 0.9; }
     this.shakeAmp = this.dead ? 0 : Math.max(inf * 0.035, fear * 0.045);
   }

@@ -111,30 +111,33 @@ export function makeHuman(sex = 'm', look = {}, kind = 'human') {
   const s = kind === 'child' ? 0.55 : kind === 'baby' ? 0.32 : 1;
   const g = new THREE.Group();
   const inner = new THREE.Group(); inner.scale.setScalar(s); g.add(inner);
-  const shoulder = sex === 'f' ? 0.5 : sex === 'x' ? 0.55 : 0.6;
-  const body = box(shoulder, 0.7, 0.3, shirt, 0, 1.25, 0); inner.add(body);
-  if (sex === 'f') inner.add(box(0.56, 0.22, 0.34, shirt, 0, 0.98, 0));
-  const head = new THREE.Group(); head.position.set(0, 1.62, 0); inner.add(head);
-  if (GFX.mode === 'toon' && kind !== 'zombie') head.scale.setScalar(1.3); // หัวโตน่ารักแบบ chibi
+  const shoulder = kind === 'zombie' ? (sex === 'f' ? 0.5 : sex === 'x' ? 0.55 : 0.6) : (sex === 'f' ? 0.46 : sex === 'x' ? 0.5 : 0.54); // ชิบิ: ไหล่แคบลง
+  // 🧸 สัดส่วนแบบชิบิ: หัวโต ลำตัวสั้น แขนขาสั้นป้อม (ซอมบี้คงสัดส่วนเดิมให้ดูสูงและน่ากลัวกว่า)
+  const Z = kind === 'zombie', legL = Z ? 0.9 : 0.62, armL = Z ? 0.62 : 0.42, bodyH = Z ? 0.7 : 0.58, bodyY = legL + bodyH / 2, topY = legL + bodyH;
+  const body = box(shoulder, bodyH, 0.3, shirt, 0, bodyY, 0); inner.add(body);
+  if (sex === 'f') inner.add(box(0.56, 0.22, 0.34, shirt, 0, legL + 0.08, 0));
+  const head = new THREE.Group(); head.position.set(0, topY + 0.02, 0); inner.add(head);
+  if (!Z) head.scale.setScalar(GFX.mode === 'toon' ? 1.7 : 1.55); // หัวโตน่ารักแบบ chibi
   head.add(box(0.34, 0.36, 0.34, skin, 0, 0.12, 0));
   addHair(head, kind === 'zombie' ? (sex === 'f' ? 'long' : 'short') : look.style, sex, hair);
   // ตา
   addFace(head, kind === 'zombie' ? {} : look, kind === 'zombie' ? '#e63946' : '#111', hair, skin);
   // ตัวละครหันหน้าไปทาง +z: มือขวาของตัวละครอยู่ฝั่ง -x · มือซ้ายอยู่ฝั่ง +x
-  const lArm = limb(0.14, 0.62, 0.14, shirt, shoulder / 2 + 0.08, 1.58, 0);
-  const rArm = limb(0.14, 0.62, 0.14, shirt, -shoulder / 2 - 0.08, 1.58, 0);
-  lArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -0.34, 0));
-  rArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -0.34, 0));
-  const lLeg = limb(0.18, 0.9, 0.2, pants, 0.13, 0.9, 0);
-  const rLeg = limb(0.18, 0.9, 0.2, pants, -0.13, 0.9, 0);
+  const armX = shoulder / 2 + (Z ? 0.08 : 0.07);
+  const lArm = limb(Z ? 0.14 : 0.17, armL, Z ? 0.14 : 0.17, shirt, armX, topY - 0.02, 0);
+  const rArm = limb(Z ? 0.14 : 0.17, armL, Z ? 0.14 : 0.17, shirt, -armX, topY - 0.02, 0);
+  lArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -armL * 0.55, 0));
+  rArm.children[0].add(box(0.12, 0.14, 0.12, skin, 0, -armL * 0.55, 0));
+  const lLeg = limb(Z ? 0.18 : 0.21, legL, Z ? 0.2 : 0.23, pants, 0.13, legL, 0);
+  const rLeg = limb(Z ? 0.18 : 0.21, legL, Z ? 0.2 : 0.23, pants, -0.13, legL, 0);
   inner.add(lArm, rArm, lLeg, rLeg);
   if (kind === 'zombie') { lArm.rotation.x = -1.3; rArm.rotation.x = -1.4; body.material = mat('#5b5b4a'); }
   // จุดถือเครื่องมือ
-  const hand = new THREE.Group(); hand.position.set(0, -0.6, 0.05); rArm.add(hand);
-  const lHand = new THREE.Group(); lHand.position.set(0, -0.6, 0.05); lArm.add(lHand);
+  const hand = new THREE.Group(); hand.position.set(0, -(armL - 0.02), 0.05); rArm.add(hand);
+  const lHand = new THREE.Group(); lHand.position.set(0, -(armL - 0.02), 0.05); lArm.add(lHand);
   // ท้อง (แสดงเมื่อตั้งครรภ์)
-  const belly = box(0.42, 0.34, 0.2, shirt, 0, 1.08, 0.18); belly.visible = false; inner.add(belly);
-  g.userData = { lArm, rArm, lLeg, rLeg, head, hand, lHand, lefty: false, belly, body, inner, sex, kind, phase: Math.random() * 6 };
+  const belly = box(0.42, 0.34, 0.2, shirt, 0, legL + 0.18, 0.18); belly.visible = false; inner.add(belly);
+  g.userData = { lArm, rArm, lLeg, rLeg, head, hand, lHand, lefty: false, belly, body, inner, sex, kind, dims: { legL, armL, bodyH, bodyY }, phase: Math.random() * 6 };
   return g;
 }
 
@@ -183,7 +186,7 @@ export function setOutfit(g, wear, ITEMS) {
   const out = u.outfit = []; u.shield = null;
   const put = (parent, o) => { parent.add(o); out.push(o); return o; };
   const W = (slot) => wear?.[slot] && ITEMS[wear[slot]]?.wear;
-  const sw = u.sex === 'f' ? 0.5 : u.sex === 'x' ? 0.55 : 0.6;
+  const sw = u.kind === 'zombie' ? (u.sex === 'f' ? 0.5 : u.sex === 'x' ? 0.55 : 0.6) : (u.sex === 'f' ? 0.46 : u.sex === 'x' ? 0.5 : 0.54);
   const h = W('head');
   if (h) {
     if (wear.head === 'hat_cloth') { put(u.head, box(0.38, 0.12, 0.38, h.color, 0, 0.33, 0)); put(u.head, box(0.38, 0.04, 0.18, h.color, 0, 0.27, 0.24)); }
@@ -191,23 +194,23 @@ export function setOutfit(g, wear, ITEMS) {
   }
   const b = W('body');
   if (b) {
-    put(u.inner, box(sw + 0.04, 0.72, 0.34, b.color, 0, 1.25, 0));
+    put(u.inner, box(sw + 0.04, (u.dims?.bodyH ?? 0.7) + 0.02, 0.34, b.color, 0, u.dims?.bodyY ?? 1.25, 0));
     for (const a of [u.lArm, u.rArm]) put(a, box(0.16, 0.36, 0.16, b.color, 0, -0.17, 0));
-    if (wear.body === 'vest_kevlar' || wear.body === 'cloth_armor') put(u.inner, box(sw * 0.8, 0.4, 0.36, '#495057', 0, 1.32, 0.01));
+    if (wear.body === 'vest_kevlar' || wear.body === 'cloth_armor') put(u.inner, box(sw * 0.8, 0.4, 0.36, '#495057', 0, (u.dims?.bodyY ?? 1.25) + 0.07, 0.01));
   }
   const l = W('legs');
   if (l) {
-    if (l.skirt) put(u.inner, box(0.56, wear.legs === 'skirt_long' ? 0.7 : 0.42, 0.34, l.color, 0, wear.legs === 'skirt_long' ? 0.6 : 0.75, 0));
-    else for (const a of [u.lLeg, u.rLeg]) put(a, box(0.2, 0.9, 0.22, l.color, 0, -0.45, 0));
+    if (l.skirt) { const L0 = u.dims?.legL ?? 0.9, hh = (wear.legs === 'skirt_long' ? 0.78 : 0.46) * (L0 / 0.9) + 0.02; put(u.inner, box(0.56, hh, 0.34, l.color, 0, L0 - hh / 2 + 0.06, 0)); }
+    else for (const a of [u.lLeg, u.rLeg]) put(a, box(0.23, u.dims?.legL ?? 0.9, 0.25, l.color, 0, -(u.dims?.legL ?? 0.9) / 2, 0));
   }
-  const hd = W('hands'); if (hd) for (const a of [u.lArm, u.rArm]) put(a, box(0.14, 0.16, 0.14, hd.color, 0, -0.6, 0));
-  const so = W('socks'); if (so) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.2, 0.12, 0.22, so.color, 0, -0.8, 0));
-  const sh = W('shoes'); if (sh) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.21, wear.shoes === 'boots' ? 0.24 : 0.1, 0.3, sh.color, 0, wear.shoes === 'boots' ? -0.82 : -0.88, 0.04));
+  const hd = W('hands'); if (hd) for (const a of [u.lArm, u.rArm]) put(a, box(0.16, 0.16, 0.16, hd.color, 0, -((u.dims?.armL ?? 0.62) - 0.02), 0));
+  const so = W('socks'); if (so) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.23, 0.12, 0.25, so.color, 0, -((u.dims?.legL ?? 0.9) - 0.1), 0));
+  const sh = W('shoes'); if (sh) for (const a of [u.lLeg, u.rLeg]) put(a, box(0.24, wear.shoes === 'boots' ? 0.24 : 0.1, 0.32, sh.color, 0, -((u.dims?.legL ?? 0.9) - (wear.shoes === 'boots' ? 0.08 : 0.02)) + (wear.shoes === 'boots' ? 0 : 0), 0.04));
   const of = W('off');
   u.offFlame = null; u.offLight = null;
   if (of && wear.off === 'torch') {
     // คบเพลิงในมือรอง (คู่กับอาวุธมือหลัก) — ส่องสว่างรอบตัว
-    const t = TOOL_MESH.torch(), grp = new THREE.Group(); grp.position.set(0, -0.6, 0.05); grp.userData.torch = true; grp.add(t);
+    const t = TOOL_MESH.torch(), grp = new THREE.Group(); grp.position.set(0, -((u.dims?.armL ?? 0.62) - 0.02), 0.05); grp.userData.torch = true; grp.add(t);
     if (GFX.mode !== 'low') { const L = new THREE.PointLight('#ffa94d', 2.2, 16, 1.5); L.position.y = 0.7; t.add(L); u.offLight = L; }
     u.offFlame = t.userData.flame || null;
     put(u.lArm, grp); u.shield = grp; placeShield(u);
@@ -221,7 +224,7 @@ export function setOutfit(g, wear, ITEMS) {
     put(u.lArm, sh); u.shield = sh; placeShield(u);
   }
   const bk = W('back');
-  if (bk) { const s = 0.7 + bk.lvl * 0.15; put(u.inner, box(0.42 * s, 0.5 * s, 0.22 * s, bk.color, 0, 1.25, -0.27)); if (bk.lvl > 1) put(u.inner, box(0.36 * s, 0.12, 0.26 * s, '#333', 0, 1.25 + 0.27 * s, -0.27)); }
+  if (bk) { const s = 0.7 + bk.lvl * 0.15; put(u.inner, box(0.42 * s, 0.5 * s, 0.22 * s, bk.color, 0, u.dims?.bodyY ?? 1.25, -0.27)); if (bk.lvl > 1) put(u.inner, box(0.36 * s, 0.12, 0.26 * s, '#333', 0, (u.dims?.bodyY ?? 1.25) + 0.27 * s, -0.27)); }
 }
 
 // ท่าปั่นจักรยาน: ขาปั่นสลับตามความเร็ว · แขนจับแฮนด์ · ตัวโน้มไปข้างหน้า (ยานพาหนะอื่น = นั่งเฉย ๆ มือจับ)
@@ -236,7 +239,7 @@ export function ridePose(g, dt, speed, vt) {
   } else { u.lLeg.rotation.x = u.rLeg.rotation.x = -1.3; u.lArm.rotation.x = u.rArm.rotation.x = -1.0; u.inner.rotation.x = 0.12; }
 }
 // ท่านั่งพัก: นั่งพับขาบนพื้น มือวางบนเข่า
-export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.55; u.inner.position.z = 0; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
+export function sitPose(g) { const u = g.userData; u.inner.rotation.x = 0; u.inner.position.y = -0.61 * (u.dims?.legL ?? 0.9); u.inner.position.z = 0; u.lLeg.rotation.x = u.rLeg.rotation.x = -1.45; u.lArm.rotation.x = u.rArm.rotation.x = -0.55; u.head.rotation.x = 0.1; }
 // ท่านอนบนเตียง (fit = นอนบนเตียงจริง: ย่อสัดส่วนเล็กน้อยและจัดกึ่งกลางให้พอดีเตียงยาว 2.2 ม. ไม่ให้ตัวยื่นออกนอกเตียง)
 export function sleepPose(g, fit = false) {
   const u = g.userData; if (u.baseS === undefined) u.baseS = u.inner.scale.x;
@@ -631,12 +634,13 @@ export function makeWatchtower() {
 const labels = new Set();
 onLang(() => { for (const r of labels) { const s = r.deref(); if (!s) labels.delete(r); else if (s.userData.raw) s.userData.set(...s.userData.raw); } });
 export function makeLabel(text, color = '#fff') {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; // ความละเอียด 2× ให้ป้ายชื่อคมชัด
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
   sp.scale.set(2.4, 0.6, 1); sp.renderOrder = 10;
   sp.userData.set = (t0, col = color) => {
     const t = tr(t0); if (!sp.userData.raw) labels.add(new WeakRef(sp)); sp.userData.raw = [t0, col];
-    const x = c.getContext('2d'); x.clearRect(0, 0, 256, 64);
+    const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 512, 128); x.setTransform(2, 0, 0, 2, 0, 0);
     x.font = 'bold 26px Sarabun, Tahoma, sans-serif'; x.textAlign = 'center';
     x.fillStyle = 'rgba(0,0,0,.55)'; const w = Math.min(250, x.measureText(t).width + 18); x.fillRect(128 - w / 2, 12, w, 40);
     x.fillStyle = col; x.fillText(t, 128, 42); sp.material.map.needsUpdate = true;

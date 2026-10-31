@@ -82,7 +82,7 @@ export class Entities {
     const cs = npcCampSpot(NPCS, NPCS.indexOf(n)), { x, z } = cs ? cs : this.findLand(town.x, town.z, 12);
     const e = this.base('npc', 'human', makeHuman(n.sex, look), x, z);
     Object.assign(e, { id: n.id, def: n, sex: n.sex, name: n.name, home: cs ? { x: cs.x, z: cs.z } : { x: town.x, z: town.z }, campNpc: !!cs, hp: 100, maxHp: 100, follow: false });
-    e.label = makeLabel(n.name); e.label.position.y = 2.3; e.mesh.add(e.label);
+    e.label = makeLabel(n.name); e.label.position.y = 2.05; e.mesh.add(e.label);
     this.add(e);
   }
 
@@ -136,7 +136,7 @@ export class Entities {
     if (!r) {
       const mesh = makeHuman(p.sex, p.look || {});
       r = { kind: 'remote', id: p.id, name: p.name, sex: p.sex, mesh, pos: mesh.position, target: new THREE.Vector3(), ry: 0, speed: 0, petMeshes: [] };
-      r.label = makeLabel(p.name); r.label.position.y = 2.3; mesh.add(r.label);
+      r.label = makeLabel(p.name); r.label.position.y = 2.05; mesh.add(r.label);
       this.scene.add(mesh); this.remotes.set(p.id, r);
       if (p.p) mesh.position.set(...p.p);
     }

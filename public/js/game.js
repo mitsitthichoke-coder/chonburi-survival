@@ -89,7 +89,8 @@ export class Game {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog('#a8b8a0', 60, 420);
     this.camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 900);
-    this.hemi = new THREE.HemisphereLight('#e6efff', '#6a6a4c', GFX.mode === 'toon' ? 1.3 : 1.0); // โทนสว่างใสขึ้นเล็กน้อย (การ์ตูน: สว่างกว่า) this.scene.add(this.hemi);
+    this.hemi = new THREE.HemisphereLight('#e6efff', '#6a6a4c', GFX.mode === 'toon' ? 1.3 : 1.0);
+    this.scene.add(this.hemi); // โทนสว่างใสขึ้นเล็กน้อย (การ์ตูน: สว่างกว่า)
     const sun = this.sun = new THREE.DirectionalLight('#fff2d6', 1.4);
     sun.castShadow = !low; const sm = smooth && !this.lowSpec ? 4096 : this.lowSpec ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
     Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 300 });
@@ -1245,10 +1246,11 @@ export class Game {
     const day = clamp(sunY * 2 + 0.3, 0, 1);
     this.sun.position.set(P.x + sunX * 120, P.y + Math.max(0.15, sunY) * 150, P.z + 50);
     this.sun.target.position.copy(P);
-    this.sun.intensity = 1.4 * day * (this.weather.rain ? 0.5 : 1);
-    this.hemi.intensity = 0.25 + 0.7 * day;
+    this.sun.intensity = 1.4 * day * (this.weather.rain ? 0.5 : 1) + (1 - day) * 0.75; // กลางคืน: แสงจันทร์สีฟ้าอ่อน ๆ ให้พอเห็นทาง
+    this.sun.color.set(day > 0.35 ? '#fff2d6' : '#a9bcff');
+    this.hemi.intensity = 0.62 + 0.55 * day + (this.weather.fog >= 0.35 ? 0.12 : 0); // กลางคืน/หมอก: ไม่มืดสนิทจนมองไม่เห็น
     const hw = isHalloween();
-    const sky = new THREE.Color(hw ? '#170826' : '#0b1024').lerp(new THREE.Color(this.weather.rain ? '#8d99a6' : hw ? '#c99a8c' : '#9cc3d9'), hw ? day * 0.75 : day);
+    const sky = new THREE.Color(hw ? '#170826' : '#16204a').lerp(new THREE.Color(this.weather.rain ? '#8d99a6' : hw ? '#c99a8c' : '#9cc3d9'), hw ? day * 0.75 : day);
     if (tod > 0.72 && tod < 0.82) sky.lerp(new THREE.Color(hw ? '#ff7b00' : '#e07a5f'), (hw ? 0.5 : 0.35) * (1 - Math.abs(tod - 0.77) / 0.05));
     sky.lerp(new THREE.Color(hw ? '#5a2a6a' : '#8a8f7a'), hw ? 0.2 : 0.12); // ฝุ่นควันโลกล่มสลาย · หมอกม่วงฮาโลวีน
     this.hemi.color.set(hw ? '#e8c9ff' : '#dfe9f3'); this.hemi.groundColor.set(hw ? '#4a2a10' : '#5a5a40');
@@ -1256,9 +1258,9 @@ export class Game {
     this.world.tickHalloween?.(dt, P, this.isNight());
     this.scene.background = sky; this.scene.fog.color.copy(sky);
     const W = this.weather; // near ต้องน้อยกว่า far เสมอ ไม่งั้นของใกล้ตัวจะขาวโพลนแต่ของไกลกลับชัด
-    this.scene.fog.far = W.fog >= 0.7 ? 95 : W.fog >= 0.35 ? 170 : W.snow ? 230 : W.rain ? 240 : 140 + day * 300;
-    this.scene.fog.near = Math.min(60, this.scene.fog.far * 0.35);
-    if (W.fog > 0) this.scene.fog.color.lerp(new THREE.Color('#c9ced3').multiplyScalar(0.35 + day * 0.6), Math.min(0.55, W.fog));
+    this.scene.fog.far = W.fog >= 0.7 ? 150 : W.fog >= 0.35 ? 220 : W.snow ? 260 : W.rain ? 280 : 190 + day * 280; // หมอกบางลง มองเห็นไกลขึ้น
+    this.scene.fog.near = Math.min(70, this.scene.fog.far * 0.3);
+    if (W.fog > 0) this.scene.fog.color.lerp(new THREE.Color('#c9ced3').multiplyScalar(0.62 + day * 0.38), Math.min(0.5, W.fog)); // สีหมอกไม่มืดจนดำ
     if (W.snow) { this.scene.fog.color.lerp(new THREE.Color('#e9eef3').multiplyScalar(0.3 + day * 0.7), 0.25); this.hemi.groundColor.set('#cfd8df'); }
     this.scene.background = this.scene.fog.color.clone();
     this.visT = (this.visT || 0) - dt; if (this.visT <= 0) { this.visT = 0.5; this.world.updateVisibility(P.x, P.z, this.scene.fog.far); }

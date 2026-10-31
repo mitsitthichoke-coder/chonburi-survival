@@ -106,8 +106,25 @@ export class WorldCore {
     return { id: G.id, name: G.name, leader: G.leader, lv, fund: G.fund, next: nx, max: GUILD_MEMBERS[lv], members: Object.entries(G.members).map(([id, m]) => ({ id, name: m.n, r: m.r, online: this.players.has(id) })) };
   }
   // 🏰 ป้อมกิลด์ (db.forts[key] = { gid, water, power, since })
-  fortsView() { const o = {}; for (const f of forts()) { const r = this.db.forts?.[f.key]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0 } : null; } return o; }
+  fortsView() { const o = {}; for (const f of forts()) { const r = this.db.forts?.[f.key]; const sg = r?.siege && this.db.guilds?.[r.siege.gid]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0, shield: Math.max(0, (r.shield || 0) - Date.now()), siege: sg ? { gname: this.db.guilds[r.siege.gid].name, gid: r.siege.gid, meter: Math.round(r.siege.meter), left: Math.max(0, r.siege.end - Date.now()) } : null } : null; } return o; }
   fortsSync() { this.broadcast({ t: 'forts', f: this.fortsView() }); }
+  // ⚔️ ศึกชิงป้อม: กิลด์ผู้ท้าต้องมีสมาชิกในเขตป้อมมากกว่าฝ่ายป้องกัน เกจถึง 100% = ยึดป้อม (ครบ 10 นาทีไม่สำเร็จ = ฝ่ายป้องกันชนะ)
+  tickForts(dt) {
+    this.tFort = (this.tFort || 0) - dt; if (this.tFort > 0 || !this.db.forts) return; const step = 1 - this.tFort; this.tFort = 1; let ch = false, show = false;
+    for (const F of forts()) {
+      const r = this.db.forts[F.key]; if (!r?.siege) continue; const S = r.siege, def = this.db.guilds?.[r.gid], att = this.db.guilds?.[S.gid]; show = true;
+      if (!def || !att) { delete r.siege; if (!def) delete this.db.forts[F.key]; ch = true; continue; }
+      let A = 0, D = 0; for (const [pid, pl] of this.players) { if (!pl.p || Math.hypot(pl.p[0] - F.x, pl.p[2] - F.z) > F.r) continue; if (att.members[pid]) A++; else if (def.members[pid]) D++; }
+      S.meter = Math.max(0, Math.min(100, S.meter + (A > D ? Math.min(A - D, 3) * 0.6 : A > 0 ? -0.5 : -0.3) * step));
+      if (S.meter >= 100) {
+        r.gid = att.id; r.water = Math.floor((r.water | 0) / 2); r.power = Math.floor((r.power | 0) / 2); r.shield = Date.now() + 30 * 60000; r.since = Date.now(); delete r.siege; ch = true;
+        this.broadcast({ t: 'announce', kind: 'fort', text: `🏆 กิลด์ ${att.name} ยึด ${F.icon} ${F.name} จาก ${def.name} สำเร็จ!` }); this.guildSync(att); this.guildSync(def);
+      } else if (Date.now() >= S.end) {
+        r.shield = Date.now() + 10 * 60000; delete r.siege; ch = true; this.broadcast({ t: 'announce', kind: 'fort', text: `🛡️ ${def.name} ป้องกัน ${F.icon} ${F.name} ได้สำเร็จ!` });
+      }
+    }
+    if (ch) this.dirty(); if (ch || (show && (this.tFortS = (this.tFortS || 0) + 1) % 5 === 0)) this.fortsSync();
+  }
   fortPerm(id, key) { const G = this.guildOf(id), r = this.db.forts?.[key]; return G && r && r.gid === G.id ? { G, r, boss: ['leader', 'officer'].includes(G.members[id]?.r), lead: G.leader === id } : null; }
   guildSync(G) { const v = this.guildView(G); for (const id of Object.keys(G.members)) if (this.players.has(id)) this.send(id, { t: 'guild', g: v }); }
   guildCreate(id, name) {
@@ -145,6 +162,15 @@ export class WorldCore {
         const P = this.fortPerm(id, m.key), sys = m.sys === 'power' ? 'power' : 'water'; if (!P || !P.boss) return say(id, 'ต้องเป็นหัวหน้า/รองหัวหน้ากิลด์ที่ครองป้อมนี้');
         const nx = (P.r[sys] | 0) + 1; if (nx > 3) return say(id, 'ระบบอยู่ระดับสูงสุดแล้ว'); if (P.G.fund < FORT_UP_COST[nx]) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${FORT_UP_COST[nx]})`);
         P.G.fund -= FORT_UP_COST[nx]; P.r[sys] = nx; this.dirty(); this.guildSync(P.G); this.fortsSync(); return say(id, `${sys === 'water' ? '💧 ระบบน้ำ' : '⚡ ระบบไฟ'} ขึ้นเป็นระดับ ${nx} แล้ว`);
+      }
+      case 'fsiege': { // ประกาศศึกชิงป้อม (หัวหน้า/รอง · เลเวลถึง · จ่าย 🪙1000 จากกองทุน)
+        const F = fortOf(m.key), r = F && this.db.forts?.[F.key]; if (!G || !['leader', 'officer'].includes(G.members[id]?.r)) return say(id, 'ต้องเป็นหัวหน้า/รองหัวหน้ากิลด์');
+        if (!r || !this.db.guilds[r.gid]) return say(id, 'ป้อมนี้ว่างอยู่ ยึดได้เลยไม่ต้องประกาศศึก'); if (r.gid === G.id) return say(id, 'ป้อมนี้เป็นของกิลด์คุณ');
+        if (Object.values(this.db.forts).some((x) => x.gid === G.id)) return say(id, 'กิลด์ที่ครองป้อมอยู่แล้วชิงป้อมอื่นไม่ได้'); if (guildLevel(G.fund) < F.lvReq) return say(id, `ต้องเป็นกิลด์เลเวล ${F.lvReq} ขึ้นไป`);
+        if (r.siege) return say(id, 'ป้อมนี้กำลังมีศึกอยู่'); if ((r.shield || 0) > Date.now()) return say(id, `ป้อมนี้ยังมีโล่คุ้มครองอีก ${Math.ceil((r.shield - Date.now()) / 60000)} นาที`);
+        if (G.fund < 1000) return say(id, 'กองทุนไม่พอ (ประกาศศึกใช้ 🪙1000)');
+        G.fund -= 1000; r.siege = { gid: G.id, start: Date.now(), end: Date.now() + 10 * 60000, meter: 0 }; this.dirty(); this.guildSync(G); this.fortsSync();
+        this.broadcast({ t: 'announce', kind: 'fort', text: `⚔️ กิลด์ ${G.name} ประกาศศึกชิง ${F.icon} ${F.name} จาก ${this.db.guilds[r.gid].name}! (10 นาที)` }); return;
       }
       case 'frel': { const P = this.fortPerm(id, m.key); if (!P || !P.lead) return; delete this.db.forts[m.key]; this.dirty(); this.fortsSync(); return say(id, 'ปล่อยป้อมคืนแล้ว'); }
       case 'invite': {
@@ -776,6 +802,7 @@ export class WorldCore {
 
   // เรียกทุก ~0.1 วินาที
   tick(dt) {
+    this.tickForts(dt);
     this.tickZombies(dt);
     this.tickFauna(dt);
     this.tSpawn -= dt; if (this.tSpawn <= 0) { this.tSpawn = 1; this.spawnTick(); this.spawnFaunaTick(); }

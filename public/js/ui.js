@@ -717,6 +717,9 @@ export class UI {
     return '<h4>🏰 ป้อมกิลด์ (เรือนจำ 3 แห่ง)</h4>' + FORTS().map((F) => {
       const st = g.forts?.[F.key], own = st && G && st.gid === G.id, d = P ? Math.round(Math.hypot(P.x - F.x, P.z - F.z)) : null, inside = d !== null && d < F.r;
       let h = `<div class="recipe"><div><b>${F.icon} ${esc(F.name)}</b> <small>${esc(F.theme)}${d !== null ? ` · ห่าง ${d} ม.` : ''}</small><br>${st ? `ครอบครองโดย <b>${esc(st.gname)}</b> · 💧 ระดับ ${st.water} · ⚡ ระดับ ${st.power}` : `ว่าง · ยึดด้วยกองทุน 🪙${F.cost} · กิลด์เลเวล ${F.lvReq}+`}</div><div>`;
+      if (st?.siege) h += `<br><b>⚔️ ศึกชิงป้อม: ${esc(st.siege.gname)} บุก</b> <progress value="${st.siege.meter}" max="100"></progress> ${st.siege.meter}% · เหลือ ${Math.ceil(st.siege.left / 60000)} นาที<small> (ยืนในเขตป้อมให้มากกว่าฝ่ายตรงข้ามเพื่อเพิ่มเกจ)</small>`;
+      if (st?.shield > 0) h += `<br><small>🛡️ โล่คุ้มครองอีก ${Math.ceil(st.shield / 60000)} นาที</small>`;
+      if (st && !own && !mine && boss && G.lv >= F.lvReq && !st.siege && !(st.shield > 0)) h += ` <button data-fsiege="${F.key}" ${G.fund >= 1000 ? '' : 'disabled'}>⚔️ ประกาศศึก (🪙1000)</button>`;
       if (!st && lead && !mine) h += `<button data-fcap="${F.key}" ${G.lv >= F.lvReq && G.fund >= F.cost ? '' : 'disabled'}>⚔️ ยึดป้อม</button>`;
       if (own && boss) h += ['water', 'power'].map((sy) => (st[sy] < 3 ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[st[sy] + 1] ? '' : 'disabled'}>${sy === 'water' ? '💧' : '⚡'} ขึ้นระดับ ${st[sy] + 1} (🪙${FORT_UP_COST[st[sy] + 1]})</button>` : '')).join(' ');
       if (own && lead) h += ` <button data-frel="${F.key}">ปล่อยคืน</button>`;
@@ -904,6 +907,7 @@ export class UI {
     if (d.petsup) { g.callPetsUp(); return; }
     if (d.treq) { g.net.send({ t: 'trade', a: 'req', to: d.treq }); return; }
     if (d.gcreate) { const n = ($('#guild-name')?.value || '').trim(); if (n.length < 2) return this.toast('ตั้งชื่อกิลด์ก่อน (อย่างน้อย 2 ตัวอักษร)', 'warn'); g.auth.do('gcreate', { name: n }); setTimeout(() => g.net.send({ t: 'guild', a: 'hello' }), 600); return; }
+    if (d.fsiege) { this.confirm('ประกาศศึกชิงป้อม? ใช้กองทุน 🪙1000 · ต้องมีสมาชิกยืนในเขตป้อมมากกว่าฝ่ายป้องกันนาน ๆ จึงจะยึดได้ (10 นาที)', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'fsiege', key: d.fsiege }); }); return; }
     if (d.fcap) { g.net.send({ t: 'guild', a: 'fcap', key: d.fcap }); return; }
     if (d.fup) { const [key, sys] = d.fup.split(':'); g.net.send({ t: 'guild', a: 'fup', key, sys }); return; }
     if (d.frel) { this.confirm('ปล่อยป้อมคืน? ระดับน้ำ/ไฟที่พัฒนาไว้จะหายไป', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'frel', key: d.frel }); }); return; }

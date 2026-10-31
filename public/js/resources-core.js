@@ -21,6 +21,10 @@ export const RES_TYPES = {
   durian_tree: { name: 'ต้นทุเรียน (ล้มได้ไม้ 5 + ทุเรียน 1)', hp: 6, drops: [['wood', 5, 5], ['durian', 1, 1]], respawn: 9, r: 0.6 },
   bamboo: { name: 'กอไผ่ (ล้มได้ลำไผ่ 8)', hp: 3, drops: [['bamboo', 8, 8]], respawn: 6, r: 0.5 },
   wildflower: { name: 'ดอกไม้สวยงาม', hp: 1, drops: [['wildflower', 2, 3]], respawn: 3, r: 0 },
+  // พืชเศรษฐกิจ: อ้อย · ยางพารา · ยางนา
+  sugarcane: { name: 'ต้นอ้อย', hp: 1, drops: [['sugarcane', 2, 3], ['fiber', 0, 1]], respawn: 4, r: 0 },
+  rubber_tree: { name: 'ต้นยางพารา (ไม้ยางพารา 4)', hp: 5, drops: [['rubber_wood', 4, 4], ['wood', 1, 2]], respawn: 8, r: 0.5 },
+  yang_na: { name: 'ต้นยางนา (ไม้ 8)', hp: 8, drops: [['wood', 8, 8]], respawn: 12, r: 0.8 },
 };
 // อำเภอที่มีพืชเฉพาะถิ่น: [ชนิดที่จะเปลี่ยน, เปลี่ยนเป็น, สัดส่วน, รัศมี (เท่าของรัศมีเมือง)]
 const REGION_FLORA = {
@@ -65,6 +69,11 @@ function generate() {
       if (rule && h2 < rule[2]) type = rule[1];
       break;
     }
+    // อ้อย (ไร่ในอำเภอเกษตร) · ยางพารา (สวนยาง) · ยางนา (ต้นใหญ่ริมถนน/ในเมือง) — ใช้ hash แยก ไม่กระทบลำดับสุ่มเดิม
+    const hh2 = hash2(Math.floor(px * 5) + 3, Math.floor(pz * 5) - 5), inT = (keys, k) => keys.some((key) => { const t = TOWNS.find((x) => x.key === key); return t && (px - t.x) ** 2 + (pz - t.z) ** 2 < (t.r * k) ** 2; });
+    if ((type === 'grass' || type === 'bush') && hh2 < 0.4 && inT(['phanat', 'phanthong', 'nongyai', 'bothong', 'banbueng'], 2.6)) type = 'sugarcane';
+    else if (type === 'tree' && (town ? hh2 < 0.35 : hh2 < 0.04)) type = 'yang_na';
+    else if (type === 'tree' && hh2 < 0.5 && inT(['bothong', 'nongyai', 'banbueng', 'sattahip'], 2.8)) type = 'rubber_tree';
     out.push({ id: out.length, type, x: px, z: pz, y: h, s: 0.75 + rng() * 0.6, ry: rng() * 6.28 });
   }
   // สวนดอกไม้สวยงามบางละมุง (แปลงดอกไม้หนาแน่นรอบสวนแกะ)

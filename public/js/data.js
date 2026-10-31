@@ -272,6 +272,11 @@ const RAW_ITEMS = {
   durian_chips: { name: 'ทุเรียนทอดกรอบ', icon: '🍟', value: 16, food: { hunger: 28, hp: 8, happy: 3 } },
   durian_sticky_rice: { name: 'ข้าวเหนียวทุเรียน', icon: '🍚', value: 24, food: { hunger: 55, hp: 14, happy: 5 } },
   bamboo: { name: 'ลำไม้ไผ่', icon: '🎋', value: 1, desc: 'ตัดจากกอไผ่ (พนัสนิคม บ้านบึง พานทอง) ใช้จักสานและทำผนังไม้ไผ่' },
+  sugarcane: { name: 'อ้อย', icon: '🎋', value: 2, food: { hunger: 4, thirst: 10 }, desc: 'ตัดจากไร่อ้อย (พนัสนิคม พานทอง บ่อทอง หนองใหญ่ บ้านบึง) เคี้ยวกินหวานชื่นใจ' },
+  rubber_wood: { name: 'ไม้ยางพารา', icon: '🪵', value: 3, desc: 'เนื้อไม้แข็งเหนียวจากสวนยาง (บ่อทอง หนองใหญ่ บ้านบึง สัตหีบ) ขายหรือใช้เป็นวัสดุก่อสร้าง' },
+  concrete: { name: 'คอนกรีต', icon: '🧱', value: 4, desc: 'ผสมจากหิน + เศษเหล็ก + น้ำสะอาด (สูตรนักพัฒนา) ใช้ทำวัสดุบ้านสำเร็จรูป' },
+  house_mat: { name: 'วัสดุบ้านสำเร็จรูป', icon: '🏗️', value: 12, desc: 'ไม้ + คอนกรีต + ไม้ไผ่ (สูตรนักพัฒนา) วัสดุสำหรับต่อเติมบ้าน/ฐาน' },
+  roasted_coconut: { name: 'มะพร้าวเผา', icon: '🥥', value: 8, food: { hunger: 16, thirst: 14, stress: -5 }, desc: 'เผามะพร้าวข้างกองไฟ หวานหอม อิ่มกว่ามะพร้าวสด' },
   wildflower: { name: 'ดอกไม้สวยงาม', icon: '🌸', value: 3, flower: true, desc: 'เก็บจากสวนดอกไม้บางละมุง ใช้คราฟท์มงกุฎดอกไม้ พวงมาลัย น้ำหอม' },
   flower_crown: { name: 'มงกุฎดอกไม้', icon: '👑', value: 14, wear: { slot: 'head', warm: 0.03, color: '#ff8fab' }, desc: 'สวมแล้วสดชื่น · มอบเป็นของขวัญได้' },
   flower_garland: { name: 'พวงมาลัยดอกไม้', icon: '💮', value: 12, flower: true, desc: 'ของขวัญที่ทุกคนชอบ' },
@@ -622,11 +627,13 @@ export const RECIPES = [
   { out: 'chalom', need: { bamboo: 5 }, skill: 'crafting', lvl: 1, learn: 'wicker' },
   { out: 'hand_fan', need: { bamboo: 3, fiber: 1 }, skill: 'crafting', lvl: 1, learn: 'wicker' },
   { out: 'raft', need: { bamboo: 16, fiber: 6 }, skill: 'crafting', lvl: 1, learn: 'wicker', label: 'แพไม้ไผ่ (จากลำไผ่)' },
+  // นักพัฒนา + มะพร้าวเผา
+  { out: 'roasted_coconut', need: { coconut: 1 }, skill: 'cooking', lvl: 1, station: 'fire' },
+  { out: 'concrete', need: { stone: 4, scrap: 1, clean_water: 1 }, skill: 'building', lvl: 1, job: 'developer', qty: 2, keepBottle: true, label: 'คอนกรีต (สูตรนักพัฒนา)' },
+  { out: 'house_mat', need: { wood: 6, concrete: 2, bamboo: 3 }, skill: 'building', lvl: 2, job: 'developer', label: 'วัสดุบ้านสำเร็จรูป (สูตรนักพัฒนา)' },
 ];
 // สูตรที่ต้องเรียนก่อน: เรียนจาก NPC หรืออ่านตำรา → เก็บใน ch.boxes['learn_<ชื่อ>']
-export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 }, water: { name: 'ระบบประปา', quest: true, how: 'ทำภารกิจซ่อมโรงสูบน้ำที่เขื่อนเกาะจันทร์ก่อน' } };
-// 💧 ภารกิจซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์: เอาของมาส่งครบ → ปลดล็อกท่อส่งน้ำและหอถังน้ำสำรอง
-export const DAM_NEED = { scrap: 6, copper_wire: 4, battery_pack: 1, fuel: 2 };
+export const LEARN = { wicker: { name: 'งานจักสาน', npc: 'npc_waew', cost: 40 } };
 export const learned = (ch, k) => !!ch?.boxes?.['learn_' + k];
 export const learnHint = (k) => '🔒 ' + (LEARN[k]?.how || (k === 'wicker' ? 'ต้องเรียนงานจักสานกับยายแวว (ตลาดจักสานพนัสนิคม) ก่อน' : `ต้องเรียน${LEARN[k]?.name || ''}ก่อน`));
 
@@ -662,7 +669,7 @@ export const SPAWN_TOWN = 'bangsaen';
 // ระยะตีของอาวุธระยะประชิด (วัดจากตัวผู้เล่นถึง "ผิว" ของเป้าหมาย) · มือเปล่าเอื้อมได้ใกล้สุด
 export const meleeReach = (tool) => Math.min(2.8, tool?.range ? tool.range * 0.72 : 1.15);
 // รัศมีลำตัวของเป้าหมาย (ตัวใหญ่ตีโดนได้จากไกลกว่า)
-export const BODY_R = { elephant: 1.7, trike: 1.3, buffalo: 0.8, cow: 0.8, tiger: 0.7, raptor: 0.6, boar: 0.6, deer: 0.5, sheep: 0.45, dog: 0.35, cat: 0.25, chicken: 0.25, bird: 0.2 };
+export const BODY_R = { elephant: 1.7, trike: 1.3, buffalo: 0.8, cow: 0.8, tiger: 0.7, raptor: 0.6, boar: 0.6, deer: 0.5, sheep: 0.45, dog: 0.35, cat: 0.25, chicken: 0.25, duck: 0.25, bird: 0.2 };
 export const MELEE_MAX = 6.5; // เซิร์ฟเวอร์ยอมรับการตีระยะประชิดไม่เกินนี้ (เผื่อความหน่วงเน็ต)
 
 // ช่องสวมใส่ และกระเป๋า
@@ -682,7 +689,7 @@ export const canBuild = (inv) => Object.keys(inv || {}).some((k) => inv[k] > 0 &
 // เริ่มต้นชนิดละ 1 ตัว (สุนัข แมว นก) · มีบ้าน (เตียง) + บ้านสัตว์เลี้ยง ได้เพิ่ม +1 ตัว/ชนิด ต่อหลัง · สัตว์ป่าจับด้วยแหได้ 1 ตัว
 // สัตว์ป่าที่จะเกิด: แถวสวนสัตว์เขาเขียวมีไดโนเสาร์หลุดออกมา (ที่อื่นพบได้ยาก)
 export const pickWild = (zoo, r, town = false) => {
-  const k = zoo ? (r < 0.25 ? 'raptor' : r < 0.45 ? 'trike' : r < 0.55 ? 'tiger' : r < 0.8 ? 'deer' : 'boar') : r < 0.02 ? 'raptor' : r < 0.04 ? 'trike' : r < 0.07 ? 'tiger' : r < 0.5 ? 'chicken' : r < 0.8 ? 'boar' : 'deer';
+  const k = zoo ? (r < 0.25 ? 'raptor' : r < 0.45 ? 'trike' : r < 0.55 ? 'tiger' : r < 0.8 ? 'deer' : 'boar') : r < 0.02 ? 'raptor' : r < 0.04 ? 'trike' : r < 0.07 ? 'tiger' : r < 0.38 ? 'chicken' : r < 0.5 ? 'duck' : r < 0.8 ? 'boar' : 'deer';
   return town && WILD[k].noTown ? 'chicken' : k; // ไดโนเสาร์/นักล่าไม่เกิดในเมือง
 };
 export const inTownAt = (x, z, pad = 1.15) => TOWNS.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < (t.r * pad) ** 2);
@@ -726,6 +733,8 @@ export const JOBS = {
     perks: [[1, 'ตีบวกเองได้ที่ ⚒️ ทั่งตีเหล็ก (ไม่ต้องจ้าง NPC) · ปลดล็อก ทั่งตีเหล็ก'], [4, 'โอกาสตีบวกสำเร็จ +8% · ผสมหินซุปเปอร์ใช้เหล็กพลัสแค่ 2 ก้อน'], [8, 'ตีบวก +6 ถึง +8 ไม่ลดระดับ · โอกาสไอเท็มแตกหายลดลงครึ่งหนึ่ง']] },
   chef: { name: 'เชฟ', icon: '👨‍🍳', skill: 'cooking', xp: { cooking: 1.5 }, kit: { cooked_meat: 2, herb: 2 }, desc: 'พัฒนาอาหาร อาหารให้ผลดีกว่าปกติ',
     perks: [[1, 'อาหารให้ผล +30% · อาหารเป็นพิษน้อยลงครึ่งหนึ่ง · ปลดล็อก กะเพรา / ต้มยำกุ้ง / บัวลอย'], [4, 'ทำอาหารได้เพิ่ม +1 จาน'], [8, 'กินแล้ว "อิ่มเอม": ฟื้นพลังชีวิตต่อเนื่อง 2 นาที และหายเครียด']] },
+  developer: { name: 'นักพัฒนา', icon: '🧑‍💻', skill: 'building', xp: { building: 1.3, tech: 1.3 }, kit: { hammer: 1, wood: 6, bamboo: 4 }, desc: 'พัฒนาฐานและวัสดุก่อสร้าง ทำคอนกรีตและวัสดุบ้านสำเร็จรูป',
+    perks: [[1, 'ปลดล็อก คอนกรีต / วัสดุบ้านสำเร็จรูป'], [4, 'วัสดุก่อสร้างลดลง 25%'], [8, 'วัสดุก่อสร้างลดลง 40%']] },
 };
 // ---------- สเตตัสสายอาชีพ ----------
 // สร้างตัวละคร: สายอาชีพที่เลือกได้ 5 แต้ม · ทุกเลเวลตัวละครได้ +1 แต้ม เอาไปลงสายไหนก็ได้
@@ -774,7 +783,7 @@ export const KILL_PERKS = [
 export const killPerk = (ch, i) => (ch?.stats?.kills || 0) >= KILL_PERKS[i][0];
 // ค่าวัสดุก่อสร้างหลังหักส่วนลดช่างก่อสร้าง
 export function buildCost(ch, cost) {
-  const off = hasPerk(ch, 'builder', 2) ? 0.4 : hasPerk(ch, 'builder', 0) ? 0.25 : 0;
+  const off = Math.max(hasPerk(ch, 'builder', 2) ? 0.4 : hasPerk(ch, 'builder', 0) ? 0.25 : 0, hasPerk(ch, 'developer', 2) ? 0.4 : hasPerk(ch, 'developer', 1) ? 0.25 : 0);
   if (!off) return { ...cost };
   const out = {}; for (const [k, q] of Object.entries(cost)) out[k] = Math.max(1, Math.round(q * (1 - off)));
   return out;
@@ -863,6 +872,7 @@ export const PET_TYPES = {
   deer: { name: 'กวาง', foods: ['berry', 'veg', 'corn'], perk: 'ว่องไว: คุณฟื้นสตามิน่าเร็วขึ้นเมื่ออยู่ใกล้', base: { hp: 34, atk: 4 }, wild: true, innate: 'swift' },
   boar: { name: 'หมูป่า', foods: ['corn', 'veg', 'raw_meat'], perk: 'บึกบึน: พุ่งชนผู้ติดเชื้อและช่วยรับดาเมจแทน', base: { hp: 60, atk: 10 }, wild: true, innate: 'guardian', fight: true },
   chicken: { name: 'ไก่', foods: ['corn', 'berry', 'seeds_corn'], perk: 'ออกไข่ทุก 3 นาที', base: { hp: 14, atk: 2 }, wild: true },
+  duck: { name: 'เป็ด', foods: ['corn', 'berry', 'seeds_corn', 'rice'], perk: 'ออกไข่เป็ดทุก 3 นาที', base: { hp: 14, atk: 2 }, wild: true },
   raptor: { name: 'แร็พเตอร์', foods: ['raw_meat', 'raw_fish', 'cooked_meat'], perk: 'นักล่าดึกดำบรรพ์: กัดแรงมาก', base: { hp: 70, atk: 18 }, wild: true, fight: true },
   trike: { name: 'ไทรเซอราทอปส์', foods: ['veg', 'corn', 'berry', 'pineapple'], perk: 'ร่างยักษ์กินพืช: ทนมาก ช่วยชนผู้ติดเชื้อ', base: { hp: 150, atk: 14 }, wild: true, fight: true, innate: 'guardian' },
   tiger: { name: 'เสือโคร่ง', foods: ['raw_meat', 'raw_fish'], perk: 'นักล่าเงียบ: กัดแรง ว่องไว', base: { hp: 80, atk: 16 }, wild: true, fight: true, innate: 'swift' },
@@ -877,6 +887,7 @@ export const WILD = {
   boar: { name: 'หมูป่า', hp: 35, flee: 6, fleeSpd: 4.5, angryHit: true, dmg: 6, diet: 'omni', leash: 70 },
   deer: { name: 'กวาง', hp: 25, flee: 12, fleeSpd: 6.5, diet: 'herb', leash: 80 },
   chicken: { name: 'ไก่ป่า', hp: 8, flee: 12, fleeSpd: 3.5, diet: 'herb', leash: 50 },
+  duck: { name: 'เป็ดป่า', hp: 8, flee: 12, fleeSpd: 3.5, diet: 'herb', leash: 50 },
   tiger: { name: 'เสือโคร่ง', hp: 90, hostile: 18, chase: 6.5, dmg: 14, bleed: 0.3, diet: 'meat', leash: 55, noTown: true },
   raptor: { name: 'แร็พเตอร์', hp: 70, hostile: 22, chase: 6.2, dmg: 12, bleed: 0.3, dino: true, diet: 'meat', leash: 45, noTown: true },
   trike: { name: 'ไทรเซอราทอปส์', hp: 170, angryHit: true, chase: 4.2, dmg: 18, flee: 0, dino: true, diet: 'herb', leash: 45, noTown: true },
@@ -887,7 +898,7 @@ export const WILD = {
 };
 // สัตว์ป่าเฉพาะถิ่น: อยู่ในรัศมี r (เท่าของรัศมีเมือง) ของอำเภอนั้น มีโอกาส p ที่สัตว์ที่เกิดจะเป็นชนิดนี้
 // รหัสชนิดสัตว์ที่ส่งผ่านเครือข่าย (เซิร์ฟเวอร์ ↔ เครื่องผู้เล่น ต้องใช้ลำดับเดียวกัน · เพิ่มชนิดใหม่ต่อท้ายเท่านั้น)
-export const FAUNA_KINDS = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike', 'tiger', 'elephant', 'buffalo', 'sheep'];
+export const FAUNA_KINDS = ['boar', 'deer', 'chicken', 'dog', 'cat', 'bird', 'npc', 'raptor', 'trike', 'tiger', 'elephant', 'buffalo', 'sheep', 'duck']; // เพิ่มชนิดใหม่ต่อท้ายเท่านั้น (เซิร์ฟเวอร์ต้องอัปเดตลำดับเดียวกัน)
 export const REGION_FAUNA = [
   { town: 'bothong', k: 'elephant', p: 0.45, r: 2.6 },
   { town: 'nongyai', k: 'buffalo', p: 0.45, r: 2.4 },

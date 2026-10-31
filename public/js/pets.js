@@ -2,14 +2,14 @@
 import { ITEMS, PET_TYPES, PET_TRAITS, PET_RARITY, PET_SLOTS, petLevel } from './data.js';
 
 const NAMES = { dog: ['ด่าง', 'โกโก้', 'บราวนี่', 'ทองแดง', 'ข้าวเหนียว', 'บัดดี้'], cat: ['ส้มจี๊ด', 'มิว', 'ข้าวตู', 'ดำ', 'วาสนา', 'ขนมปัง'], bird: ['ขุนทอง', 'แก้ว', 'ปิ๊ก', 'ฟ้าใส'],
-  deer: ['บัมบี้', 'เขางาม', 'ลมหวน'], boar: ['ตูบ', 'อ้วนพี', 'งาเหล็ก'], chicken: ['ไก่ตัน', 'ขนฟู', 'กุ๊กไก่'], raptor: ['เร็กซ์', 'สายฟ้า', 'เขี้ยวเงิน'], trike: ['ทริกกี้', 'เขาสาม', 'ภูผา'], tiger: ['ลายพาดกลอน', 'เจ้าป่า', 'ส้มซ่า'] };
+  deer: ['บัมบี้', 'เขางาม', 'ลมหวน'], boar: ['ตูบ', 'อ้วนพี', 'งาเหล็ก'], chicken: ['ไก่ตัน', 'ขนฟู', 'กุ๊กไก่'], duck: ['ก้าบ', 'เป็ดน้อย', 'ปากเหลือง', 'ว่ายน้ำ'], raptor: ['เร็กซ์', 'สายฟ้า', 'เขี้ยวเงิน'], trike: ['ทริกกี้', 'เขาสาม', 'ภูผา'], tiger: ['ลายพาดกลอน', 'เจ้าป่า', 'ส้มซ่า'] };
 // ความสามารถที่แต่ละชนิดสุ่มได้ (ชนิดที่มีอยู่แล้วโดยกำเนิดจะไม่สุ่มซ้ำ)
 const POOL = {
   dog: ['healer', 'forager', 'guardian', 'sniffer', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'thief'],
   cat: ['healer', 'forager', 'fisher', 'guardian', 'sniffer', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'brave', 'thief'],
   bird: ['healer', 'forager', 'fisher', 'alarm', 'lucky', 'medic', 'calm', 'swift', 'brave', 'thief'],
   deer: ['healer', 'forager', 'alarm', 'lucky', 'calm'], boar: ['forager', 'sniffer', 'alarm', 'brave', 'calm'],
-  chicken: ['forager', 'lucky', 'calm', 'alarm'], raptor: ['sniffer', 'alarm', 'swift', 'brave', 'thief'],
+  chicken: ['forager', 'lucky', 'calm', 'alarm'], duck: ['forager', 'lucky', 'calm', 'alarm'], raptor: ['sniffer', 'alarm', 'swift', 'brave', 'thief'],
   trike: ['healer', 'alarm', 'calm', 'lucky', 'brave'], tiger: ['sniffer', 'alarm', 'brave', 'thief', 'lucky'],
 };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];

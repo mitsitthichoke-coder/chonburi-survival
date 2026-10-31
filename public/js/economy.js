@@ -2,14 +2,13 @@
 // - โหมดเซิร์ฟเวอร์สาธารณะ: รันบนเซิร์ฟเวอร์เท่านั้น ผู้เล่นส่งได้แค่ "คำขอ" (กันโกง)
 // - เล่นคนเดียว / ลิงก์ claude.ai: รันชุดเดียวกันในเบราว์เซอร์
 // ไม่พึ่ง three.js — env ให้ข้อมูลโลก (ตำแหน่ง กล่องเสบียง ทรัพยากร สิ่งก่อสร้าง น้ำ ฝน)
-import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, DAM_NEED, learnHint } from './data.js';
+import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, learnHint } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
-import { DAM_PUMP } from './landmarks.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
 export const LOOT_RESPAWN = 15 * 60000;
@@ -24,6 +23,7 @@ export const DROPS = {
   boar: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 0.6], ['hide', 0.8]],
   deer: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 0.4]],
   chicken: [['raw_meat', 1], ['egg', 0.4]],
+  duck: [['raw_meat', 1], ['duck_egg', 0.4], ['duck_feather', 0.5]],
   raptor: [['raw_meat', 1], ['raw_meat', 1], ['hide', 0.8], ['dino_bone', 0.6], ['plus_stone', 0.12]],
   tiger: [['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['plus_stone', 0.12]],
   trike: [['raw_meat', 1], ['raw_meat', 1], ['raw_meat', 1], ['hide', 1], ['hide', 1], ['dino_bone', 1], ['dino_bone', 0.5], ['plus_stone', 0.25]],
@@ -48,8 +48,11 @@ function roll(table, rand, boost = null) {
 export const SQ_LIFE = 30 * 60000;
 const SQ_GATHER = ['wood', 'stone', 'fiber', 'herb', 'raw_fish', 'corn', 'veg', 'coconut', 'orange', 'scrap', 'cloth', 'pineapple', 'egg'];
 const SQ_CRAFT = ['bandage', 'arrow', 'campfire', 'cooked_meat', 'clean_water', 'spear', 'grilled_fish', 'herbal_med'];
+export const SQ_DAILY = 12; // โควตาภารกิจสุ่มที่ทำสำเร็จได้ต่อวัน
+export const SQ_TIERS = ['🟢 ง่าย', '🟡 ปานกลาง', '🔴 ยาก'];
 export function sqText(q) {
   if (!q) return '';
+  if (q.tier) return `[${SQ_TIERS[q.tier - 1]}] ` + sqText({ ...q, tier: 0 });
   if (q.type === 'kill') return `กำจัดผู้ติดเชื้อ ${q.n} ตัว`;
   if (q.type === 'gather') return `เก็บ ${ITEMS[q.k].icon} ${ITEMS[q.k].name} ${q.n} ชิ้น มาส่ง`;
   if (q.type === 'craft') return `ประดิษฐ์ ${ITEMS[q.k].icon} ${ITEMS[q.k].name} ${q.n} ชิ้น มาส่ง`;
@@ -196,13 +199,19 @@ const A = {
 
   sqnew(ch, p, env) {
     if (ch.sq && ch.sq.exp > env.now()) return { err: 'ทำภารกิจสุ่มที่รับไว้ให้เสร็จก่อน (หรือยกเลิก)' };
+    const day = Math.floor(env.now() / 86400000), bx = (ch.boxes ||= {});
+    if (bx.sqd !== day) { bx.sqd = day; bx.sqc = 0; }
+    if ((bx.sqc || 0) >= SQ_DAILY) return { err: `วันนี้ทำภารกิจสุ่มครบ ${SQ_DAILY} ครั้งแล้ว — พรุ่งนี้มารับใหม่ได้` };
     const r = env.rand, kind = ['kill', 'gather', 'craft', 'visit'][Math.floor(r() * 4)], lv = charLevelOf(ch.skills);
+    // ระดับ 1 ง่าย · 2 ปานกลาง · 3 ยาก (ไม่ระบุ = สุ่ม 60/25/15%)
+    const tr0 = (p?.tier | 0), tier = tr0 >= 1 && tr0 <= 3 ? tr0 : (r() < 0.6 ? 1 : r() < 0.625 ? 2 : 3), M = [1, 1.8, 3][tier - 1], C = [1, 2, 3.5][tier - 1];
     let q;
     if (kind === 'kill') { const n = 5 + Math.floor(r() * (6 + lv)); q = { type: 'kill', n, k0: ch.stats?.kills || 0, coin: n * 3 + 10 }; }
     else if (kind === 'gather') { const k = SQ_GATHER[Math.floor(r() * SQ_GATHER.length)], n = 3 + Math.floor(r() * 8); q = { type: 'gather', k, n, coin: Math.ceil((ITEMS[k].value || 1) * n * 1.5) + 10 }; }
     else if (kind === 'craft') { const k = SQ_CRAFT[Math.floor(r() * SQ_CRAFT.length)], n = 1 + Math.floor(r() * 3); q = { type: 'craft', k, n, coin: Math.ceil((ITEMS[k].value || 2) * n * 2) + 15 }; }
     else { const P = env.pos(ch), far = TOWNS.filter((t) => Math.hypot(t.x - P.x, t.z - P.z) > 80), t = (far.length ? far : TOWNS)[Math.floor(r() * (far.length || TOWNS.length))]; q = { type: 'visit', x: t.x, z: t.z, name: t.name, coin: 30 + Math.floor(Math.hypot(t.x - P.x, t.z - P.z) / 12) }; }
-    q.exp = env.now() + SQ_LIFE; q.xp = 15 + lv * 3;
+    if (q.n) q.n = Math.ceil(q.n * M);
+    q.tier = tier; q.coin = Math.ceil(q.coin * C); q.exp = env.now() + SQ_LIFE; q.xp = (15 + lv * 3) * tier;
     ch.sq = q;
     return { msg: `🎲 รับภารกิจสุ่ม: ${sqText(q)} — รางวัล 🪙 ${q.coin} (ภายใน 30 นาที)`, sq: q, sfx: 'quest' };
   },
@@ -211,8 +220,8 @@ const A = {
     if (q.exp < env.now()) { ch.sq = null; return { err: '⌛ ภารกิจหมดเวลาแล้ว รับใหม่ได้เลย', sq: null }; }
     const [a, b] = sqProgress(ch, q, env.pos(ch)); if (a < b) return { err: `ยังไม่เสร็จ (${a}/${b})` };
     const take = q.type === 'gather' || q.type === 'craft' ? { [q.k]: q.n } : null;
-    ch.sq = null; (ch.boxes ||= {}).sqn = (ch.boxes.sqn || 0) + 1;
-    return { take, give: { jicoin: q.coin }, xp: { survival: q.xp }, msg: `✅ ภารกิจสุ่มสำเร็จ! ได้ 🪙 ${q.coin} เงินจิ (สำเร็จแล้ว ${ch.boxes.sqn} ภารกิจ)`, sq: null, sfx: 'level' };
+    ch.sq = null; const bx = (ch.boxes ||= {}), day = Math.floor(env.now() / 86400000); bx.sqn = (bx.sqn || 0) + 1; if (bx.sqd !== day) { bx.sqd = day; bx.sqc = 0; } bx.sqc = (bx.sqc || 0) + 1;
+    return { take, give: { jicoin: q.coin }, xp: { survival: q.xp }, msg: `✅ ภารกิจสุ่มสำเร็จ! ได้ 🪙 ${q.coin} เงินจิ (วันนี้ ${bx.sqc}/${SQ_DAILY} · สำเร็จรวม ${bx.sqn} ภารกิจ)`, sq: null, sfx: 'level' };
   },
   sqdrop(ch) { if (!ch.sq) return { err: 'ไม่มีภารกิจ' }; ch.sq = null; return { msg: 'ยกเลิกภารกิจสุ่มแล้ว', sq: null }; },
 
@@ -462,16 +471,6 @@ const A = {
     return { take: { name_tag: 1 }, petsChanged: true, petName: { id: pet.id, name }, msg: `🏷️ เปลี่ยนชื่อ ${old} เป็น "${name}" แล้ว` };
   },
 
-  // 💧 ภารกิจระบบน้ำ: ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์ → ปลดล็อกท่อส่งน้ำ + หอถังน้ำสำรอง
-  damfix(ch, p, env) {
-    if (learned(ch, 'water')) return { err: '✅ คุณซ่อมโรงสูบน้ำไปแล้ว — สร้างท่อส่งน้ำ/หอถังน้ำได้ในหมวดระบบน้ำ' };
-    if (dist(env, ch, DAM_PUMP.x, DAM_PUMP.z) > 7) return { err: `ต้องอยู่ที่${DAM_PUMP.name}` };
-    const miss = Object.entries(DAM_NEED).filter(([k, q]) => !has(ch, k, q));
-    if (miss.length) return { err: `🔧 ต้องใช้ ${Object.entries(DAM_NEED).map(([k, q]) => `${ITEMS[k].icon}${ITEMS[k].name} ${ch.inv[k] || 0}/${q}`).join(' · ')}` };
-    (ch.boxes ||= {}).learn_water = 1;
-    return { take: { ...DAM_NEED }, give: { jicoin: 80 }, xp: { crafting: 40, survival: 30 }, sfx: 'quest', msg: '💧 ซ่อมโรงสูบน้ำเขื่อนเกาะจันทร์สำเร็จ! น้ำไหลเข้าระบบประปาแล้ว — ปลดล็อก 🚰 ท่อส่งน้ำ และ 🗼 หอถังน้ำสำรอง (หมวดระบบน้ำ) · +🪙 80', learnt: 'water' };
-  },
-
   // วางสิ่งก่อสร้าง: ชิ้นส่วนบ้าน (ใช้วัสดุ + ค้อน) หรือไอเท็มที่วางได้ (กองไฟ เพิง ยานพาหนะ)
   place(ch, p, env) {
     const s = p.s || {}; if (typeof s.x !== 'number' || typeof s.z !== 'number') return { err: 'ตำแหน่งไม่ถูกต้อง' };
@@ -582,10 +581,10 @@ const A = {
   petgift(ch, p, env) {
     const pet = ch.pets.find((x) => x.id === p.id); const G = PET_GIFT[p.kind];
     if (!pet || !G || pet.home || pet.stay) return { silent: true, err: 'ไม่ได้' };
-    if (p.kind === 'meat' ? pet.type !== 'cat' : p.kind === 'egg' ? pet.type !== 'chicken' : !pet.traits?.includes(p.kind)) return { silent: true, err: 'ไม่มีความสามารถนี้' };
+    if (p.kind === 'meat' ? pet.type !== 'cat' : p.kind === 'egg' ? pet.type !== 'chicken' && pet.type !== 'duck' : !pet.traits?.includes(p.kind)) return { silent: true, err: 'ไม่มีความสามารถนี้' };
     if (!cool(ch, `pg:${pet.id}:${p.kind}`, G[0] * 0.9, env.now())) return { silent: true, err: 'ยังไม่ถึงเวลา' };
-    const item = pick(env.rand, G[1]), n = baseOf(pet.gear?.body) === 'pet_bag' ? 2 : 1;
-    return { give: { [item]: n }, quietGive: true, msg: { forager: `🌿 ${pet.name} หา${ITEMS[item].name}มาให้`, fisher: `🐟 ${pet.name} จับปลามาให้`, thief: `🦝 ${pet.name} แอบหยิบ${ITEMS[item].name}มาให้`, meat: `🐈 ${pet.name} คาบหนูมาให้ (ได้เนื้อดิบ)`, egg: `🥚 ${pet.name} ออกไข่ให้แล้ว` }[p.kind] };
+    const item = p.kind === 'egg' && pet.type === 'duck' ? 'duck_egg' : pick(env.rand, G[1]), n = baseOf(pet.gear?.body) === 'pet_bag' ? 2 : 1;
+    return { give: { [item]: n }, quietGive: true, msg: { forager: `🌿 ${pet.name} หา${ITEMS[item].name}มาให้`, fisher: `🐟 ${pet.name} จับปลามาให้`, thief: `🦝 ${pet.name} แอบหยิบ${ITEMS[item].name}มาให้`, meat: `🐈 ${pet.name} คาบหนูมาให้ (ได้เนื้อดิบ)`, egg: `🥚 ${pet.name} ออกไข่${pet.type === 'duck' ? 'เป็ด' : ''}ให้แล้ว` }[p.kind] };
   },
   // ลูกวัยรุ่นช่วยหาของ
   childgift(ch, p, env) {

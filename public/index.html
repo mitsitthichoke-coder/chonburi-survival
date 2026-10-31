@@ -249,6 +249,24 @@
     #hotbar, body.touch #hotbar { left: 40%; } #hotbar .slot { width: 32px; height: 32px; }
     #hand-btn, body.touch #hand-btn { top: 150px; }
   }
+
+  /* ===== ธีมเทศกาล: คริสต์มาส / ปีใหม่ 2027 (เพิ่มใหม่) ===== */
+  body.christmas { --accent: #c1121f; --accent2: #2d6a4f; --panel: rgba(10, 24, 18, .93); --line: #2f5d46; --bg: #08140e; }
+  body.christmas .card h1 span { color: #ff4d5a; text-shadow: 0 0 12px #ff4d5a88; } body.christmas button.primary { background: #c1121f; } body.christmas #hud, body.christmas #quest { border-color: #2d6a4f; }
+  body.newyear { --accent: #e9b824; --accent2: #7b2cbf; --panel: rgba(18, 14, 32, .93); --line: #4a3b73; --bg: #0a0818; }
+  body.newyear .card h1 span { color: #ffd166; text-shadow: 0 0 12px #ffd16688; } body.newyear button.primary { background: #e9b824; color: #1b1300; } body.newyear #hud, body.newyear #quest { border-color: #7b2cbf; }
+  .festive-banner { text-align: center; margin: 4px 0 8px; font-weight: 800; letter-spacing: .5px; color: var(--accent); }
+  #festive-fx { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .55; background-repeat: repeat; animation: festive-fall 14s linear infinite;
+    background-image: radial-gradient(2px 2px at 20px 30px, #fff, transparent), radial-gradient(3px 3px at 90px 120px, #fff, transparent), radial-gradient(2px 2px at 160px 60px, #fff, transparent), radial-gradient(2.5px 2.5px at 230px 170px, #fff, transparent);
+    background-size: 260px 200px; }
+  body.newyear #festive-fx { background-image: radial-gradient(2px 2px at 20px 30px, #ffd166, transparent), radial-gradient(3px 3px at 90px 120px, #ff70a6, transparent), radial-gradient(2px 2px at 160px 60px, #70d6ff, transparent), radial-gradient(2.5px 2.5px at 230px 170px, #fff, transparent); }
+  #festive-fx, .festive-banner { display: none; } body.christmas #festive-fx, body.newyear #festive-fx, body.christmas .festive-banner, body.newyear .festive-banner { display: block; } .festive-banner .ny { display: none; } body.newyear .festive-banner .xmas { display: none; } body.newyear .festive-banner .ny { display: inline; }
+  @keyframes festive-fall { from { background-position: 0 0; } to { background-position: 40px 200px; } }
+  @media (prefers-reduced-motion: reduce) { #festive-fx { animation: none; } }
+  /* ===== ลากย้ายหน้าต่างเมนู (เพิ่มใหม่) ===== */
+  #panel .tabs, #guide-modal .ghead { cursor: move; touch-action: none; } #panel .tabs button, #guide-modal .ghead button { cursor: pointer; }
+  #panel[data-moved] { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); }
+  #guide-modal .gbox { transform: translate(var(--dx, 0px), var(--dy, 0px)); }
 </style>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
 </head>
@@ -356,6 +374,42 @@
   <div id="death"><div class="card"><h1>คุณเสียชีวิต</h1><p id="death-cause"></p><p class="hint">ของในกระเป๋าหายไปครึ่งหนึ่ง แต่ทักษะและความสัมพันธ์ยังอยู่</p><div class="go"><button class="primary" id="respawn-btn">เกิดใหม่</button></div></div></div>
 </div>
 
+<script>
+/* ===== เพิ่มใหม่: ธีมเทศกาล (ใช้ body class จาก theme.js) + ลากย้ายหน้าต่างเมนู (ไม่ยุ่งกับ js/main.js) ===== */
+(function () {
+  var b = document.body;
+  var fx = document.createElement('div'); fx.id = 'festive-fx'; b.appendChild(fx);
+  var h1 = document.querySelector('#menu .card h1');
+  if (h1) { var t = document.createElement('div'); t.className = 'festive-banner'; t.innerHTML = '<span class="xmas">🎄 สุขสันต์วันคริสต์มาส 🎅</span><span class="ny">🎆 สวัสดีปีใหม่ 2027 🎉</span>'; h1.insertAdjacentElement('afterend', t); }
+  function drag(winEl, handleSel, onStart) {
+    var sx, sy, ox, oy, on = false;
+    winEl.addEventListener('pointerdown', function (e) {
+      var h = e.target.closest(handleSel); if (!h || e.target.closest('button,input,select,textarea,a') || b.classList.contains('touch')) return;
+      if (onStart && onStart() === false) return;
+      on = true; sx = e.clientX; sy = e.clientY; ox = parseFloat(winEl.style.getPropertyValue('--dx')) || 0; oy = parseFloat(winEl.style.getPropertyValue('--dy')) || 0;
+      try { h.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    winEl.addEventListener('pointermove', function (e) {
+      if (!on) return;
+      var dx = ox + e.clientX - sx, dy = oy + e.clientY - sy, lim = 0.45;
+      dx = Math.max(-innerWidth * lim, Math.min(innerWidth * lim, dx)); dy = Math.max(-innerHeight * lim, Math.min(innerHeight * lim, dy));
+      winEl.style.setProperty('--dx', dx + 'px'); winEl.style.setProperty('--dy', dy + 'px');
+    });
+    function end() { on = false; } winEl.addEventListener('pointerup', end); winEl.addEventListener('pointercancel', end);
+  }
+  function reset(el) { el.style.removeProperty('--dx'); el.style.removeProperty('--dy'); el.removeAttribute('data-moved'); }
+  var panel = document.getElementById('panel');
+  if (panel) {
+    drag(panel, '.tabs', function () { if (getComputedStyle(panel).transform === 'none' && !panel.hasAttribute('data-moved')) return false; panel.setAttribute('data-moved', ''); });
+    new MutationObserver(function () { if (panel.hasAttribute('data-moved') && getComputedStyle(panel).display === 'none') reset(panel); }).observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+  var gm = document.getElementById('guide-modal'), gb = gm && gm.querySelector('.gbox');
+  if (gb) {
+    drag(gb, '.ghead');
+    new MutationObserver(function () { if (gm.hasAttribute('hidden')) { gb.style.removeProperty('--dx'); gb.style.removeProperty('--dy'); } }).observe(gm, { attributes: true, attributeFilter: ['hidden'] });
+  }
+})();
+</script>
 <script type="module" src="./js/main.js"></script>
 </body>
 </html>

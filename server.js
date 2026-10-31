@@ -307,7 +307,7 @@ const server = http.createServer((req, res) => {
   if (url.includes('\0') || url.split('/').some((p) => p.startsWith('.') && p !== '')) { res.writeHead(404); return res.end('not found'); }
   if (url.startsWith('/api/')) return api(req, res, url).catch((e) => { console.error(e); res.writeHead(500); res.end(); });
   // ปิดปรับปรุง: หน้าเข้าสู่ระบบจะขึ้นข้อความขออภัย (เจ้าของสั่ง /maint on|off)
-  if (url === '/healthz') { if (U.maint?.on) { res.writeHead(503, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ maint: true, msg: U.maint.msg || '' })); } res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); const du = process.env.DATABASE_URL; return res.end('ok - storage=' + (store.pool ? 'postgres' : 'file') + ' - DATABASE_URL=' + (du === undefined ? 'not-set' : du.trim() === '' ? 'EMPTY' : 'set(' + du.length + ' chars)')); }
+  if (url === '/healthz') { if (U.maint?.on) { res.writeHead(503, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ maint: true, msg: U.maint.msg || '' })); } res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('ok - storage=' + (store.pool ? 'postgres' : 'file')); }
   const file = path.normalize(path.join(PUBLIC, url === '/' ? 'index.html' : url));
   if (file !== path.join(PUBLIC, 'index.html') && !file.startsWith(PUBLIC + path.sep)) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, buf) => {

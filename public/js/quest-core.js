@@ -53,9 +53,11 @@ export const ROUTES = {
   phanat: R('phanat', 'phanat', 'refugee_phanat', 'npc_sara', '6-6-0-8', 'ป้อมยามวัดหลวงพนัสนิคม', 'เสาส่งสัญญาณทุ่งพนัสนิคม', 47),
   bothong: R('bothong', 'bothong', 'refugee_bothong', 'npc_saengduan', '3-8-3-1', 'ป้อมยามตลาดบ่อทอง', 'เสาส่งสัญญาณเขาบ่อทอง', 53),
   nongyai: R('nongyai', 'nongyai', 'transport', 'npc_winai', '7-2-4-9', 'ป้อมยามสี่แยกหนองใหญ่', 'เสาส่งสัญญาณเขาหนองใหญ่', 59),
+  banglamung: R('banglamung', 'banglamung', 'scout', 'npc_shepherd', '8-2-6-4', 'ป้อมยามหน้าสวนแกะบางละมุง', 'เสาส่งสัญญาณเขาชีจรรย์', 67),
+  kochan: R('kochan', 'kochan', 'refugee_phanat', 'npc_damtech', '1-9-3-7', 'ป้อมยามเขื่อนเกาะจันทร์', 'เสาส่งสัญญาณริมอ่างเก็บน้ำเกาะจันทร์', 71),
   banbueng: R('banbueng', 'banbueng', 'tech', 'npc_prasit', '5-5-1-0', 'ป้อมยามตลาดบ้านบึง', 'เสาส่งสัญญาณเขาบ้านบึง', 61),
 };
-export const START_ROUTES = ['sattahip', 'chonburi', 'phanthong', 'sriracha', 'phanat', 'bothong', 'nongyai', 'banbueng'];
+export const START_ROUTES = ['sattahip', 'chonburi', 'phanthong', 'sriracha', 'phanat', 'bothong', 'nongyai', 'banbueng', 'banglamung', 'kochan'];
 export const routeOf = (q) => ROUTES[q?.route] || ROUTES.classic;
 export const pickRoute = (rand = Math.random) => START_ROUTES[Math.floor(rand() * START_ROUTES.length)];
 // 🗼 หอถังน้ำสำรองประจำอำเภอ (มีอยู่ถาวรในแผนที่ตั้งแต่เริ่มเกม) — ต้นน้ำของท่อส่งน้ำ · ตักน้ำดิบได้

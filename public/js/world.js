@@ -6,7 +6,7 @@ import { RES_TYPES, getResources } from './resources-core.js';
 import { mat, GFX, makeLabel, makeHuman, SKINS, toonMat } from './models.js';
 import { LANDMARKS } from './landmarks.js';
 import { ROUTES, CAMPS, WATER_TOWERS } from './quest-core.js';
-import { forts as FORTS } from './fortress.js';
+import { forts as FORTS, fortNodes } from './fortress.js';
 import { makeStructureMesh, updateStructureMesh, makeVehicle, makeWaterTower } from './structures3d.js';
 import { TINTABLE, baseAt } from './building-core.js';
 import { isHalloween, onTheme, theme } from './theme.js';
@@ -37,6 +37,7 @@ export class World {
 
   // 🏰 อัปเดตธง/ป้ายป้อมกิลด์ตามผู้ครอบครอง
   setForts(f = {}) { for (const [k, o] of Object.entries(this.fortFlags || {})) { const st = f[k]; o.flag.material.color.set(st ? '#e63946' : '#adb5bd'); for (const l of o.lamps) { l.material = l.material.clone(); l.material.color.set(st?.power ? '#ffe066' : '#6c757d'); l.material.emissive?.set(st?.power ? '#ffd43b' : '#000000'); } for (const t of o.tanks) { t.material = t.material.clone(); t.material.color.set(st?.water ? '#4dabf7' : '#868e96'); }
+    for (const { m, n } of o.nodes || []) { m.material = m.material.clone(); m.material.color.set((st?.fix?.[n.sys] | 0) >= n.lv ? '#40c057' : n.sys === 'water' ? '#4dabf7' : '#fab005'); }
     o.lb.userData.set(st ? `${o.F.icon} ${o.F.name} · 🏰 ${st.gname}` : `${o.F.icon} ${o.F.name} (ว่าง)`, st ? '#ffa8a8' : '#ffd43b'); } }
   colorAt(x, z, h, out) {
     const d = distToCoast(x, z);
@@ -269,7 +270,9 @@ export class World {
       else if (F.key === 'banbueng') { bx(9, 4, 6, '#bc6c25', -9, 2, -8); bx(9.4, 0.4, 6.4, '#8d5524', -9, 4.2, -8); for (let i = 0; i < 3; i++) bx(5, 0.3, 2.4, '#6b4423', 8, 0.2, -10 + i * 3.4); const si = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 7, 12), mat('#ced4da')); si.position.set(12, 3.5, 6); grp.add(si); tank(-12, 7); }
       else { bx(11, 5, 7, '#74c0fc', -9, 2.5, -8); bx(11.4, 0.5, 7.4, '#f1f3f5', -9, 5.2, -8); for (const x of [6, 10]) { bx(0.2, 3.4, 0.2, '#868e96', x, 1.7, -8); bx(3.2, 0.2, 3.2, x === 6 ? '#ff6b6b' : '#fcc419', x, 3.5, -8); } bx(7, 0.15, 4, '#4dabf7', 8, 0.1, 6); tank(-12, 7); }
       lamp(-16, 0); lamp(16, 0); lamp(0, 16); lamp(0, -16);
-      this.scene.add(grp); this.fortFlags[F.key] = { flag, lb, F, lamps, tanks };
+      // 🔧 จุดซ่อมท่อน้ำ (ฟ้า) / สายไฟ (เหลือง) 3 ระดับ — เขียวเมื่อซ่อมแล้ว
+      const nodes = fortNodes(F).map((n) => { const m = new THREE.Mesh(n.sys === 'water' ? new THREE.CylinderGeometry(0.5, 0.5, 1.6, 10) : new THREE.BoxGeometry(1.1, 1.6, 1.1), mat('#e03131')); m.position.set(n.x - F.x, heightAt(n.x, n.z) - fy + 0.8, n.z - F.z); grp.add(m); return { m, n }; });
+      this.scene.add(grp); this.fortFlags[F.key] = { flag, lb, F, lamps, tanks, nodes };
     }
     this.radioGlow = Object.values(this.radioGlows)[0]; this.towerLight = Object.values(this.towerLights)[0];
     // ค่ายกักกัน: รั้วสูง ประตูเหลือง เต็นท์ เสาธง ป้ายชื่อ

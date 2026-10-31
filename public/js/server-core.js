@@ -4,7 +4,7 @@ import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-
 import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
 import { guildLevel, GUILD_LV, GUILD_MEMBERS, GUILD_MAX } from './building-core.js';
 import { baseSites, baseSiteStructs } from './basesites.js';
-import { forts, fortOf, FORT_UP_COST } from './fortress.js';
+import { forts, fortOf, FORT_UP_COST, fortNodes } from './fortress.js';
 import { npcCampSpot } from './quest-core.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
@@ -106,7 +106,7 @@ export class WorldCore {
     return { id: G.id, name: G.name, leader: G.leader, lv, fund: G.fund, next: nx, max: GUILD_MEMBERS[lv], members: Object.entries(G.members).map(([id, m]) => ({ id, name: m.n, r: m.r, online: this.players.has(id) })) };
   }
   // 🏰 ป้อมกิลด์ (db.forts[key] = { gid, water, power, since })
-  fortsView() { const o = { _c: {} }; for (const f of forts()) { const c = (this.db.fortCleared?.[f.key] || 0) - Date.now(); if (c > 0) o._c[f.key] = c; } for (const f of forts()) { const r = this.db.forts?.[f.key]; const sg = r?.siege && this.db.guilds?.[r.siege.gid]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0, shield: Math.max(0, (r.shield || 0) - Date.now()), siege: sg ? { gname: this.db.guilds[r.siege.gid].name, gid: r.siege.gid, meter: Math.round(r.siege.meter), left: Math.max(0, r.siege.end - Date.now()) } : null } : null; } return o; }
+  fortsView() { const o = { _c: {} }; for (const f of forts()) { const c = (this.db.fortCleared?.[f.key] || 0) - Date.now(); if (c > 0) o._c[f.key] = c; } for (const f of forts()) { const r = this.db.forts?.[f.key]; const sg = r?.siege && this.db.guilds?.[r.siege.gid]; o[f.key] = r && this.db.guilds?.[r.gid] ? { gid: r.gid, gname: this.db.guilds[r.gid].name, water: r.water | 0, power: r.power | 0, fix: { water: r.fix?.water | 0, power: r.fix?.power | 0 }, shield: Math.max(0, (r.shield || 0) - Date.now()), siege: sg ? { gname: this.db.guilds[r.siege.gid].name, gid: r.siege.gid, meter: Math.round(r.siege.meter), left: Math.max(0, r.siege.end - Date.now()) } : null } : null; } return o; }
   fortsSync() { this.broadcast({ t: 'forts', f: this.fortsView() }); }
   // ⚔️ ศึกชิงป้อม: กิลด์ผู้ท้าต้องมีสมาชิกในเขตป้อมมากกว่าฝ่ายป้องกัน เกจถึง 100% = ยึดป้อม (ครบ 10 นาทีไม่สำเร็จ = ฝ่ายป้องกันชนะ)
   tickForts(dt) {
@@ -124,6 +124,12 @@ export class WorldCore {
       }
     }
     if (ch) this.dirty(); if (ch || (show && (this.tFortS = (this.tFortS || 0) + 1) % 5 === 0)) this.fortsSync();
+  }
+  // 🔧 บันทึกว่าซ่อมจุดต่อไปของระบบนั้นแล้ว (เรียกจาก economy.fortfix หลังตรวจระยะ/วัสดุเสร็จ)
+  fortFix(id, key, sys) {
+    const P = this.fortPerm(id, key); if (!P) return { err: 'ไม่ใช่สมาชิกกิลด์ที่ครองป้อมนี้' }; P.r.fix ||= { water: 0, power: 0 };
+    const nx = (P.r.fix[sys] | 0) + 1; if (nx > 3) return { err: 'ซ่อมครบแล้ว' }; P.r.fix[sys] = nx; this.dirty(); this.fortsSync();
+    for (const o of Object.keys(P.G.members)) if (this.players.has(o)) this.send(o, { t: 'notice', text: `🔧 ซ่อม${sys === 'water' ? 'ท่อน้ำ' : 'สายไฟ'}จุดที่ ${nx} ของป้อมเสร็จแล้ว! หัวหน้า/รองกดพัฒนาระดับ ${nx} ได้` }); return { ok: nx };
   }
   fortPerm(id, key) { const G = this.guildOf(id), r = this.db.forts?.[key]; return G && r && r.gid === G.id ? { G, r, boss: ['leader', 'officer'].includes(G.members[id]?.r), lead: G.leader === id } : null; }
   guildSync(G) { const v = this.guildView(G); for (const id of Object.keys(G.members)) if (this.players.has(id)) this.send(id, { t: 'guild', g: v }); }
@@ -161,7 +167,7 @@ export class WorldCore {
       }
       case 'fup': { // พัฒนาระบบน้ำ/ไฟ (หัวหน้า/รอง · จ่ายจากกองทุน)
         const P = this.fortPerm(id, m.key), sys = m.sys === 'power' ? 'power' : 'water'; if (!P || !P.boss) return say(id, 'ต้องเป็นหัวหน้า/รองหัวหน้ากิลด์ที่ครองป้อมนี้');
-        const nx = (P.r[sys] | 0) + 1; if (nx > 3) return say(id, 'ระบบอยู่ระดับสูงสุดแล้ว'); if (P.G.fund < FORT_UP_COST[nx]) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${FORT_UP_COST[nx]})`);
+        const nx = (P.r[sys] | 0) + 1; if (nx > 3) return say(id, 'ระบบอยู่ระดับสูงสุดแล้ว'); if ((P.r.fix?.[sys] | 0) < nx) return say(id, `ต้องให้สมาชิกซ่อม${sys === 'water' ? 'ท่อน้ำ' : 'สายไฟ'}จุดที่ ${nx} ในป้อมก่อน`); if (P.G.fund < FORT_UP_COST[nx]) return say(id, `กองทุนไม่พอ (ต้องใช้ 🪙${FORT_UP_COST[nx]})`);
         P.G.fund -= FORT_UP_COST[nx]; P.r[sys] = nx; this.dirty(); this.guildSync(P.G); this.fortsSync(); return say(id, `${sys === 'water' ? '💧 ระบบน้ำ' : '⚡ ระบบไฟ'} ขึ้นเป็นระดับ ${nx} แล้ว`);
       }
       case 'fsiege': { // ประกาศศึกชิงป้อม (หัวหน้า/รอง · เลเวลถึง · จ่าย 🪙1000 จากกองทุน)

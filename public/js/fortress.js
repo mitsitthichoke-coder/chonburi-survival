@@ -22,3 +22,12 @@ export function forts() {
 }
 export const fortOf = (k) => forts().find((f) => f.key === k);
 export const fortAt = (x, z, pad = 0) => forts().find((f) => Math.hypot(f.x - x, f.z - z) < f.r + pad);
+
+// 🔧 จุดซ่อมท่อน้ำ/สายไฟ ของแต่ละป้อม (ระดับ 1..3 ของแต่ละระบบมีจุดซ่อมของตัวเอง) — สมาชิกกิลด์ไปซ่อมด้วยวัสดุจริงก่อนหัวหน้าจึงจะพัฒนาระดับนั้นได้
+export const FIX_COST = { water: [null, { scrap: 6, rope: 0 }, { scrap: 12, wood: 6 }, { scrap: 20, wood: 10, stone: 6 }], power: [null, { copper_wire: 4, scrap: 4 }, { copper_wire: 8, scrap: 8 }, { copper_wire: 14, scrap: 12, battery_pack: 1 }] };
+for (const sy of ['water', 'power']) for (const c of FIX_COST[sy]) if (c) for (const k of Object.keys(c)) if (!c[k]) delete c[k];
+export function fortNodes(F) {
+  const out = [];
+  for (const [si, sy] of ['water', 'power'].entries()) for (let lv = 1; lv <= 3; lv++) { const a = (si * 3 + lv) * 1.0472 + 0.4, r = 11 + lv * 4; out.push({ sys: sy, lv, x: +(F.x + Math.cos(a) * r).toFixed(2), z: +(F.z + Math.sin(a) * r).toFixed(2) }); }
+  return out;
+}

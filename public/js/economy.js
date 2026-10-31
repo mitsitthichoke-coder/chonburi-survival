@@ -8,7 +8,7 @@ import { heightAt, waterAt } from './terrain.js';
 import { GUILD_COST, TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
-import { fortOf, FORT_UP_COST } from './fortress.js';
+import { fortOf, FORT_UP_COST, FIX_COST, fortNodes } from './fortress.js';
 import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
 import { QUEST_BOXES, qboxLock, charLevelOf, rareBoxAt, rollRare } from './boxes-core.js';
 
@@ -435,6 +435,15 @@ const A = {
     if ((P.r[f.sys] | 0) < f.lv) return { err: `${f.sys === 'water' ? '💧 ระบบน้ำ' : '⚡ ระบบไฟ'} ต้องพัฒนาถึงระดับ ${f.lv} ก่อน` };
     if (!cool(ch, 'fort_' + f.id, 60, env.now())) return { err: 'ใช้ได้ทุก 60 วินาที', silent: true };
     return { fx: { fort: { ...f.fx, name: f.n } }, sfx: 'level' };
+  },
+  // 🔧 ซ่อมท่อน้ำ/สายไฟของป้อม: ยืนที่จุดซ่อมถัดไปของระบบนั้น + ใช้วัสดุ (สมาชิกกิลด์ที่ครองป้อมทุกคนช่วยได้)
+  fortfix(ch, p, env) {
+    const F = fortOf(p.key), P = F && env.fortPerm?.(F.key), sys = p.sys === 'power' ? 'power' : 'water'; if (!P) return { err: '🏰 ซ่อมได้เฉพาะสมาชิกกิลด์ที่ครองป้อมนี้' };
+    const nx = ((P.r.fix?.[sys]) | 0) + 1; if (nx > 3) return { err: 'ซ่อมครบทุกจุดแล้ว' };
+    const node = fortNodes(F).find((n) => n.sys === sys && n.lv === nx); if (dist(env, ch, node.x, node.z) > 6) return { err: `🔧 ต้องเดินไปที่จุดซ่อม${sys === 'water' ? 'ท่อน้ำ' : 'สายไฟ'}ที่ ${nx} (ดูเครื่องหมายในป้อม/ระยะในหน้ากิลด์)` };
+    const cost = FIX_COST[sys][nx]; for (const [k, q] of Object.entries(cost)) if (!has(ch, k, q)) return { err: `ต้องใช้ ${Object.entries(cost).map(([a, b]) => `${ITEMS[a]?.icon || ''}${ITEMS[a]?.name || a} ×${b}`).join(' · ')}` };
+    const r = env.fortFix?.(F.key, sys); if (!r || r.err) return { err: r?.err || 'ซ่อมไม่ได้' };
+    return { take: cost, xp: { crafting: 12 }, sfx: 'level', msg: `🔧 ซ่อม${sys === 'water' ? 'ท่อน้ำ' : 'สายไฟ'}จุดที่ ${nx} สำเร็จ! ให้หัวหน้า/รองกดพัฒนาระดับ ${nx} ได้แล้ว` };
   },
   fortbuy(ch, p, env) {
     const F = fortOf(p.key), P = F && env.fortPerm?.(F.key); if (!P) return { err: '🏰 ร้านนี้ขายเฉพาะสมาชิกกิลด์ที่ครองป้อม' };

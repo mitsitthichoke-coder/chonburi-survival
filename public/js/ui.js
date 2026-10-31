@@ -8,7 +8,7 @@ import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
 import { WORLD, zToLat, xToLon } from './terrain.js';
 import { WATER_TOWERS } from './quest-core.js';
 import { VOL_CH } from './audio.js';
-import { forts as FORTS, FORT_UP_COST } from './fortress.js';
+import { forts as FORTS, FORT_UP_COST, FIX_COST, fortNodes } from './fortress.js';
 import { openGuide } from './guide-ui.js';
 import { fogName } from './weather-core.js';
 
@@ -722,7 +722,12 @@ export class UI {
       if (st && !own && !mine && boss && G.lv >= F.lvReq && !st.siege && !(st.shield > 0)) h += ` <button data-fsiege="${F.key}" ${G.fund >= 1000 ? '' : 'disabled'}>⚔️ ประกาศศึก (🪙1000)</button>`;
       if (!st) h += `<br><small>${g.forts?._c?.[F.key] ? `✅ ล้มผู้เฝ้าแล้ว — ยึดได้อีก ${Math.ceil(g.forts._c[F.key] / 60000)} นาที` : '⚠️ มีผู้เฝ้าป้อมคุมอยู่ — เดินเข้าใกล้ป้อมแล้วรวมพลังล้มผู้เฝ้าก่อนจึงจะยึดได้'}</small>`;
       if (!st && lead && !mine) h += `<button data-fcap="${F.key}" ${G.lv >= F.lvReq && G.fund >= F.cost && g.forts?._c?.[F.key] ? '' : 'disabled'}>⚔️ ยึดป้อม</button>`;
-      if (own && boss) h += ['water', 'power'].map((sy) => (st[sy] < 3 ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[st[sy] + 1] ? '' : 'disabled'}>${sy === 'water' ? '💧' : '⚡'} ขึ้นระดับ ${st[sy] + 1} (🪙${FORT_UP_COST[st[sy] + 1]})</button>` : '')).join(' ');
+      if (own) h += '<br>' + ['water', 'power'].map((sy) => {
+        const lvl = st[sy], fx = st.fix?.[sy] | 0, nxt = fx + 1, ic = sy === 'water' ? '💧' : '⚡', nm = sy === 'water' ? 'ท่อน้ำ' : 'สายไฟ';
+        const nd = nxt <= 3 ? fortNodes(F).find((n) => n.sys === sy && n.lv === nxt) : null, dd = nd && P ? Math.round(Math.hypot(P.x - nd.x, P.z - nd.z)) : null;
+        const cost = nxt <= 3 ? Object.entries(FIX_COST[sy][nxt]).map(([k, q]) => `${ITEMS[k]?.icon || ''}${q}`).join(' ') : '';
+        return `<small>${ic} ${nm}: ซ่อมแล้ว ${fx}/3 · ระดับ ${lvl}/3</small> ${nxt <= 3 ? `<button data-ffix="${F.key}:${sy}" ${dd !== null && dd <= 6 ? '' : 'disabled'} title="เดินไปที่จุดซ่อม (ห่าง ${dd ?? '?'} ม.) · ใช้ ${cost}">🔧 ซ่อมจุดที่ ${nxt} (${cost}) <small>ห่าง ${dd ?? '?'} ม.</small></button>` : ''} ${boss && lvl < 3 && fx > lvl ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[lvl + 1] ? '' : 'disabled'}>${ic} ขึ้นระดับ ${lvl + 1} (🪙${FORT_UP_COST[lvl + 1]})</button>` : ''}`;
+      }).join('<br>');
       if (own && lead) h += ` <button data-frel="${F.key}">ปล่อยคืน</button>`;
       h += '</div></div>';
       if (own) h += `<div class="recipe"><div><small>${inside ? '📍 คุณอยู่ในเขตป้อม — ใช้ได้เลย (⚒️ ตีบวกได้ที่นี่เมื่อระบบไฟระดับ 2+)' : '🚶 ต้องเดินทางไปที่ป้อมก่อนถึงจะใช้ได้'}</small><br>${F.fac.map((f) => `<button data-ffac="${F.key}:${f.id}" ${inside && st[f.sys] >= f.lv ? '' : 'disabled'} title="ต้อง${f.sys === 'water' ? 'ระบบน้ำ' : 'ระบบไฟ'}ระดับ ${f.lv}">${f.n}</button>`).join(' ')}<br>🛒 ${F.shop.map(([k, pr, lv]) => `<button data-fbuy="${F.key}:${k}" ${inside && st.power >= lv ? '' : 'disabled'}>${ITEMS[k].icon} ${esc(ITEMS[k].name)} 🪙${pr}${lv ? ` (⚡${lv})` : ''}</button>`).join(' ')}</div></div>`;
@@ -910,6 +915,7 @@ export class UI {
     if (d.gcreate) { const n = ($('#guild-name')?.value || '').trim(); if (n.length < 2) return this.toast('ตั้งชื่อกิลด์ก่อน (อย่างน้อย 2 ตัวอักษร)', 'warn'); g.auth.do('gcreate', { name: n }); setTimeout(() => g.net.send({ t: 'guild', a: 'hello' }), 600); return; }
     if (d.fsiege) { this.confirm('ประกาศศึกชิงป้อม? ใช้กองทุน 🪙1000 · ต้องมีสมาชิกยืนในเขตป้อมมากกว่าฝ่ายป้องกันนาน ๆ จึงจะยึดได้ (10 นาที)', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'fsiege', key: d.fsiege }); }); return; }
     if (d.fcap) { g.net.send({ t: 'guild', a: 'fcap', key: d.fcap }); return; }
+    if (d.ffix) { const [key, sys] = d.ffix.split(':'); g.auth.do('fortfix', { key, sys }); return; }
     if (d.fup) { const [key, sys] = d.fup.split(':'); g.net.send({ t: 'guild', a: 'fup', key, sys }); return; }
     if (d.frel) { this.confirm('ปล่อยป้อมคืน? ระดับน้ำ/ไฟที่พัฒนาไว้จะหายไป', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'frel', key: d.frel }); }); return; }
     if (d.ffac) { const [key, fac] = d.ffac.split(':'); g.auth.do('fortuse', { key, fac }); return; }

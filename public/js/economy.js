@@ -95,7 +95,7 @@ export const SELL_RATE = 0.5, SELL_DAY_CAP = 150;
 export const deathCoinRate = (n) => (n <= 3 ? 0 : n <= 10 ? 0.1 : 0.2);
 export const sellPrice = (k) => Math.max(1, Math.floor((ITEMS[k]?.value || 0) * SELL_RATE));
 const QUEST_COINS = [0, 15, 20, 30, 40, 40, 120];
-const ZCOIN = { walker: [1, 3], runner: [2, 4], toxic: [3, 6], brute: [6, 12], soldier: [5, 10], admiral: [100, 180], boss: [80, 150] };
+const ZCOIN = { walker: [1, 3], runner: [2, 4], toxic: [3, 6], brute: [6, 12], soldier: [5, 10], admiral: [100, 180], boss: [80, 150], warlord: [50, 90] };
 const WCOIN = { boar: [1, 3], raptor: [5, 10], tiger: [6, 12], trike: [8, 14], buffalo: [2, 5] };
 const coinRoll = (rand, [a, b]) => a + Math.floor(rand() * (b - a + 1));
 export function rollDrops(kind, rand) {
@@ -801,7 +801,7 @@ export function killReward(ch, kind, rand, tier = 0) {
   if (T && T.drops > 1) for (let i = 1; i < T.drops; i++) for (const [k, q] of Object.entries(rollDrops(kind, rand))) give[k] = (give[k] || 0) + q;
   const cr = T ? ZCOIN[T.key] : WCOIN[kind]; if (cr) give.jicoin = (give.jicoin || 0) + coinRoll(rand, cr);
   if (T?.key === 'admiral') { for (const [k, q] of Object.entries(ADMIRAL_DROPS)) give[k] = (give[k] || 0) + q; for (let i = 0; i < 3; i++) for (const k of Object.keys(rollLoot(rand, 'mil')).slice(0, 1)) give[k] = (give[k] || 0) + 1; }
-  else if (T?.boss) for (const [k, q] of Object.entries(rollBoss(rand))) give[k] = (give[k] || 0) + q;
+  else if (T?.boss) { const bd = rollBoss(rand); if (T.warlord) delete bd.king_fang; for (const [k, q] of Object.entries(bd)) give[k] = (give[k] || 0) + q; }
   else if (T?.loot && rand() < 0.5) for (const k of Object.keys(rollLoot(rand, T.loot)).slice(0, 1)) give[k] = (give[k] || 0) + 1; // ทหารผู้ติดเชื้อดรอปยุทธภัณฑ์
   if (T?.key === 'toxic' && rand() < 0.4) give.herb = (give.herb || 0) + 1;
   if (T?.boss) { give.plus_stone = (give.plus_stone || 0) + 2 + Math.floor(rand() * 3); if (rand() < 0.35) give.super_stone = (give.super_stone || 0) + 1; } // บอสดรอปหินตีบวก

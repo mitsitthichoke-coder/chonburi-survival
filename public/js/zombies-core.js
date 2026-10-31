@@ -8,12 +8,16 @@ export const ZTIERS = [
   // ทหารผู้ติดเชื้อ: พบเฉพาะในฐานทัพเรือสัตหีบ (w = 0 ไม่สุ่มเกิดที่อื่น) · ใส่หมวกเหล็ก ทนกว่า ตีแรงกว่า
   { key: 'soldier', name: 'ทหารผู้ติดเชื้อ', hp: 2.2, spd: 1.12, dmg: 1.5, infect: 0.2, scale: 1.08, color: '#4b5320', w: 0, day: 0, xp: 30, drops: 1.6, mil: true, loot: 'mil' },
   { key: 'admiral', name: '🎖️ ผู้บัญชาการผู้ติดเชื้อ', hp: 22, spd: 1.1, dmg: 3.4, infect: 0.3, scale: 2.1, color: '#1d3557', w: 0, day: 0, xp: 400, drops: 4, boss: true, mil: true, loot: 'mil' },
+  // บอสประจำอำเภอ (เกิดกลางเมืองเมื่อมีผู้เล่นเข้าใกล้ · ล้มแล้วอำเภอถูกปลดแอก ได้บัฟชั่วคราว) — ต่อท้ายลิสต์เท่านั้น เพราะรหัสระดับส่งผ่านเครือข่ายเป็นลำดับ
   { key: 'boss', name: '👑 ราชาผู้ติดเชื้อ', hp: 16, spd: 1.08, dmg: 3, infect: 0.3, scale: 2.2, color: '#370617', w: 0, day: 0, xp: 300, drops: 4, boss: true },
+  { key: 'warlord', name: '🛡️ จอมทมิฬประจำอำเภอ', hp: 9, spd: 1.02, dmg: 2.4, infect: 0.25, scale: 1.8, color: '#5a189a', w: 0, day: 0, xp: 220, drops: 3, boss: true, warlord: true },
 ];
 export const ZT = Object.fromEntries(ZTIERS.map((t, i) => [t.key, i]));
-export const BOSS = ZT.boss, SOLDIER = ZT.soldier, ADMIRAL = ZT.admiral;
+export const WARLORD = ZT.warlord, BOSS = ZT.boss, SOLDIER = ZT.soldier, ADMIRAL = ZT.admiral;
 export const ADMIRAL_EVERY = 10 * 60000; // ผู้บัญชาการเกิดใหม่ได้ทุก ~10 นาที (เมื่อมีผู้เล่นอยู่ในฐานทัพ)
 export const ADMIRAL_DROPS = { admiral_medal: 1, navy_uniform: 1 };
+// บอสประจำอำเภอ: เกิดใหม่หลังถูกล้ม 40 นาที · อำเภอที่ปลดแอกแล้วได้บัฟ 60 นาที
+export const WARLORD_RESPAWN = 40 * 60000, LIBERATE_MS = 60 * 60000;
 export const BOSS_EVERY = 15 * 60000;  // ทุก ~15 นาทีมีโอกาสเกิดบอส
 export const BOSS_CHANCE = 0.5;
 

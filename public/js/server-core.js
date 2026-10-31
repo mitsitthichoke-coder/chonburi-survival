@@ -7,7 +7,7 @@ import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
-import { ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
+import { WARLORD, WARLORD_RESPAWN, LIBERATE_MS, ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
 import { NAVY, inNavy, landmark } from './landmarks.js';
 const SHEEP_FARM = landmark('sheep');
 
@@ -191,7 +191,7 @@ export class WorldCore {
     for (const [k, r] of Object.entries(this.db.rels)) { const [a, b] = k.split('|'); if (a === id) rels[b] = r; else if (b === id) rels[a] = r; }
     this.send(id, {
       t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, hearth: this.db.hearth || {}, structures: this.db.structures,
-      rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse',
+      rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse', lib: this.lib || {},
       players: this.relayState ? [...this.players.values()].filter((p) => p.id !== id).map((p) => this.pub(p)) : [],
     });
     this.sendFriends(id);
@@ -513,7 +513,7 @@ export class WorldCore {
   damageZombie(zid, dmg, by) {
     const zb = this.zombies.get(zid); if (!zb) return;
     zb.hp -= dmg; zb.alert = 10; zb.alertId = by;
-    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); }
+    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); if (zb.tier === WARLORD && zb.town) this.liberate(zb.town, by); }
   }
   horde(x, z, n, by) {
     for (let i = 0; i < n; i++) {
@@ -609,7 +609,27 @@ export class WorldCore {
     }
   }
 
+  // 🛡️ บอสประจำอำเภอ: มีผู้เล่นเข้าใกล้เมือง → เกิดกลางเมือง 1 ตัวต่ออำเภอ · ล้มแล้วอำเภอถูกปลดแอก (บัฟ) และบอสเกิดใหม่หลัง 40 นาที
+  districtBosses(alive) {
+    this.lib ||= {}; this.dbRespawn ||= {}; const now = Date.now();
+    for (const t of TOWNS) {
+      if (t.key === 'sichang' || t.key === 'kochan') continue;
+      if (this.dbRespawn[t.key] > now) continue;
+      if ([...this.zombies.values()].some((z) => z.tier === WARLORD && z.town === t.key)) continue;
+      if (!alive.some((p) => Math.hypot(p.p[0] - t.x, p.p[2] - t.z) < t.r + 40)) continue;
+      for (let k = 0; k < 14; k++) {
+        const a = Math.random() * 6.28, r = Math.random() * t.r * 0.5, x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r;
+        if (!this.validSpot(x, z) || alive.some((p) => Math.hypot(p.p[0] - x, p.p[2] - z) < 18)) continue;
+        const zb = this.spawnZombie(x, z, null, WARLORD); zb.town = t.key; this.broadcast({ t: 'announce', kind: 'dboss', town: t.key, name: t.name, x, z }); break;
+      }
+    }
+  }
+  liberate(town, by) {
+    this.lib ||= {}; this.dbRespawn ||= {}; const until = Date.now() + LIBERATE_MS; this.lib[town] = until; this.dbRespawn[town] = Date.now() + WARLORD_RESPAWN;
+    this.broadcast({ t: 'liberate', town, until, by });
+  }
   slowTick() {
+    this.districtBosses([...this.players.values()].filter((p) => p.p && p.hp > 0));
     const list = [...this.players.values()];
     for (const p of list) if (this.friendIds(p.id).length) this.sendFriends(p.id); // อัปเดตตำแหน่ง/สถานะเพื่อน
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {

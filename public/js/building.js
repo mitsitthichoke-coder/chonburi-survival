@@ -4,7 +4,7 @@ import { makeGhost } from './structures3d.js';
 import { heightAt, waterAt } from './terrain.js';
 import { skillLevel, ITEMS, buildCost, canBuild, learnHint } from './data.js';
 
-const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond']);
+const GROUND_ONLY = new Set(['foundation', 'plot', 'coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond']);
 
 export class Builder {
   constructor(game) { this.g = game; this.type = null; this.rot = 0; this.ghost = null; this.ghostKey = ''; this.demolish = false; this.cand = null; this.target = null; }

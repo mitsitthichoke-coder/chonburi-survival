@@ -5,7 +5,7 @@ import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['fireplace', 'door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['fireplace', 'door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -64,7 +64,7 @@ export class Homestead {
       case 'fence': return mine ? { text: `🛠️ ${FENCE_TIERS[s.tier || 0].name}${FENCE_TIERS[(s.tier || 0) + 1] ? ' — อัปเกรดรั้ว' : ' (ระดับสูงสุด)'}`, act: () => this.fenceMenu(s) } : null;
       case 'ricemill': return { text: `⚙️ สีข้าวเปลือก (มี 🌾 ${g.inv.paddy || 0})`, act: () => { g.ui.craftQ = 'สีข้าว'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
       case 'storage': return { text: '🧰 เปิดหีบเก็บของ', act: () => g.ui.openStructure(s) };
-      case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': case 'hive': case 'stall': case 'basecore': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
+      case 'coop': case 'duckpen': case 'pigpen': case 'boarpen': case 'cowpen': case 'buffalopen': case 'sheeppen': case 'hive': case 'stall': case 'basecore': case 'pond': case 'pethouse': return { text: `${PIECES[s.type].icon} ${PIECES[s.type].name}`, act: () => g.ui.openStructure(s) };
       case 'plot': case 'pot': return this.plotTarget(s, now);
       case 'cage': {
         // กรงดักสัตว์: ใส่เหยื่อ → รอ → เปิดกรงรับสัตว์เลี้ยง

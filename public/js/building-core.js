@@ -49,6 +49,7 @@ export const PIECES = {
   coop: { name: 'เล้าไก่ (มีแม่ไก่ 2 ตัว)', icon: '🐔', cost: { wood: 8, fiber: 4, berry: 3 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   duckpen: { name: 'เล้าเป็ด + อ่างน้ำ (ลูกเป็ด 2 ตัว · ไข่เป็ด + ขนเป็ด)', icon: '🦆', cost: { wood: 8, fiber: 4, stone: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
   pigpen: { name: 'คอกหมู (ลูกหมู 2 ตัว)', icon: '🐷', cost: { wood: 10, stone: 4, veg: 2 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
+  boarpen: { name: 'คอกหมูป่า (ปล่อยหมูป่ามีชีวิตที่จับได้ · เนื้อ + หนังสัตว์)', icon: '🐗', cost: { wood: 12, stone: 4, fiber: 4 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   cowpen: { name: 'คอกวัว (ลูกวัว 1 ตัว)', icon: '🐄', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 3 },
   buffalopen: { name: 'คอกควาย (จับควายจากหนองใหญ่/บ้านบึงมาปล่อย · รีดนมควาย)', icon: '🐃', cost: { wood: 14, stone: 4, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 2 },
   sheeppen: { name: 'คอกแกะ (จับแกะจากสวนแกะบางละมุงมาปล่อย · ตัดขนแกะ)', icon: '🐑', cost: { wood: 10, fiber: 6 }, snap: 'cell', cat: 'ฟาร์ม', lvl: 1 },
@@ -110,6 +111,7 @@ export const PENS = {
   coop: { animal: 'chicken', name: 'ไก่', foods: ['corn', 'seeds_corn', 'seeds_veg', 'seeds_rice', 'rice', 'rice_bran', 'paddy', 'veg', 'berry'], prod: ['egg', 1], period: 3 * M, cap: 8, adult: 8 * M, old: 120 * M, life: 180 * M, max: 4, meat: ['raw_meat', 1], start: 2, startAdult: true, egg: 'egg' },
   duckpen: { animal: 'duck', name: 'เป็ด', foods: ['corn', 'seeds_corn', 'seeds_rice', 'rice', 'rice_bran', 'paddy', 'veg', 'raw_fish'], prod: ['duck_egg', 1], period: 4 * M, cap: 8, adult: 10 * M, old: 130 * M, life: 190 * M, max: 4, meat: ['raw_meat', 2], meat2: ['duck_feather', 3], start: 2, egg: 'duck_egg', extra: ['duck_feather', 1] },
   pigpen: { animal: 'pig', name: 'หมู', foods: ['veg', 'corn', 'potato', 'cabbage', 'pumpkin', 'carrot', 'berry', 'watermelon', 'rice_bran'], prod: ['manure', 1], period: 5 * M, cap: 6, adult: 15 * M, old: 150 * M, life: 220 * M, max: 3, meat: ['pork', 4], start: 2 },
+  boarpen: { animal: 'boar', name: 'หมูป่า', foods: ['veg', 'corn', 'potato', 'carrot', 'berry', 'raw_meat', 'rice_bran'], prod: ['hide', 1], period: 8 * M, cap: 4, adult: 20 * M, old: 160 * M, life: 240 * M, max: 3, meat: ['pork', 5], start: 0 },
   cowpen: { animal: 'cow', name: 'วัว', foods: ['fiber', 'raw_fiber', 'corn', 'cabbage', 'veg', 'rice', 'carrot'], prod: ['milk', 1], period: 5 * M, cap: 6, adult: 20 * M, old: 180 * M, life: 260 * M, max: 2, meat: ['beef', 5], start: 1, extra: ['manure', 1] },
   buffalopen: { animal: 'buffalo', name: 'ควาย', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'rice', 'cabbage'], prod: ['buffalo_milk', 1], period: 5 * M, cap: 6, adult: 18 * M, old: 200 * M, life: 280 * M, max: 2, meat: ['raw_meat', 5], start: 0, extra: ['manure', 1] },
   sheeppen: { animal: 'sheep', name: 'แกะ', foods: ['fiber', 'raw_fiber', 'corn', 'veg', 'cabbage', 'carrot'], prod: ['wool', 2], period: 6 * M, cap: 8, adult: 12 * M, old: 160 * M, life: 230 * M, max: 4, meat: ['raw_meat', 2], start: 0 },
@@ -243,7 +245,7 @@ export function collidersFor(s) {
     case 'storage': out.push({ x: s.x, z: s.z, w: 1.2, d: 0.8, top: y + 0.9 + 1, sid }); break;
     case 'cage': out.push({ x: s.x, z: s.z, w: 2.2, d: 2.2, top: y + 1.8 + 1, sid }); break;
     case 'pethouse': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.6, top: y + 1.4 + 1, sid }); break;
-    case 'coop': case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': out.push({ x: s.x, z: s.z, w: 2.8, d: 2.8, top: y + 1.1 + 1, sid }); break;
+    case 'coop': case 'duckpen': case 'pigpen': case 'boarpen': case 'cowpen': case 'buffalopen': case 'sheeppen': out.push({ x: s.x, z: s.z, w: 2.8, d: 2.8, top: y + 1.1 + 1, sid }); break;
     case 'hive': out.push({ x: s.x, z: s.z, w: 0.8, d: 0.8, top: y + 1.1 + 1, sid }); break;
     case 'stall': out.push({ x: s.x, z: s.z, w: 2.2, d: 1, top: y + 1 + 1, sid }); break;
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
@@ -550,7 +552,7 @@ export const HOUSE_UP = [null, null, { wood: 40, stone: 30, fiber: 20 }, { wood:
 export const REPAIR_BASE = (lv) => ({ wood: 10 * lv, stone: 8 * lv });
 export const PROTECT_DAYS = 60, GAME_DAY_MS = 36 * 60000;
 export const protectLeft = (b, now) => (b?.ok ? Math.max(0, (b.prot || 0) + PROTECT_DAYS * GAME_DAY_MS - now) : 0);
-const FARM_TYPES = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive', 'pot']);
+const FARM_TYPES = new Set(['coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive', 'pot']);
 export const needsBase = (t) => FARM_TYPES.has(t) || String(t).startsWith('plot_');
 export const inBox = (b, x, z, pad = 0) => !!b && x > b[0] - pad && x < b[2] + pad && z > b[1] - pad && z < b[3] + pad;
 export const baseAt = (structs, x, z) => structs.find((s) => s.type === 'basecore' && s.ok && inBox(s.box, x, z));
@@ -577,7 +579,7 @@ export function accessFor(structs, s, by, friendOk) {
   const b = baseAt(structs, s.x, s.z), r = b && b.owner === s.owner ? roleIn(b, by) : null;
   return r || (friendOk ? 'friend' : null);
 }
-const ANIMAL_T = new Set(['coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive']);
+const ANIMAL_T = new Set(['coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive']);
 // คำสั่งที่ "เอาของออก" ต้องเป็นผู้มีหน้าที่
 export function roleAllows(role, s, o) {
   if (!['harvest', 'collect', 'butcher', 'breed', 'till', 'plant', 'fert', 'stock'].includes(o)) return true;

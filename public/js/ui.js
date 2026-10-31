@@ -734,7 +734,7 @@ export class UI {
         <div class="pbar"><i style="width:${Math.min(100, ((p.xp - cur) / (nxt - cur)) * 100)}%"></i></div><small>XP ${Math.floor(p.xp)}/${nxt} · ได้จากการสู้ ให้อาหาร และเดินทางด้วยกัน</small>
         <div class="traits"><span class="trait innate" title="ความสามารถประจำชนิด">⭐ ${esc(PET_TYPES[p.type].perk)}</span>${p.traits.map((t) => `<span class="trait" title="${esc(PET_TRAITS[t].desc)}">${PET_TRAITS[t].icon} ${esc(PET_TRAITS[t].name)}<small>${esc(PET_TRAITS[t].desc)}</small></span>`).join('')}</div>
         ${Object.entries(PET_SLOTS).map(([k, label]) => slot(k, label)).join('')}
-        <div class="acts"><button data-petfeed="${i}">🍖 ให้อาหาร</button><button data-petheal="${i}">🩹 รักษา</button><button data-petstay="${i}">${p.stay ? '🚶 ตามมา' : '✋ รอตรงนี้'}</button><button data-pethome="${i}">${p.home ? '🚶 พากลับจากบ้าน' : '🏡 ให้อยู่บ้านสัตว์เลี้ยง'}</button></div>${p.home ? '<small>🏡 อยู่บ้าน: ฟื้นพลังชีวิต ความผูกพันไม่ลด และช่วยเฝ้าบ้าน</small>' : ''}
+        <div class="acts"><button data-petfeed="${i}">🍖 ให้อาหาร</button><button data-petheal="${i}">🩹 รักษา</button><button data-petstay="${i}">${p.stay ? '🚶 ตามมา' : '✋ รอตรงนี้'}</button><button data-petswap="${i}" title="ให้ตัวนี้ตามมา ตัวอื่นรอตรงนี้ (ต้องถอดอุปกรณ์สัตว์ตัวที่เปลี่ยนออกก่อน)">🔄 สลับตัวนี้</button><button data-pethome="${i}">${p.home ? '🚶 พากลับจากบ้าน' : '🏡 ให้อยู่บ้านสัตว์เลี้ยง'}</button></div>${p.home ? '<small>🏡 อยู่บ้าน: ฟื้นพลังชีวิต ความผูกพันไม่ลด และช่วยเฝ้าบ้าน</small>' : ''}
       </div>`;
     }).join('');
     const env = g.auth.env(), houses = env.ownCount('pethouse'), beds = env.ownCount('bed'), cap = petCap(houses, beds);
@@ -868,6 +868,13 @@ export class UI {
     if (d.act) { if (t.classList.contains('dis')) return this.toast(t.title, 'warn'); g.social.act(d.act, this.person.id); return this.refreshPanels(); }
     if (d.gift) { g.social.act('gift', this.person.id, { item: d.gift }); return this.refreshPanels(); }
     if (d.petfeed) { g.feedPet(+d.petfeed); return this.refreshPanels(); }
+    if (d.petswap) {
+      const i = +d.petswap, cur = g.pets.filter((q, j) => j !== i && !q.stay && !q.home);
+      const worn = cur.find((q) => Object.values(q.gear || {}).some(Boolean));
+      if (worn) return this.toast(`🎀 ถอดอุปกรณ์ของ ${worn.name} ออกก่อนจึงจะสลับสัตว์เลี้ยงได้`, 'warn');
+      for (const q of cur) q.stay = true; g.pets[i].stay = false; g.pets[i].home = false;
+      this.toast(`🔄 สลับเป็น ${g.pets[i].name} ตามมาแล้ว`); return this.refreshPanels();
+    }
     if (d.petstay) { const p = g.pets[+d.petstay]; p.stay = !p.stay; return this.refreshPanels(); }
     if (d.petheal) { healPet(g, g.pets[+d.petheal]); return this.refreshPanels(); }
     if (d.petequip) { const [i, k] = d.petequip.split(':'); equipPet(g, g.pets[+i], k); return this.refreshPanels(); }

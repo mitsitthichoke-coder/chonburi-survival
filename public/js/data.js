@@ -237,7 +237,7 @@ const RAW_ITEMS = {
   arrow_feather: { name: 'ลูกธนูหางขนเป็ด', icon: '➶', value: 3, ammo: { g: 'arrow', dmg: 9, tier: 3 } },
   live_chicken: { name: 'ไก่ป่ามีชีวิต (กรงหิ้ว)', icon: '🐓', value: 8, live: 'coop', desc: 'นำไปปล่อยที่เล้าไก่ (เปิดคอกแล้วกดปล่อย)' },
   live_duck: { name: 'เป็ดมีชีวิต (กรงหิ้ว)', icon: '🦆', value: 9, live: 'duckpen', desc: 'นำไปปล่อยที่เล้าเป็ด' },
-  live_boar: { name: 'หมูป่ามีชีวิต (กรงหิ้ว)', icon: '🐗', value: 14, live: 'pigpen', desc: 'นำไปปล่อยที่คอกหมู' },
+  live_boar: { name: 'หมูป่ามีชีวิต (กรงหิ้ว)', icon: '🐗', value: 14, live: 'boarpen', desc: 'นำไปปล่อยที่คอกหมู' },
   // เงินตรา
   // ⚒️ ตีบวก & ส่องออฟชั่น
   plus_stone: { name: 'เหล็กพลัส', icon: '🔹', value: 25, desc: 'ใช้ตีบวกอาวุธ/ชุด +1 ถึง +8 · ดรอปจากมอนสเตอร์และกล่อง' },

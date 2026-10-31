@@ -484,7 +484,7 @@ export class Game {
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return PET_TYPES[e0.type]?.ride && !(e0.pet.down > 0) ? { type: 'ride', e: e0, text: `🐃 ขี่${e0.pet.name} (ลูบหัวด้วย)` } : { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
-    const hp = (this.world.pavilions || []).find((p) => p.hearth && Math.hypot(p.x + p.w / 2 - 0.9 - P.x, p.z - P.z) < 2.4);
+    const hp = (this.world.pavilions || []).find((p) => p.hearth && (Math.hypot(p.x + p.w / 2 - 0.9 - P.x, p.z - P.z) < 2.4 || (Math.abs(p.x - P.x) < p.w / 2 + 1.5 && Math.abs(p.z - P.z) < p.d / 2 + 1.5)));
     if (hp) { const left = (hp.lit || 0) - this.now(); return left > 0 ? { type: 'none', text: `🔥 เตาผิงกำลังลุก (อีก ${Math.floor(Math.ceil(left / 60000) / 60) ? Math.floor(Math.ceil(left / 60000) / 60) + ' ชม. ' : ''}${Math.ceil(left / 60000) % 60} นาที) — อุ่น ตากตัวให้แห้ง ซอมบี้/สัตว์ร้ายไม่กล้าเข้าใกล้` } : { type: 'hearth', p: hp, text: `🔥 ก่อไฟในเตาผิง ลุก 24 ชม. (ไม้ ${this.inv.wood || 0}/2)` }; }
     const dm = this.myPiece(); if (dm) return { type: 'demo', text: `${PIECES[dm.type].icon} ${PIECES[dm.type].name} · ${this.touch ? 'แตะ ✋' : 'กด E หรือ <kbd>X</kbd>'} = 🗑️ รื้อชิ้นนี้ (ได้วัสดุคืนครบ)` };
     if (this.weather.rain) return { type: 'rain', text: this.hasItem('bottle') ? 'รองน้ำฝนใส่ขวด' : 'ดื่มน้ำฝน' };

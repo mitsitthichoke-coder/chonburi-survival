@@ -228,8 +228,8 @@ export function makeStructureMesh(s) {
       root.userData.cropGroup = add(new THREE.Group()); root.userData.potted = true;
       break;
     }
-    case 'duckpen': case 'pigpen': case 'cowpen': case 'buffalopen': case 'sheeppen': {
-      const P = PENS[s.type], ground = { duckpen: '#a3b18a', pigpen: '#6f4e37', cowpen: '#8a9a5b', buffalopen: '#5c4a32', sheeppen: '#95b46a' }[s.type];
+    case 'duckpen': case 'pigpen': case 'boarpen': case 'cowpen': case 'buffalopen': case 'sheeppen': {
+      const P = PENS[s.type], ground = { duckpen: '#a3b18a', pigpen: '#6f4e37', boarpen: '#4a3b2a', cowpen: '#8a9a5b', buffalopen: '#5c4a32', sheeppen: '#95b46a' }[s.type];
       add(box(2.8, 0.1, 2.8, ground, 0, 0.05, 0));
       for (const [x, z, w, d] of [[0, -1.4, 2.8, 0.1], [0, 1.4, 2.8, 0.1], [-1.4, 0, 0.1, 2.8], [1.4, 0, 0.1, 2.8]]) { add(box(w, 0.08, d, WOOD, x, 0.85, z)); add(box(w, 0.08, d, WOOD, x, 0.45, z)); }
       for (const [x, z] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4], [0, -1.4], [0, 1.4]]) add(box(0.12, 1.05, 0.12, WOOD_D, x, 0.52, z));

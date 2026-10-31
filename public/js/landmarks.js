@@ -10,6 +10,10 @@ export const LANDMARKS = [
   { key: 'factory', kind: 'factory', name: '🏭 นิคมโรงงานร้างพานทอง', town: 'phanthong', ...P(13.482, 101.118), r: 40 },
   { key: 'uni', kind: 'uni', name: '🎓 มหาวิทยาลัยร้างศรีราชา', town: 'sriracha', ...P(13.122, 100.925), r: 32 },
   { key: 'dam', kind: 'dam', name: '🌊 เขื่อนเกาะจันทร์', town: 'kochan', ...P(13.405, 101.378), r: 30 },
+  { key: 'rubbermill', kind: 'rubbermill', name: '🌳 โรงงานแปรรูปยางพาราบ้านบึง', town: 'banbueng', ...P(13.322, 101.122), r: 22 },
+  { key: 'buffalo', kind: 'buffalomarket', name: '🐃 ตลาดนัดโค-กระบือหนองใหญ่', town: 'nongyai', ...P(13.150, 101.362), r: 20 },
+  { key: 'mine', kind: 'mine', name: '⛏️ เหมืองหินบ่อทอง', town: 'bothong', ...P(13.246, 101.478), r: 24 },
+  { key: 'pier', kind: 'pier', name: '⚓ ท่าเรือและพระราชวังเกาะสีชัง', town: 'sichang', ...P(13.158, 100.824), r: 12 },
   { key: 'sheep', kind: 'sheepfarm', name: '🐑 สวนแกะ & สวนดอกไม้บางละมุง', town: 'banglamung', ...P(13.03, 100.965), r: 24 },
 ];
 export const landmark = (k) => LANDMARKS.find((l) => l.key === k);
@@ -90,6 +94,35 @@ export function buildLandmarks(ok) {
         put(lx + DAM_LAKE.rx * 0.95 + 4, dz + 6, 8, 6, 6, [0.6, 0.62, 0.6], { lm: 'dam' });
         crate(lx + DAM_LAKE.rx * 0.95 + 4, dz + 10, 'factory');
         labels[labels.length - 1] = { x: lx, z: dz, name: L.name, y: y0 + 18 };
+        break;
+      }
+      case 'rubbermill': {
+        // โรงรีดยาง: โรงเรือนยาว ถังน้ำยาง และลานตากแผ่นยาง
+        const m = put(x, z, 18, 9, 6, [0.5, 0.45, 0.38], { lm: 'rubber' }); if (m) { crate(m.x - 4, m.z + 6, 'rubber'); crate(m.x, m.z, 'rubber', m.y0 + m.h); }
+        for (const [dx, dz] of [[-14, -4], [14, -4], [-14, 8], [14, 8]]) { const t = put(x + dx, z + dz, 4, 4, 5, [0.7, 0.7, 0.66], { lm: 'rubber' }); if (t) crate(t.x, t.z + 3, 'rubber'); }
+        put(x, z - 14, 22, 5, 3, [0.62, 0.34, 0.2], { lm: 'rubber' });
+        break;
+      }
+      case 'buffalomarket': {
+        // คอกกลมกลางตลาดนัดสัตว์ + โรงเรือนขายของ
+        const R = 14, fc = [0.5, 0.36, 0.22];
+        for (const [wx, wz, ww, wd] of [[0, -R, 22, 0.4], [0, R, 22, 0.4], [-R, 0, 0.4, 22], [R, 0, 0.4, 22]]) put(x + wx, z + wz, ww, wd, 2.2, fc, { lm: 'buffalo' });
+        const sh = put(x + 22, z, 10, 6, 4, [0.6, 0.5, 0.35], { lm: 'buffalo' }); if (sh) crate(sh.x, sh.z + 4, 'farm');
+        const bn = put(x - 22, z + 4, 9, 7, 5, [0.55, 0.22, 0.18], { lm: 'buffalo' }); if (bn) { crate(bn.x, bn.z + 5, 'farm'); crate(bn.x, bn.z, 'farm', bn.y0 + bn.h); }
+        break;
+      }
+      case 'mine': {
+        // ขอบบ่อหินสูง + สำนักงานเหมือง + เครื่องบด
+        for (const [wx, wz, ww, wd] of [[0, -16, 30, 3], [-16, 0, 3, 24], [16, 0, 3, 24]]) put(x + wx, z + wz, ww, wd, 4.5, [0.58, 0.55, 0.5], { lm: 'mine' });
+        const o = put(x, z + 14, 12, 7, 5, [0.5, 0.52, 0.55], { lm: 'mine' }); if (o) { crate(o.x - 3, o.z + 5, 'mine'); crate(o.x, o.z, 'mine', o.y0 + o.h); }
+        const c = put(x + 22, z + 4, 7, 7, 8, [0.45, 0.45, 0.42], { lm: 'mine', burnt: true }); if (c) crate(c.x, c.z + 5, 'mine');
+        break;
+      }
+      case 'pier': {
+        // ท่าเรือไม้ + ประภาคาร/อาคารริมน้ำ
+        const p = put(x, z, 10, 6, 4, [0.78, 0.7, 0.55], { lm: 'pier' }); if (p) { crate(p.x, p.z + 4, 'sea'); crate(p.x, p.z, 'sea', p.y0 + p.h); }
+        const lh = put(x + 11, z - 4, 3.5, 3.5, 12, [0.92, 0.9, 0.86], { lm: 'pier' }); if (lh) crate(lh.x, lh.z, 'sea', lh.y0 + lh.h);
+        put(x - 10, z + 2, 8, 5, 3.5, [0.62, 0.4, 0.28], { lm: 'pier' });
         break;
       }
       case 'sheepfarm': {

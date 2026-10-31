@@ -826,6 +826,11 @@ export const SPECIAL_LOOT = {
   mall: [['canned', 14], ['clean_water', 10], ['jeans', 6], ['sneakers', 6], ['hat_cloth', 5], ['bag_cloth', 5], ['bag_hiking', 2], ['jacket_leather', 2], ['phone', 2], ['battery_pack', 3], ['cloth', 10], ['zipper', 6], ['jicoin', 16], ['energy_drink', 4], ['guitar', 1], ['ring', 2]],
   factory: [['scrap', 22], ['copper_wire', 14], ['spark_plug', 8], ['battery_pack', 6], ['fuel', 10], ['zipper', 4], ['engine', 1], ['moto_engine', 2], ['steering_wheel', 3], ['wheel', 4], ['pickaxe', 2], ['iron_pickaxe', 1], ['hammer', 2], ['solar_panel', 1], ['jicoin', 8]],
   edu: [['book_med', 7], ['book_eng', 7], ['book_agri', 7], ['book_cs', 6], ['book_elec', 6], ['book_cook', 7], ['book_wicker', 2], ['lab_kit', 10], ['herbal_med', 6], ['bandage', 6], ['clean_water', 8], ['phone', 2], ['copper_wire', 6], ['jicoin', 10]],
+  // เหมืองหินบ่อทอง · โรงยางบ้านบึง · ตลาดนัดโค-กระบือหนองใหญ่ · ท่าเรือเกาะสีชัง
+  mine: [['stone', 20], ['scrap', 14], ['copper_wire', 8], ['fuel', 6], ['pickaxe', 3], ['iron_pickaxe', 2], ['hammer', 3], ['helmet_bike', 3], ['gloves_leather', 3], ['canned', 6], ['jicoin', 8]],
+  rubber: [['rubber_sheet', 10], ['latex', 14], ['rubber_wood', 12], ['tap_knife', 4], ['rubber_boots', 3], ['rubber_gloves', 3], ['fiber', 8], ['scrap', 6], ['jicoin', 8]],
+  farm: [['hide', 10], ['beef', 8], ['raw_meat', 8], ['corn', 8], ['veg', 6], ['wool', 6], ['boots', 3], ['canned', 5], ['jicoin', 8]],
+  sea: [['raw_fish', 14], ['clean_water', 10], ['cloth', 8], ['bottle', 6], ['coconut', 6], ['canned', 6], ['jicoin', 10]],
   mil: [['kevlar', 8], ['vest_kevlar', 3], ['helmet_mil', 5], ['pants_cargo', 5], ['navy_uniform', 4], ['combat_boots', 4], ['bag_military', 3], ['shield_riot', 3], ['bolt_steel', 8], ['bolt_heavy', 4], ['arrow_iron', 8], ['antibiotic', 6], ['first_aid', 4], ['canned', 10], ['clean_water', 8], ['fuel', 6], ['jicoin', 14]],
 };
 export const NPCS = [
@@ -852,6 +857,11 @@ export const NPCS = [
   { id: 'npc_waew', name: 'ยายแวว', sex: 'f', town: 'phanat', likes: 'bamboo', job: 'weaver', teach: 'wicker', bio: 'ช่างจักสานฝีมือดีแห่งตลาดจักสานพนัสนิคม สอนสานตะกร้า ชะลอม พัด และผนังไม้ไผ่' },
   { id: 'npc_boonsong', name: 'ช่างบุญส่ง', sex: 'm', town: 'phanthong', likes: 'scrap', job: 'blacksmith', bio: 'ช่างตีเหล็กจากย่านโรงงานพานทอง รับตีบวกอาวุธ ชุด และอุปกรณ์สัตว์เลี้ยง' },
   { id: 'npc_kham', name: 'ลุงคำ', sex: 'm', town: 'banbueng', likes: 'cooked_rice', job: 'ricefarmer', bio: 'ชาวนาเก่าแก่แห่งบ้านบึง รู้เรื่องการทำนาทุกขั้นตอน' },
+  { id: 'npc_captain', name: 'กัปตันสมุทร', sex: 'm', town: 'sichang', likes: 'raw_fish', job: 'fisher', bio: 'ผู้ดูแลท่าเรือเกาะสีชัง รู้เส้นทางเรือและแหล่งปลา' },
+  { id: 'npc_damtech', name: 'ช่างเขื่อน', sex: 'm', town: 'kochan', likes: 'copper_wire', job: 'electrician', bio: 'วิศวกรไฟฟ้าประจำเขื่อนเกาะจันทร์ ดูแลเครื่องปั่นไฟและระบบน้ำ' },
+  { id: 'npc_shepherd', name: 'ป้าเพียร', sex: 'f', town: 'banglamung', likes: 'wool', job: 'livestock', bio: 'เจ้าของสวนแกะบางละมุง เลี้ยงแกะมาทั้งชีวิต' },
+  { id: 'npc_buffalo', name: 'ลุงทอง', sex: 'm', town: 'nongyai', likes: 'corn', job: 'livestock', bio: 'คนเลี้ยงควายตลาดนัดโค-กระบือหนองใหญ่ รู้นิสัยสัตว์ทุกชนิด' },
+  { id: 'npc_miner', name: 'พี่หินแข็ง', sex: 'm', town: 'bothong', likes: 'stone', job: 'builder', bio: 'อดีตหัวหน้าเหมืองหินบ่อทอง ชำนาญวัสดุก่อสร้าง' },
   { id: 'npc_tham', name: 'หลวงพี่ธรรม', sex: 'm', town: 'phanat', likes: 'herb', job: 'monk', celibate: true, bio: 'พระสงฆ์วัดในพนัสนิคม คอยให้ที่พักใจผู้รอดชีวิต' },
 ];
 // ร้านแลกของของ NPC ตามอาชีพ: [ไอเท็ม, ราคา(แต้มมูลค่า), จำนวนต่อวัน]

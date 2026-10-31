@@ -10,7 +10,7 @@ import { bindLangButton } from './i18n.js';
 import { VERSION } from './version.js';
 import { initDrag } from './drag.js';
 import { initPreview3d, updatePreview3d } from './preview3d.js';
-import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook } from './look-core.js';
+import { SKINS, SHIRTS, HAIRS, PANTS, HAIR_STYLES, EYES, MOUTHS, BROWS, EXTRAS, randomLook, jobLook } from './look-core.js';
 import { JOBS, ITEMS, PERK_PTS } from './data.js';
 
 const $ = (s) => document.querySelector(s);
@@ -22,6 +22,8 @@ const profile = saved || { id: 'u' + Math.random().toString(36).slice(2, 10), na
 
 $('#f-name').value = profile.name;
 const marks = [];
+let lookTouched = !!saved; // ผู้เล่นปรับหน้าตาเองแล้วหรือยัง (ถ้ายัง → ใช้หน้าตามาตรฐานของอาชีพ)
+const applyJobLook = () => { if (!lookTouched) profile.look = jobLook(profile.job, profile.sex); };
 const refreshSegs = () => { marks.forEach((m) => m()); jobInfo(); };
 const seg = (el, opts, cur, set, swatch) => {
   el.innerHTML = opts.map((o) => swatch ? `<button class="sw" data-v="${o}" style="background:${o}"></button>` : '').join('') || el.innerHTML;
@@ -29,14 +31,14 @@ const seg = (el, opts, cur, set, swatch) => {
   el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { set(b.dataset.v); mark(); } });
   mark();
 };
-seg($('#f-sex'), [], () => profile.sex, (v) => (profile.sex = v));
+seg($('#f-sex'), [], () => profile.sex, (v) => { profile.sex = v; applyJobLook(); refreshSegs(); drawPreview(); });
 if (profile.hand !== 'l') profile.hand = 'r';
 seg($('#f-hand'), [], () => profile.hand, (v) => (profile.hand = v));
 // อาชีพ
 if (!JOBS[profile.job]) profile.job = 'engineer';
 $('#f-job').innerHTML = Object.entries(JOBS).map(([k, J]) => `<button data-v="${k}" class="job"><b>${J.icon} ${J.name}</b><small>${J.desc}</small></button>`).join('');
 const jobInfo = () => { const J = JOBS[profile.job]; $('#f-job-info').innerHTML = `<b>${J.icon} ${J.name}</b> — ความสามารถขั้นสูง:<br>${J.perks.map(([l, t], i) => J.free ? `• ${i ? `เลเวลตัวละคร ${l}` : 'เริ่มต้น'}: ${t}` : `• สเตตัสสายนี้ ${PERK_PTS[i]} แต้ม: ${t}`).join('<br>')}${J.free ? '' : '<br>🎓 เริ่มต้นได้ 5 แต้มในสายนี้ · ทุกเลเวลได้ +1 แต้ม ลงสายอื่นได้'}${J.happyNote ? '<br>' + J.happyNote : ''}<br>🎁 ชุดเริ่มต้น: ${Object.entries(J.kit).map(([k, q]) => `${ITEMS[k].icon} ${ITEMS[k].name} ×${q}`).join(', ')}`; };
-seg($('#f-job'), [], () => profile.job, (v) => { profile.job = v; jobInfo(); });
+seg($('#f-job'), [], () => profile.job, (v) => { profile.job = v; applyJobLook(); jobInfo(); refreshSegs(); drawPreview(); });
 jobInfo();
 seg($('#f-skin'), SKINS, () => profile.look.skin, (v) => (profile.look.skin = v), true);
 seg($('#f-shirt'), SHIRTS, () => profile.look.shirt, (v) => (profile.look.shirt = v), true);
@@ -57,10 +59,10 @@ const R = (a) => a[Math.floor(Math.random() * a.length)];
 // สุ่มแยกส่วน: ชื่อ (ตามเพศ) · ลักษณะ (สีผิว ผม เสื้อ หน้าตา) · เพศ
 const rnd = {
   name() { $('#f-name').value = R(profile.sex === 'f' ? NAMES_F : profile.sex === 'm' ? NAMES_M : [...NAMES_M, ...NAMES_F]) + (Math.random() < 0.5 ? '' : Math.floor(Math.random() * 90 + 10)); $('#f-name').dispatchEvent(new Event('input')); },
-  look() { profile.look = randomLook(profile.sex); },
+  look() { lookTouched = true; profile.look = randomLook(profile.sex); },
   sex() { profile.sex = ['m', 'f', 'x'][Math.floor(Math.random() * 3)]; },
   hand() { profile.hand = Math.random() < 0.5 ? 'l' : 'r'; },
-  job() { profile.job = R(Object.keys(JOBS)); jobInfo(); },
+  job() { profile.job = R(Object.keys(JOBS)); applyJobLook(); jobInfo(); },
 };
 $('#f-rand').onclick = () => {
   rnd.hand(); rnd.sex(); rnd.job(); rnd.look(); rnd.name(); refreshSegs(); drawPreview(); // ชื่อสุ่มหลังเพศ ให้เข้ากับเพศ
@@ -86,7 +88,8 @@ function drawPreview() {
     undercut: () => { P(hc, 34, 12, 28, 10); P(hc, 46, 20, 16, 5); }, mullet: () => { P(hc, 30, 16, 36, 10); P(hc, 28, 28, 6, 30); P(hc, 62, 28, 6, 30); }, pixie: () => { P(hc, 30, 16, 36, 10); P(hc, 34, 24, 16, 5); },
     braid: () => { P(hc, 30, 16, 36, 10); for (let i = 0; i < 4; i++) P(hc, 64, 26 + i * 9, 8 - i, 8); }, twin: () => { P(hc, 30, 16, 36, 10); P(hc, 20, 26, 9, 22); P(hc, 67, 26, 9, 22); }, bald: () => {} })[st]?.();
 }
-for (const id of ['#f-skin', '#f-shirt', '#f-sex', '#f-hair', '#f-style', '#f-eyes', '#f-brows', '#f-mouth', '#f-extra']) $(id).addEventListener('click', () => { marks.forEach((m) => m()); drawPreview(); });
+for (const id of ['#f-skin', '#f-shirt', '#f-sex', '#f-hair', '#f-style', '#f-eyes', '#f-brows', '#f-mouth', '#f-extra', '#f-pants']) $(id)?.addEventListener('click', () => { if (id !== '#f-sex' && id !== '#f-job') lookTouched = true; marks.forEach((m) => m()); drawPreview(); });
+applyJobLook(); marks.forEach((m) => m()); drawPreview();
 initPreview3d($('#f-preview'));
 drawPreview();
 
@@ -131,7 +134,7 @@ function showAccount() {
   $('#f-have').hidden = !C; $('#f-create').hidden = !!C;
   $('#f-edit').style.display = C ? 'none' : ''; // กลับเข้าเกมซ้ำ: ไม่แสดงปุ่ม/เมนูแก้ไขตัวละคร
   if (C) $('#f-have-name').textContent = `${C.name} · ${JOBS[C.job]?.icon || ''} ${JOBS[C.job]?.name || ''}`;
-  if (C) { $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; profile.hand = C.hand === 'l' ? 'l' : 'r'; refreshSegs(); }
+  if (C) { lookTouched = true; $('#f-name').value = C.name; profile.sex = C.sex; Object.assign(profile.look, C.look); profile.job = C.job; profile.hand = C.hand === 'l' ? 'l' : 'r'; refreshSegs(); }
   $('#b-online').textContent = C ? '▶️ เข้าเกม' : '✨ สร้างตัวละครและเข้าเกม';
   if (account.mustChange) { $('#pwbox').hidden = false; $('#p-err').textContent = 'คุณใช้รหัสผ่านชั่วคราว กรุณาตั้งรหัสผ่านใหม่'; }
 }

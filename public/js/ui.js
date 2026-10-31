@@ -226,7 +226,7 @@ export class UI {
     if (s.sick > 0) chips.push('<span class="chip yellow">🤢 อาหารเป็นพิษ</span>');
     if (g.social.preg[g.id]) chips.push(`<span class="chip pink">🤰 ตั้งครรภ์ ${Math.floor(Math.min(1, (Date.now() - g.social.preg[g.id].start) / g.const.PREG_MS) * 100)}%</span>`);
     if (g.social.lovedNearby()) chips.push('<span class="chip pink">💞 มีกำลังใจ</span>');
-    const lb = g.libBuff?.(); if (lb) chips.push(`<span class="chip green">🕊️ ${lb.name}ปลดแอก · หิว/กระหายช้าลง 20% · ฟื้นพลังไว +20%</span>`);
+    const lb = g.libBuff?.(); if (lb) chips.push(`<span class="chip green">🕊️ ${lb.name}ปลดแอก · ${{ food: 'หิว/กระหายช้าลง 20%', stam: 'พลังกายฟื้นไว +20%', regen: 'ฟื้นเลือดช้า ๆ', warm: 'อบอุ่น/แห้ง' }[lb.buff] || ''}</span>`);
     if (g.nearFire) chips.push('<span class="chip orange">🔥 อบอุ่น</span>');
     if (g.weather.rain) chips.push('<span class="chip blue">🌧️ ฝนตก</span>');
     if (g.weather.snow) chips.push('<span class="chip blue">❄️ หิมะตก</span>');

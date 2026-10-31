@@ -7,7 +7,7 @@ import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
 import { heightAt, waterAt } from './terrain.js';
 import { getLayout, collideBoxes, inCamp } from './citygen.js';
-import { WARLORD, WARLORD_RESPAWN, LIBERATE_MS, ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
+import { WARLORD_OF, WARLORD_RESPAWN, LIBERATE_MS, ZTIERS, BOSS, BOSS_EVERY, BOSS_CHANCE, pickTier, zombieHp, SOLDIER, ADMIRAL, ADMIRAL_EVERY } from './zombies-core.js';
 import { NAVY, inNavy, landmark } from './landmarks.js';
 const SHEEP_FARM = landmark('sheep');
 
@@ -512,8 +512,9 @@ export class WorldCore {
   }
   damageZombie(zid, dmg, by) {
     const zb = this.zombies.get(zid); if (!zb) return;
+    const AT = ZTIERS[zb.tier | 0]; if (AT?.armor) dmg *= AT.armor;
     zb.hp -= dmg; zb.alert = 10; zb.alertId = by;
-    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); if (zb.tier === WARLORD && zb.town) this.liberate(zb.town, by); }
+    if (zb.hp <= 0) { this.zombies.delete(zid); this.broadcast({ t: 'zdie', id: zid, by, tier: zb.tier | 0 }); if (zb.tier === BOSS) this.broadcast({ t: 'announce', kind: 'bossdown', by }); if (zb.town && ZTIERS[zb.tier | 0]?.warlord) this.liberate(zb.town, by); }
   }
   horde(x, z, n, by) {
     for (let i = 0; i < n; i++) {
@@ -548,7 +549,14 @@ export class WorldCore {
       }
       if (!tgt && zb.alert > 0) { zb.alert -= dt; tgt = this.players.get(zb.alertId) || null; if (tgt && zb.ignore[tgt.id] > zb.t) tgt = null; if (tgt) td = Math.hypot(tgt.p[0] - zb.x, tgt.p[2] - zb.z); if (td > 70) tgt = null; }
       let tx, tz, spd;
-      if (tgt) { tx = tgt.p[0]; tz = tgt.p[2]; spd = (night ? 3.75 : 3.0) * T.spd; }
+      if (T.warlord) { // ความสามารถประจำบอสอำเภอ
+        if (T.regen && zb.hp < zb.maxHp) zb.hp = Math.min(zb.maxHp, zb.hp + zb.maxHp * T.regen * dt);
+        if (T.summon && tgt && (zb.sumT = (zb.sumT ?? 12) - dt) <= 0) {
+          zb.sumT = 25;
+          for (let i = 0; i < T.summon; i++) { const a = Math.random() * 6.28, mx = zb.x + Math.cos(a) * 3, mz = zb.z + Math.sin(a) * 3; if (this.validSpot(mx, mz)) this.spawnZombie(mx, mz, tgt.id, i % 2 ? 1 : 0); }
+        }
+      }
+      if (tgt) { tx = tgt.p[0]; tz = tgt.p[2]; spd = (night ? 3.75 : 3.0) * T.spd * (T.rage && zb.hp < zb.maxHp * 0.35 ? T.rage : 1); }
       else {
         if (!zb.wander || zb.t > zb.wander.until) zb.wander = Math.random() < 0.35 ? { x: zb.x, z: zb.z, until: zb.t + 3 } : { x: zb.x + (Math.random() - 0.5) * 16, z: zb.z + (Math.random() - 0.5) * 16, until: zb.t + 6 };
         tx = zb.wander.x; tz = zb.wander.z; spd = 1.6 * Math.min(1, T.spd);
@@ -613,20 +621,20 @@ export class WorldCore {
   districtBosses(alive) {
     this.lib ||= {}; this.dbRespawn ||= {}; const now = Date.now();
     for (const t of TOWNS) {
-      if (t.key === 'sichang' || t.key === 'kochan') continue;
+      if (!WARLORD_OF[t.key]) continue;
       if (this.dbRespawn[t.key] > now) continue;
-      if ([...this.zombies.values()].some((z) => z.tier === WARLORD && z.town === t.key)) continue;
+      if ([...this.zombies.values()].some((z) => z.town === t.key && ZTIERS[z.tier | 0]?.warlord)) continue;
       if (!alive.some((p) => Math.hypot(p.p[0] - t.x, p.p[2] - t.z) < t.r + 40)) continue;
-      for (let k = 0; k < 14; k++) {
-        const a = Math.random() * 6.28, r = Math.random() * t.r * 0.5, x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r;
+      for (let k = 0; k < 60; k++) {
+        const a = Math.random() * 6.28, r = Math.random() * t.r * (k < 20 ? 0.5 : 1.2), x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r;
         if (!this.validSpot(x, z) || alive.some((p) => Math.hypot(p.p[0] - x, p.p[2] - z) < 18)) continue;
-        const zb = this.spawnZombie(x, z, null, WARLORD); zb.town = t.key; this.broadcast({ t: 'announce', kind: 'dboss', town: t.key, name: t.name, x, z }); break;
+        const zb = this.spawnZombie(x, z, null, WARLORD_OF[t.key]); zb.town = t.key; this.broadcast({ t: 'announce', kind: 'dboss', town: t.key, name: t.name, boss: ZTIERS[zb.tier].name, x, z }); break;
       }
     }
   }
   liberate(town, by) {
     this.lib ||= {}; this.dbRespawn ||= {}; const until = Date.now() + LIBERATE_MS; this.lib[town] = until; this.dbRespawn[town] = Date.now() + WARLORD_RESPAWN;
-    this.broadcast({ t: 'liberate', town, until, by });
+    const bt = ZTIERS.find((x) => x.town === town); this.broadcast({ t: 'liberate', town, until, by, buff: bt?.buff, buffText: bt?.buffText });
   }
   slowTick() {
     this.districtBosses([...this.players.values()].filter((p) => p.p && p.hp > 0));

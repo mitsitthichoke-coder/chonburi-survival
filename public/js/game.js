@@ -5,6 +5,7 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, ridePose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
+import { ZTIERS } from './zombies-core.js';
 import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, meleeReach, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
@@ -29,6 +30,7 @@ const SAVE_KEY = 'cbs_save_v1';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // วัสดุก่อสร้างพื้นฐาน: ไม่กินช่องกระเป๋า
+const BUFF_NAME = { food: 'หิว/กระหายช้าลง 20%', stam: 'พลังกายฟื้นไว +20%', regen: 'ฟื้นเลือดช้า ๆ', warm: 'อบอุ่นและแห้งเหมือนอยู่ข้างกองไฟ' };
 const SLOT_FREE = new Set(['wood', 'stone', 'scrap', 'fiber', 'raw_fiber', 'twig', 'pebble', 'bamboo', 'rubber_wood', 'latex', 'rubber_sheet', 'concrete', 'house_mat']);
 export class Game {
   constructor(profile, net, sfx = new Sfx()) {
@@ -210,7 +212,7 @@ export class Game {
     if (s.temp === undefined) s.temp = 37; if (s.wet === undefined) s.wet = 0;
     const sh = this.world.shelterAt(P.x, P.z, P.y), now = this.now();
     const hearth = (this.world.pavilions || []).find((p) => p.hearth && (p.lit || 0) > now && Math.hypot(p.x - P.x, p.z - P.z) < 7);
-    const fire = this.nearFire || !!hearth, inside = !!sh || this.inCampNow;
+    const fire = this.nearFire || !!hearth || !!this.libBuff('warm'), inside = !!sh || this.inCampNow;
     this.shelter = sh; this.hearthNear = hearth;
     // ประตูค่ายของเรา: เปิดเมื่อเข้าใกล้ ปิดเมื่อเดินออกห่าง (หลังทำภารกิจหลักจบ)
     if (this.quest?.done && this.quest.camp) { const c = this.quest.camp, gt = this.world.layout.gates[c.key], d = Math.hypot(P.x - c.x, P.z - (c.z - c.size / 2)); this.world.setGate(c.key, d < (gt?.opened ? 16 : 11)); }
@@ -837,7 +839,7 @@ export class Game {
         case 'zs': this.ents.syncNetZombies(m.z); break;
         case 'zdie': this.ents.netZombieDied(m.id, m.by === this.id, m.tier); break;
         case 'announce': this.onAnnounce(m); break;
-        case 'liberate': (this.lib ||= {})[m.town] = m.until; { const T = TOWNS.find((t) => t.key === m.town); this.sfx.play('level'); this.ui.toast(`🕊️ ${T?.name || 'อำเภอ'}ถูกปลดแอกแล้ว! ทุกคนในอำเภอได้รับบัฟ 60 นาที`); this.ui.chat('', `🕊️ จอมทมิฬประจำ${T?.name || 'อำเภอ'}ถูกล้มแล้ว — อำเภอปลดแอก หิว/กระหายช้าลง 20% และพลังกายฟื้นไว +20%`, true); } break;
+        case 'liberate': (this.lib ||= {})[m.town] = m.until; { const T = TOWNS.find((t) => t.key === m.town); this.sfx.play('level'); this.ui.toast(`🕊️ ${T?.name || 'อำเภอ'}ถูกปลดแอกแล้ว! ทุกคนในอำเภอได้รับบัฟ 60 นาที`); this.ui.chat('', `🕊️ ${ZTIERS.find((z) => z.town === m.town)?.name || 'บอส'}ถูกล้มแล้ว — ${T?.name || 'อำเภอ'}ปลดแอก 60 นาที: ${BUFF_NAME[m.buff] || ''} (${m.buffText || ''})`, true); } break;
         case 'friends': this.friends = m.list || []; this.friendReqs = m.reqs || []; if (this.ui.open === 'panel' && this.ui.tab === 'rel') this.ui.refreshPanels(); break;
         case 'friendmsg': this.ui.toast(m.text); break;
         case 'tradereq': this.sfx.play('click'); this.ui.confirm(`🔄 ${m.name} ขอแลกของกับคุณ ตกลงไหม?`, (ok) => this.net.send({ t: 'trade', a: ok ? 'accept' : 'decline', to: m.from })); break;
@@ -1115,8 +1117,8 @@ export class Game {
       this.bossAt = { x: m.x, z: m.z, t: performance.now() };
     } else if (m.kind === 'dboss') {
       this.sfx.play('groan', { vol: 1 });
-      this.ui.toast(`🛡️ จอมทมิฬประจำ${m.name}ปรากฏตัว! ล้มมันเพื่อปลดแอกอำเภอและชิงของรางวัล`, 'warn');
-      this.ui.chat('', `🛡️ จอมทมิฬยึดครอง${m.name}! รวมพลังกันล้มมัน — ปลดแอกแล้วทั้งอำเภอได้บัฟ`, true);
+      this.ui.toast(`🛡️ ${m.boss || 'จอมทมิฬ'}ปรากฏตัวที่${m.name}! ล้มมันเพื่อปลดแอกอำเภอและชิงของรางวัล`, 'warn');
+      this.ui.chat('', `🛡️ ${m.boss || 'จอมทมิฬ'} ยึดครอง${m.name}! รวมพลังกันล้มมัน — ปลดแอกแล้วทั้งอำเภอได้บัฟ`, true);
     } else if (m.kind === 'admiral') {
       this.sfx.play('groan', { vol: 1 }); this.sfx.play('gate');
       this.ui.toast('🎖️ ผู้บัญชาการผู้ติดเชื้อปรากฏตัวที่ฐานทัพเรือสัตหีบ! ล้มมันเพื่อชิงยุทธภัณฑ์และเหรียญกล้าหาญ', 'warn');
@@ -1125,19 +1127,21 @@ export class Game {
   }
 
   // 🕊️ บัฟอำเภอที่ปลดแอกแล้ว (ยืนอยู่ในเขตอำเภอนั้น)
-  libBuff() {
+  libBuff(kind) {
     if (!this.lib) return null; const P = this.player.pos, now = Date.now();
-    return TOWNS.find((t) => this.lib[t.key] > now && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 20) || null;
+    const t = TOWNS.find((t) => this.lib[t.key] > now && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 20); if (!t) return null;
+    const b = ZTIERS.find((z) => z.town === t.key); return !kind || b?.buff === kind ? { ...t, buff: b?.buff, text: b?.buffText } : null;
   }
   updateStats(dt) {
     const s = this.stats, preg = this.social.preg[this.id], surv = skillLevel(this.skills.survival);
-    const hungerRate = 0.055 * (preg ? 1.4 : 1) * (this.player.speedNow > 6 ? 1.5 : 1) * (1 - (surv - 1) * 0.03) * (this.resting || this.sleeping ? 0.4 : 1) * (this.libBuff() ? 0.8 : 1); // นั่ง/นอนพัก: หิวช้าลง · อำเภอปลดแอก: หิวช้าลง
+    const hungerRate = 0.055 * (preg ? 1.4 : 1) * (this.player.speedNow > 6 ? 1.5 : 1) * (1 - (surv - 1) * 0.03) * (this.resting || this.sleeping ? 0.4 : 1) * (this.libBuff('food') ? 0.8 : 1); // นั่ง/นอนพัก: หิวช้าลง · อำเภอปลดแอก: หิวช้าลง
     s.hunger = Math.max(0, s.hunger - hungerRate * dt * (s.sick > 0 ? 1.5 : 1) * (this.tempState === 'cold' || this.tempState === 'freeze' ? 1.3 : 1)); // หนาว = หิวเร็ว
-    s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.libBuff() ? 0.8 : 1) * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1) * (this.tempState === 'hot' ? 1.6 : 1));
+    s.thirst = Math.max(0, s.thirst - 0.08 * dt * (this.libBuff('food') ? 0.8 : 1) * (this.isNight() ? 0.8 : 1.1) * (s.sick > 0 ? 2 : 1) * (this.tempState === 'hot' ? 1.6 : 1));
     if (s.sick > 0) s.sick -= dt;
     this.updateStress(dt);
     for (const k of ['moraleT', 'hideT', 'droneT']) if (this[k] > 0) this[k] -= dt;
-    let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1) * (this.moraleT > 0 ? 1.2 : 1) * (this.libBuff() ? 1.2 : 1);
+    let regen = (this.player.speedNow > 6 ? 0 : 12) * (1 + wearStats(this.wear).stam) * (hasPerk(this.ch, 'athlete', 1) ? 1.3 : 1) * (s.stress >= 60 ? 0.7 : 1) * (this.moraleT > 0 ? 1.2 : 1) * (this.libBuff('stam') ? 1.2 : 1);
+    if (this.libBuff('regen') && s.hp < this.maxHp() && !this.dead) s.hp = Math.min(this.maxHp(), s.hp + 0.25 * dt);
     regen *= 1 + 0.5 * this.happyP(); // ความสุข = กระฉับกระเฉง
     if (this.tempState === 'cold' || this.tempState === 'freeze') regen *= 0.7; // หนาวสั่น
     if (s.infection > 60) regen *= 0.5;

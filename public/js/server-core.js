@@ -493,7 +493,7 @@ export class WorldCore {
     const now = Date.now();
     if (!this._fireSpots || now - (this._fireSpotsT || 0) > 2000) {
       const pav = getLayout().pavilions, H = this.db.hearth || {};
-      this._fireSpotsT = now; this._fireSpots = [...this.db.structures.filter((s) => s.type === 'campfire'), ...Object.keys(H).filter((i) => H[i] > now && pav[i]).map((i) => ({ x: pav[i].x, z: pav[i].z, hearth: true }))];
+      this._fireSpotsT = now; this._fireSpots = [...this.db.structures.filter((s) => s.type === 'campfire' || (s.type === 'fireplace' && (s.fu || 0) > now)), ...Object.keys(H).filter((i) => H[i] > now && pav[i]).map((i) => ({ x: pav[i].x, z: pav[i].z, hearth: true }))];
     }
     return this._fireSpots;
   }

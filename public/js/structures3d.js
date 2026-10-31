@@ -11,6 +11,7 @@ function box(w, h, d, c, x = 0, y = 0, z = 0, m) {
 }
 
 // แนวผนัง: สร้างในแนวแกน x แล้วหมุนตาม rot
+function add2(g, o) { g.add(o); return o; }
 function edgeGroup(s) { const g = new THREE.Group(); g.rotation.y = (s.rot & 1) ? Math.PI / 2 : 0; return g; }
 
 export function makeStructureMesh(s) {
@@ -111,6 +112,22 @@ export function makeStructureMesh(s) {
       break;
     }
     case 'roof': add(box(G + 0.1, 0.2, G + 0.1, ROOF, 0, 0.1, 0)); add(box(G + 0.1, 0.03, G + 0.1, '#6d4c32', 0, 0.215, 0)); break;
+    case 'slope': { // หลังคาเอียง 30° ลาดขึ้นไปทางด้านหลัง (หมุนด้วย Q) + หน้าจั่วสามเหลี่ยมสองข้าง
+      const g = add(new THREE.Group()); g.rotation.y = [0, -Math.PI / 2, Math.PI, Math.PI / 2][s.rot & 3];
+      const rise = G * Math.tan(Math.PI / 6), len = Math.hypot(G, rise);
+      const pl = new THREE.Mesh(new THREE.BoxGeometry(G + 0.2, 0.12, len + 0.05), mat(ROOF)); pl.position.set(0, rise / 2 + 0.06, 0); pl.rotation.x = Math.atan2(rise, G); pl.castShadow = true; g.add(pl);
+      const sh = new THREE.Shape(); sh.moveTo(-G / 2, 0); sh.lineTo(G / 2, 0); sh.lineTo(G / 2, rise); sh.closePath();
+      for (const sx of [-1, 1]) { const tri = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }), mat(PLANK)); tri.rotation.y = -Math.PI / 2; tri.position.set(sx * (G / 2 - 0.02) + (sx < 0 ? 0 : 0.08), 0, 0); g.add(tri); }
+      break;
+    }
+    case 'fireplace': { // เตาก่อด้วยหิน + ปล่องไฟสูง มีเปลวไฟเมื่อติดอยู่ (หันหน้าตาม rot)
+      const g = add(new THREE.Group()); g.rotation.y = [0, -Math.PI / 2, Math.PI, Math.PI / 2][s.rot & 3];
+      add2(g, box(1.6, 0.9, 0.9, '#8d8d8d', 0, 0.45, 0)); add2(g, box(1.0, 0.55, 0.12, '#1b1b1b', 0, 0.45, 0.43));
+      add2(g, box(1.0, 1.9, 0.7, '#7a7a7a', 0, 1.85, -0.05)); add2(g, box(0.5, 0.4, 0.5, '#666', 0, 3.0, -0.05));
+      const lit = (s.fu || 0) > Date.now(); root.userData.fp = true;
+      if (lit) { const f = new THREE.PointLight('#ff9a3c', 1.4, 9); f.position.set(0, 0.5, 0.6); g.add(f); add2(g, box(0.4, 0.3, 0.1, '#ff7b00', 0, 0.4, 0.42)); }
+      break;
+    }
     case 'stairs': {
       const g = add(new THREE.Group()); g.rotation.y = [0, -Math.PI / 2, Math.PI, Math.PI / 2][s.rot & 3];
       // ขึ้นไปทาง -z ของกลุ่ม (หมุนให้ตรงกับทิศ rot)

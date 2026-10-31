@@ -56,7 +56,7 @@ export class Builder {
     const level = usable[usable.length - 1] || lv[0];
     const pos = slotPos(type, cx, cz, rot);
     let y = level.y, why = '';
-    if (type === 'roof') y = level.y + WALL_H - (level.kind === 'floor' ? 0 : 0);
+    if (type === 'roof' || type === 'slope') y = level.y + WALL_H - (level.kind === 'floor' ? 0 : 0);
     if ((GROUND_ONLY.has(type) || type.startsWith('plot_')) && level.kind !== 'ground') why = 'ต้องวางบนพื้นดิน';
     if (def.snap === 'edge' && level.kind === 'ground') y = Math.min(heightAt(pos.x - (rot & 1 ? 0 : 1.4), pos.z - (rot & 1 ? 1.4 : 0)), heightAt(pos.x + (rot & 1 ? 0 : 1.4), pos.z + (rot & 1 ? 1.4 : 0)));
     const W = g.world;
@@ -78,7 +78,7 @@ export class Builder {
     if (!why && W.baseBuildings.some((b) => Math.abs(b.x - pos.x) < b.w / 2 + 0.6 && Math.abs(b.z - pos.z) < b.d / 2 + 0.6)) why = 'ติดอาคารเดิม';
     const key = slotKey(s);
     if (!why && W.structures.some((o) => PIECES[o.type] && slotKey(o) === key)) why = 'มีชิ้นส่วนอยู่ตรงนี้แล้ว';
-    if (!why && type === 'roof' && level.kind === 'ground' && !W.structures.some((o) => ['wall', 'window', 'door'].includes(o.type) && Math.hypot(o.x - pos.x, o.z - pos.z) < 1.7)) why = 'หลังคาต้องมีผนังรองรับอย่างน้อย 1 ด้าน';
+    if (!why && (type === 'roof' || type === 'slope') && level.kind === 'ground' && !W.structures.some((o) => ['wall', 'window', 'door'].includes(o.type) && Math.hypot(o.x - pos.x, o.z - pos.z) < 1.7)) why = 'หลังคาต้องมีผนังรองรับอย่างน้อย 1 ด้าน';
     if (!why && Math.abs(y - P.y) > (type === 'balcony' ? 5.5 : 4.5)) why = 'อยู่สูง/ต่ำเกินไป';
     // ซื้อด้วยเงินจิ = ไม่ต้องมีวัสดุ ใช้แค่เงินจิ
     const cost = this.coin || def.cost.jicoin ? { jicoin: coinCost(def, ITEMS) } : buildCost(g.auth.ch, def.cost);

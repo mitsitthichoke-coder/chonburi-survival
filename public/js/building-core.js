@@ -33,6 +33,8 @@ export const PIECES = {
   window: { name: 'ผนังหน้าต่าง', icon: '🪟', cost: { wood: 3, fiber: 1 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1 },
   door: { name: 'ผนังประตู', icon: '🚪', cost: { wood: 5, scrap: 1 }, snap: 'edge', cat: 'โครงบ้าน', lvl: 1 },
   roof: { name: 'หลังคา / พื้นชั้นบน', icon: '🏠', cost: { wood: 3, fiber: 2 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 1 },
+  slope: { name: 'หลังคาสโลปเอียง 30° (วางบนผนัง · Q หมุนทิศ)', icon: '🏚️', cost: { wood: 4, fiber: 2 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 1 },
+  fireplace: { name: 'เตาผิง + ปล่องไฟ (ฟืน 1 ท่อน = 4 ชม.เกม · ใส่ได้ 42 ท่อน)', icon: '🧱', cost: { stone: 12, wood: 2, scrap: 2 }, snap: 'cell', cat: 'ของในบ้าน', lvl: 2 },
   stairs: { name: 'บันไดขึ้นชั้นบน', icon: '🪜', cost: { wood: 4 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 2 },
   balcony: { name: 'ระเบียงชั้นบน (ต่อจากหลังคา/พื้นชั้นบน)', icon: '🌅', cost: { wood: 5, fiber: 1 }, snap: 'cell', cat: 'โครงบ้าน', lvl: 2 },
   fence: { name: 'รั้วไม้', icon: '🪵', cost: { wood: 2, fiber: 1 }, snap: 'edge', cat: 'รั้ว', lvl: 1 },
@@ -213,7 +215,7 @@ export function slotPos(type, cx, cz, rot) {
   const [dx, dz] = DIRS[rot & 3];
   return { x: x + dx * G / 2, z: z + dz * G / 2 };
 }
-export const slotKey = (s) => `${s.type === 'walllamp' ? 'l' + (s.sd > 0 ? '+' : '-') : PIECES[s.type]?.snap === 'edge' ? 'e' : s.type === 'roof' ? 'r' : s.type === 'foundation' ? 'f' : 'c'}:${Math.round(s.x * 10)}:${Math.round(s.z * 10)}:${Math.round(s.y || 0)}`;
+export const slotKey = (s) => `${s.type === 'walllamp' ? 'l' + (s.sd > 0 ? '+' : '-') : PIECES[s.type]?.snap === 'edge' ? 'e' : (s.type === 'roof' || s.type === 'slope') ? 'r' : s.type === 'foundation' ? 'f' : 'c'}:${Math.round(s.x * 10)}:${Math.round(s.z * 10)}:${Math.round(s.y || 0)}`;
 export const baseY = (s) => (s.y !== undefined ? s.y : heightAt(s.x, s.z));
 
 // กล่องชนของสิ่งก่อสร้าง: {x,z,w,d,top,bottom?,step?,ramp?,noCollide?}  (top - 1 = ระดับพื้นผิวด้านบน)
@@ -247,6 +249,7 @@ export function collidersFor(s) {
     case 'basecore': out.push({ x: s.x, z: s.z, w: 1, d: 1, top: y + 1.4 + 1, sid }); break;
     case 'anvil': out.push({ x: s.x, z: s.z, w: 1.0, d: 0.6, top: y + 0.9 + 1, sid }); break;
     case 'watertank': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.6, top: y + 1.8 + 1, sid }); break;
+    case 'fireplace': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.0, top: y + 1.5 + 1, sid }); break;
     case 'boiler': out.push({ x: s.x, z: s.z, w: 1.8, d: 1.4, top: y + 1.3 + 1, sid }); break;
     case 'desal': out.push({ x: s.x, z: s.z, w: 1.6, d: 1.0, top: y + 1.2 + 1, sid }); break;
     case 'watertower': for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) out.push({ x: s.x + dx * 1.1, z: s.z + dz * 1.1, w: 0.25, d: 0.25, top: y + 6 + 1, sid }); break;
@@ -343,6 +346,13 @@ export function applyOp(s, op, ctx) {
       const piped = ctx.structs && isPiped(ctx.structs, s.x, s.z), q = Math.min(BOIL_BATCH, room, tank ? tank.wl : piped ? BOIL_BATCH : 0);
       if (q <= 0) return { err: '♨️ ไม่มีน้ำให้ต้ม — ตั้งถังเก็บน้ำที่มีน้ำไว้ใกล้เตา (ไม่เกิน 7 ม.) หรือต่อท่อมาที่เตา' };
       return { patch: { wl: (s.wl || 0) + q }, side: tank ? [{ id: tank.id, patch: { wl: tank.wl - q } }] : [], msg: `♨️ ต้มน้ำ ${q} ลิตร${tank ? 'จากถังเก็บน้ำ' : 'จากท่อ'}แล้ว (${(s.wl || 0) + q}/${BOILER_L} ลิตร น้ำสะอาด)` };
+    }
+    // 🧱 เตาผิง: ใส่ฟืน 1 ท่อน = 4 ชั่วโมงในเกม (ได้สูงสุด 42 ท่อน) · ให้ความอุ่น/แห้ง/ไล่ซอมบี้รอบเตา
+    case 'fpfeed': {
+      if (s.type !== 'fireplace') return { err: 'ใส่ฟืนได้เฉพาะเตาผิง' };
+      const H4 = GAME_DAY_MS / 6, left = Math.max(0, (s.fu || 0) - now), cap = 42 * H4, q = Math.min(Math.max(1, op.q | 0), Math.floor((cap - left) / H4));
+      if (q <= 0) return { err: '🧱 เตาผิงเต็มแล้ว (ใส่ฟืนได้สูงสุด 42 ท่อน)' };
+      return { patch: { fu: Math.max(now, s.fu || 0) + q * H4 }, opx: { q }, msg: `🔥 ใส่ฟืน ${q} ท่อน — ไฟจะติดไปอีก ${Math.round((left + q * H4) / (GAME_DAY_MS / 24))} ชั่วโมงเกม` };
     }
     case 'bfeed': {
       // ให้น้ำต้มสุกกับทุกคอกสัตว์ในรัศมี 14 ม. (คอกละ 4 ลิตร)

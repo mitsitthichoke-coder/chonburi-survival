@@ -1179,7 +1179,7 @@ export class Game {
     // กองไฟ
     let nearest = null, nd = 1e9;
     for (const s of this.world.structures) if (s.type === 'campfire') { const d = (s.x - P.x) ** 2 + (s.z - P.z) ** 2; if (d < nd) { nd = d; nearest = s; } }
-    this.nearFire = nearest && nd < 16;
+    this.nearFire = (nearest && nd < 16) || this.world.structures.some((s) => s.type === 'fireplace' && (s.fu || 0) > this.now() && Math.hypot(s.x - P.x, s.z - P.z) < 6);
     if (nearest && nd < 60 * 60) { this.fireLight.position.set(nearest.x, heightAt(nearest.x, nearest.z) + 1.2, nearest.z); this.fireLight.intensity = (2 + Math.random() * 0.6) * (1.2 - day * 0.8); }
     else this.fireLight.intensity = 0;
     this.lampT = (this.lampT || 0) - dt;

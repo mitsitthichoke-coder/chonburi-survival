@@ -5,7 +5,7 @@ import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['fireplace', 'door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -55,6 +55,7 @@ export class Homestead {
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
       case 'watertank': return { text: `🛢️ ถังเก็บน้ำ ${s.wl || 0}/${TANK_L} ลิตร (${!(s.wl > 0) ? 'ว่าง' : s.wc ? 'น้ำสะอาด' : 'น้ำดิบ'})`, act: () => this.tankMenu(s) };
+      case 'fireplace': { const left = Math.max(0, (s.fu || 0) - g.now()), hrs = Math.round(left / (GAME_DAY_MS / 24)); return { text: `🧱 เตาผิง ${left > 0 ? `🔥 ติดอยู่ อีก ~${hrs} ชม.เกม (ฟืน ${Math.ceil(left / (GAME_DAY_MS / 6))} ท่อน)` : 'ดับอยู่'} — ใส่ฟืน`, act: () => this.fireplaceMenu(s) }; }
       case 'boiler': return { text: `♨️ เตาต้มน้ำ ${s.wl || 0}/${BOILER_L} ลิตร (น้ำต้มสุก)`, act: () => this.boilerMenu(s) };
       case 'desal': return { text: `🧂 กรองน้ำทะเล (มี 🌊 ${g.inv.sea_water || 0} ขวด)`, act: () => { g.ui.craftQ = 'กรองน้ำทะเล'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
       case 'watertower': return { text: '🗼 หอถังน้ำสำรอง — วางท่อส่งน้ำต่อจากหอไปยังถังเก็บน้ำ/แปลงผัก/เตาต้ม', act: () => g.ui.toast('🚰 วางท่อส่งน้ำทีละช่องติดกันจากหอถังน้ำไปจนถึงช่องข้างถังเก็บน้ำ แปลงผัก หรือเตาต้มน้ำ') };
@@ -146,6 +147,14 @@ export class Homestead {
     ]);
   }
   // ♨️ เมนูเตาต้มน้ำ: ต้มน้ำจากถัง/ท่อ · ตักน้ำต้มสุก · ให้น้ำสัตว์ทุกคอกรอบ ๆ
+  fireplaceMenu(s) {
+    const g = this.g, w = g.inv.wood || 0, left = Math.max(0, (s.fu || 0) - g.now()), room = Math.floor((42 * (GAME_DAY_MS / 6) - left) / (GAME_DAY_MS / 6));
+    g.ui.choice('🧱 เตาผิง — ฟืน 1 ท่อน = 4 ชั่วโมงเกม (สูงสุด 42 ท่อน) · ให้ความอุ่น ทำให้แห้ง ไล่ซอมบี้/สัตว์ร้าย', [
+      { label: '🪵 ใส่ฟืน 1 ท่อน', dis: (!w && 'ไม่มีไม้') || (room < 1 && 'เตาเต็มแล้ว'), run: () => this.op(s, { o: 'fpfeed', q: 1 }) },
+      { label: `🪵 ใส่ฟืน 5 ท่อน`, dis: (w < 5 && 'ไม้ไม่พอ') || (room < 5 && 'ใส่ได้ไม่ถึง 5 ท่อน'), run: () => this.op(s, { o: 'fpfeed', q: 5 }) },
+      { label: `🪵 ใส่ให้เต็ม (${Math.min(w, room)} ท่อน)`, dis: (Math.min(w, room) < 1 && 'ใส่ไม่ได้'), run: () => this.op(s, { o: 'fpfeed', q: Math.min(w, room) }) },
+    ]);
+  }
   boilerMenu(s) {
     const g = this.g, wl = s.wl || 0, bt = g.inv.bottle || 0, now = g.now();
     const tank = g.world.structures.find((o) => o.type === 'watertank' && (o.wl || 0) > 0 && Math.hypot(o.x - s.x, o.z - s.z) < 7), piped = isPiped(g.world.structures, s.x, s.z);

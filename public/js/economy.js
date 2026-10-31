@@ -5,7 +5,7 @@
 import { SELF_PENALTY, shopPenalty, parseKey, makeKey, gearKind, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, OPTS, COIN_GOODS, tradeable, TRADE_RULE, rollVariants, baseOf, WILD, WILD_PET_MAX, SHOPS, DAY_MS, petCap, ITEMS, RECIPES, LOOT_TABLE, PET_TYPES, NPCS, QUEST_SPOTS, BASE_SLOTS, skillLevel, wearStats, ELECTRIC, JOBS, jobOf, hasPerk, buildCost, extraSlots, canBuild, PERK_PTS, START_PTS, freePts, jobPts, xpMulOf, pickAmmo, TOWNS, LEARN, learned, SKILLS, SPECIAL_LOOT, HEARTH_MS, learnHint } from './data.js';
 import { RES_TYPES } from './resources-core.js';
 import { heightAt, waterAt } from './terrain.js';
-import { TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
+import { GUILD_COST, TANK_L, isPiped, PIECES, FEEDS, CROPS, PENS, CAGE_FARM, CAGE_FOOD, coinCost, fenceRing, RING_MIN, RING_MAX, FENCE_TIERS, prefabHouse, prefabPrice, PREFAB_MIN, PREFAB_MAX, cellOf, slotKey, COLOR_COST, refundFor, cageCatch, penGoods, needsBase, baseAt, roleIn, roleAllows, baseCheck, HOUSE_UP, REPAIR_BASE } from './building-core.js';
 import { rollPet, petStats } from './pets.js';
 import { ZTIERS, rollBoss, ADMIRAL_DROPS } from './zombies-core.js';
 import { routeOf, campOf, campGate, pickRoute, WATER_TOWERS } from './quest-core.js';
@@ -413,6 +413,19 @@ const A = {
     return { take: { jicoin: cost }, xp: { building: Math.min(60, list.length) }, sfx: 'place', msg: `🪵 ล้อมรั้ว ${n}×${n} ช่อง (${list.length - g} รั้ว · ${g} ประตู) แล้ว — จ่าย 🪙 ${cost}` };
   },
 
+  // 🏰 สร้างกิลด์ (🪙500) / บริจาคเงินจิเข้ากองทุนกิลด์ (เลเวลกิลด์ขึ้นตามเงินสะสม)
+  gcreate(ch, p, env) {
+    if (!env.guildCreate) return { err: 'กิลด์ใช้ได้เมื่อเล่นออนไลน์' };
+    if (!has(ch, 'jicoin', GUILD_COST)) return { err: `🪙 เงินจิไม่พอ (สร้างกิลด์ ${GUILD_COST})` };
+    const r = env.guildCreate(p.name); if (r.err) return { err: r.err };
+    return { take: { jicoin: GUILD_COST }, sfx: 'level', msg: `🏰 สร้างกิลด์ "${r.ok.name}" แล้ว! เชิญเพื่อนและช่วยกันบริจาคเพื่อเลื่อนเลเวล` };
+  },
+  gdonate(ch, p, env) {
+    if (!env.guildDonate) return { err: 'กิลด์ใช้ได้เมื่อเล่นออนไลน์' };
+    const q = Math.min(Math.max(1, p.q | 0), 100000); if (!has(ch, 'jicoin', q)) return { err: '🪙 เงินจิไม่พอ' };
+    const r = env.guildDonate(q); if (r.err) return { err: r.err };
+    return { take: { jicoin: q }, sfx: 'coin', msg: `🏰 บริจาค 🪙 ${q} เข้ากองทุนกิลด์ (รวม ${r.ok.fund})` };
+  },
   // 🏡 ซื้อฐานสำเร็จรูปประจำอำเภอ (อำเภอละ 1 ฐาน · คนละ 1 ฐาน) ด้วยเงินจิที่ป้ายราคา
   buybase(ch, p, env) {
     const ST = env.structs?.() || [], core = ST.find((o) => o.type === 'basecore' && o.prefab === p.key);

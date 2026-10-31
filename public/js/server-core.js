@@ -2,6 +2,7 @@
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
 import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
+import { guildLevel, GUILD_LV, GUILD_MEMBERS, GUILD_MAX } from './building-core.js';
 import { baseSites, baseSiteStructs } from './basesites.js';
 import { npcCampSpot } from './quest-core.js';
 import { relLevel, giftValue } from './social-core.js';
@@ -97,12 +98,81 @@ export class WorldCore {
     if (!['apocalypse', 'halloween'].includes(v)) return false;
     this.db.theme = v; this.broadcast({ t: 'theme', v }); this.dirty(); return true;
   }
+  // ---------- 🏰 กิลด์ (เก็บถาวรใน db.guilds) ----------
+  guildOf(id) { const gid = this.db.guildOf?.[id]; return gid ? this.db.guilds?.[gid] || null : null; }
+  guildView(G) {
+    if (!G) return null; const lv = guildLevel(G.fund), nx = GUILD_LV[lv + 1] ?? null;
+    return { id: G.id, name: G.name, leader: G.leader, lv, fund: G.fund, next: nx, max: GUILD_MEMBERS[lv], members: Object.entries(G.members).map(([id, m]) => ({ id, name: m.n, r: m.r, online: this.players.has(id) })) };
+  }
+  guildSync(G) { const v = this.guildView(G); for (const id of Object.keys(G.members)) if (this.players.has(id)) this.send(id, { t: 'guild', g: v }); }
+  guildCreate(id, name) {
+    this.db.guilds ||= {}; this.db.guildOf ||= {};
+    if (this.guildOf(id)) return { err: 'คุณอยู่ในกิลด์แล้ว ออกจากกิลด์เดิมก่อน' };
+    name = String(name || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 16); if (name.length < 2) return { err: 'ชื่อกิลด์ต้องมีอย่างน้อย 2 ตัวอักษร' };
+    if (Object.values(this.db.guilds).some((g) => g.name.toLowerCase() === name.toLowerCase())) return { err: 'มีกิลด์ชื่อนี้แล้ว' };
+    const gid = 'G' + Date.now().toString(36) + Math.floor(Math.random() * 99), me = this.players.get(id);
+    const G = { id: gid, name, leader: id, fund: 0, created: Date.now(), members: { [id]: { n: me?.name || '?', r: 'leader' } } };
+    this.db.guilds[gid] = G; this.db.guildOf[id] = gid; this.dirty(); this.guildSync(G); return { ok: G };
+  }
+  guildDonate(id, amt) {
+    const G = this.guildOf(id); if (!G) return { err: 'ยังไม่ได้อยู่ในกิลด์' };
+    if (G.fund >= GUILD_LV[GUILD_MAX] * 2) return { err: 'กองทุนกิลด์เต็มแล้ว' };
+    const before = guildLevel(G.fund); G.fund += amt; G.members[id].d = (G.members[id].d || 0) + amt; const after = guildLevel(G.fund);
+    this.dirty(); this.guildSync(G);
+    if (after > before) for (const i of Object.keys(G.members)) this.send(i, { t: 'notice', text: `🏰 กิลด์ ${G.name} เลื่อนเป็นเลเวล ${after}! (รับสมาชิกได้ ${GUILD_MEMBERS[after]} คน)` });
+    return { ok: G, lv: after };
+  }
+  guildMsg(id, m) {
+    const me = this.players.get(id), say = (to, text) => this.send(to, { t: 'notice', text }); if (!me) return;
+    this.db.guilds ||= {}; this.db.guildOf ||= {};
+    const G = this.guildOf(id);
+    switch (m.a) {
+      case 'hello': return this.send(id, { t: 'guild', g: this.guildView(G) });
+      case 'invite': {
+        if (!G) return say(id, 'ยังไม่ได้อยู่ในกิลด์'); if (!['leader', 'officer'].includes(G.members[id].r)) return say(id, 'เชิญได้เฉพาะหัวหน้า/รองหัวหน้ากิลด์');
+        const to = m.to, other = this.players.get(to); if (!other) return say(id, 'ผู้เล่นไม่ได้ออนไลน์');
+        if (this.guildOf(to)) return say(id, `${other.name} อยู่ในกิลด์อื่นแล้ว`);
+        if (Object.keys(G.members).length >= GUILD_MEMBERS[guildLevel(G.fund)]) return say(id, 'กิลด์เต็ม — บริจาคเงินจิเพื่อเลื่อนเลเวลรับสมาชิกเพิ่ม');
+        (G.inv ||= {})[to] = Date.now(); this.send(to, { t: 'guildinv', gid: G.id, name: G.name, from: me.name }); return say(id, `📨 ชวน ${other.name} เข้ากิลด์แล้ว`);
+      }
+      case 'accept': {
+        const T = this.db.guilds[m.gid]; if (!T || !T.inv?.[id] || Date.now() - T.inv[id] > 10 * 60000) return say(id, 'คำเชิญหมดอายุแล้ว');
+        if (this.guildOf(id)) return say(id, 'คุณอยู่ในกิลด์แล้ว'); if (Object.keys(T.members).length >= GUILD_MEMBERS[guildLevel(T.fund)]) return say(id, 'กิลด์เต็มแล้ว');
+        delete T.inv[id]; T.members[id] = { n: me.name, r: 'member' }; this.db.guildOf[id] = T.id; this.dirty(); this.guildSync(T);
+        for (const i of Object.keys(T.members)) if (i !== id) say(i, `🏰 ${me.name} เข้าร่วมกิลด์`); return;
+      }
+      case 'leave': {
+        if (!G) return; if (G.leader === id && Object.keys(G.members).length > 1) return say(id, 'หัวหน้าต้องโอนตำแหน่งให้คนอื่นก่อนออก (หรือยุบกิลด์)');
+        delete G.members[id]; delete this.db.guildOf[id]; this.send(id, { t: 'guild', g: null });
+        if (!Object.keys(G.members).length) delete this.db.guilds[G.id]; else this.guildSync(G); this.dirty(); return;
+      }
+      case 'kick': {
+        if (!G || !['leader', 'officer'].includes(G.members[id].r) || !G.members[m.to] || m.to === id || G.members[m.to].r === 'leader') return;
+        if (G.members[m.to].r === 'officer' && G.members[id].r !== 'leader') return;
+        delete G.members[m.to]; delete this.db.guildOf[m.to]; this.send(m.to, { t: 'guild', g: null }); say(m.to, `👋 คุณถูกนำออกจากกิลด์ ${G.name}`); this.dirty(); return this.guildSync(G);
+      }
+      case 'promote': {
+        if (!G || G.leader !== id || !G.members[m.to] || m.to === id) return;
+        G.members[m.to].r = G.members[m.to].r === 'officer' ? 'member' : 'officer'; this.dirty(); return this.guildSync(G);
+      }
+      case 'transfer': {
+        if (!G || G.leader !== id || !G.members[m.to] || m.to === id) return;
+        G.members[id].r = 'officer'; G.members[m.to].r = 'leader'; G.leader = m.to; this.dirty(); return this.guildSync(G);
+      }
+      case 'disband': {
+        if (!G || G.leader !== id) return;
+        for (const i of Object.keys(G.members)) { delete this.db.guildOf[i]; this.send(i, { t: 'guild', g: null }); say(i, `🏰 กิลด์ ${G.name} ถูกยุบ`); }
+        delete this.db.guilds[G.id]; this.dirty(); return;
+      }
+    }
+  }
   // ---------- แชทแยกช่อง: all ทุกคน · party ปาร์ตี้ · family ครอบครัว · pm กระซิบส่วนตัว ----------
   chatMsg(id, me, m) {
-    const text = String(m.text || '').slice(0, 200), ch = ['party', 'family', 'pm'].includes(m.ch) ? m.ch : 'all';
+    const text = String(m.text || '').slice(0, 200), ch = ['party', 'family', 'guild', 'pm'].includes(m.ch) ? m.ch : 'all';
     const out = { t: 'chat', from: id, name: me.name, text, ch };
     if (ch === 'all') return this.broadcast(out);
     if (ch === 'party') { const P = this.partyOf(id); if (!P) return this.send(id, { t: 'notice', text: 'ยังไม่ได้อยู่ในปาร์ตี้ — ชวนเพื่อนจากหน้าผู้เล่น (👥 ชวนเข้าปาร์ตี้)' }); for (const pid of P.members) this.send(pid, out); return; }
+    if (ch === 'guild') { const G = this.guildOf(id); if (!G) return this.send(id, { t: 'notice', text: 'ยังไม่ได้อยู่ในกิลด์' }); for (const o of Object.keys(G.members)) if (this.players.has(o)) this.send(o, out); return; }
     if (ch === 'family') {
       const fam = [...this.players.keys()].filter((o) => o === id || this.getRel(id, o)?.bond === 'family');
       if (fam.length < 2) return this.send(id, { t: 'notice', text: 'ยังไม่มีครอบครัวที่ออนไลน์ (แต่งงานกันก่อนจึงเป็นครอบครัว)' });
@@ -193,7 +263,7 @@ export class WorldCore {
     for (const [k, r] of Object.entries(this.db.rels)) { const [a, b] = k.split('|'); if (a === id) rels[b] = r; else if (b === id) rels[a] = r; }
     this.send(id, {
       t: 'welcome', now: Date.now(), startTime: this.db.startTime, res: this.db.res, loot: this.db.loot, hearth: this.db.hearth || {}, structures: this.db.structures,
-      rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse', lib: this.lib || {},
+      guild: this.guildView(this.guildOf(id)), rels, preg: this.db.preg, children: this.db.children, profiles: this.db.profiles, theme: this.db.theme || 'apocalypse', lib: this.lib || {},
       players: this.relayState ? [...this.players.values()].filter((p) => p.id !== id).map((p) => this.pub(p)) : [],
     });
     this.sendFriends(id);
@@ -233,6 +303,7 @@ export class WorldCore {
       }
       case 'theme': if (this.allowTheme?.(id)) this.setThemeAll(m.v); else this.send(id, { t: 'notice', text: 'เปลี่ยนธีมได้เฉพาะ ⭐ เจ้าของเซิร์ฟเวอร์' }); break;
       case 'party': return this.partyMsg(id, m);
+      case 'guild': return this.guildMsg(id, m);
       case 'announce':
         if (m.kind === 'quest') this.broadcast({ t: 'chat', from: 'system', name: '📻', text: `📻 ${me.name} ติดต่อศูนย์อพยพสัตหีบสำเร็จ! ประตูค่ายเปิดรับผู้รอดชีวิตแล้ว` });
         break;

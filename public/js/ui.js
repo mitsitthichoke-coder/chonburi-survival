@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 import { SELF_PENALTY, shopPenalty, gearKind, parseKey, enhanceRates, enhanceStone, enhanceFee, PLUS_MAX, PET_PLUS_MAX, COIN_GOODS, tradeable, TRADE_RULE, PLUS_GLOW, TOWNS, RARITY, WILD_PET_MAX, jobPts, freePts, jobOf, PERK_PTS, SHOPS, DAY_MS, canBuild, JOBS, KILL_PERKS, hasPerk, petCap, ITEMS, RECIPES, SKILLS, skillLevel, xpForLevel, PET_TYPES, PET_TRAITS, PET_SLOTS, NPCS, WEAR_SLOTS, wearStats, LEARN } from './data.js';
 import { petStats, rarityOf, equipPet, unequipPet, healPet } from './pets.js';
-import { PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
+import { GUILD_COST, GUILD_LV, GUILD_MAX, GUILD_MEMBERS, PIECES, coinCost, COLOR_COST, BASE_COLORS, basesOf, HOUSE_UP, ROLES, roleIn, HOUSE_LV, fenceRingPrice, RING_MIN, RING_MAX, prefabPrice, cellOf } from './building-core.js';
 import { pieceInfo } from './homestead.js';
 import { shopPrice, tradeValue, sellPrice, SELL_DAY_CAP, salvageOf, sqText, sqProgress, SQ_DAILY } from './economy.js';
 import { ACTIONS, REL_LEVELS, relLevel, canDo } from './social-core.js';
@@ -83,10 +83,10 @@ export class UI {
     $('#sidequest').addEventListener('click', (ev) => { ev.stopPropagation(); const a = ev.target.dataset.sq; if (a) this.g.auth.do('sq' + a); });
     // ปุ่มเลือกช่องแชท: ทุกคน → ปาร์ตี้ → ครอบครัว → กระซิบ (ถามชื่อ)
     $('#chat-ch').addEventListener('click', (ev) => {
-      ev.stopPropagation(); const g = this.g, order = ['all', 'party', 'family', 'pm'];
+      ev.stopPropagation(); const g = this.g, order = ['all', 'party', 'guild', 'family', 'pm'];
       let c = order[(order.indexOf(g.chatCh || 'all') + 1) % order.length];
       if (c === 'pm') { const n = prompt('กระซิบถึงใคร? (พิมพ์ชื่อผู้เล่น)', g.lastPm || g.chatTo || ''); if (n) g.chatTo = n.trim(); else c = 'all'; }
-      g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
+      g.chatCh = c; ev.target.textContent = { all: '📢 ทุกคน', party: '👥 ปาร์ตี้', guild: '🏰 กิลด์', family: '🏠 ครอบครัว', pm: `🤫 ${g.chatTo}` }[c];
     });
     // ปุ่ม ⛶ ขยาย/ย่อเต็มหน้าจอ — iPhone ไม่รองรับ Fullscreen API จึงแนะนำให้เพิ่มลงหน้าจอโฮม
     const fb = $('#fs-btn'), d = document, root = d.documentElement;
@@ -157,7 +157,7 @@ export class UI {
     while ($('#toasts').children.length > 6) $('#toasts').lastChild.remove();
   }
   chat(name, text, sys, ch = 'all', toName, mine) {
-    const d = document.createElement('div'), tag = { party: '[👥 ปาร์ตี้] ', family: '[🏠 ครอบครัว] ', pm: mine ? `[🤫 ถึง ${toName || ''}] ` : '[🤫 กระซิบ] ' }[ch] || '';
+    const d = document.createElement('div'), tag = { party: '[👥 ปาร์ตี้] ', guild: '[🏰 กิลด์] ', family: '[🏠 ครอบครัว] ', pm: mine ? `[🤫 ถึง ${toName || ''}] ` : '[🤫 กระซิบ] ' }[ch] || '';
     if (ch !== 'all') d.className = 'c-' + ch;
     d.innerHTML = sys ? `<i>${esc(text)}</i>` : `${esc(tag)}<b>${esc(name)}:</b> ${esc(text)}`;
     $('#chat-log').append(d); $('#chat-log').scrollTop = 1e9;
@@ -465,7 +465,7 @@ export class UI {
 
   refreshPanels() {
     if (this.open !== 'panel') return;
-    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]'], ['quest', '📜 ภารกิจ [Q]'], ['guide', '📖 คู่มือ']];
+    const tabs = [['inv', '🎒 กระเป๋า & ประดิษฐ์ [Tab]'], ['build', '🔨 สร้างบ้าน [B]'], ['bshop', '🪙 ร้านเงินจิ'], ['equip', '🛡️ อุปกรณ์ [I]'], ['char', '🧍 ตัวละคร [K]'], ['rel', '💞 ความสัมพันธ์ [R]'], ['pets', '🐾 สัตว์เลี้ยง [P]'], ['map', '🗺️ แผนที่ [M]'], ['quest', '📜 ภารกิจ [Q]'], ['guild', '🏰 กิลด์'], ['guide', '📖 คู่มือ']];
     if (this.tab === 'forge') tabs.splice(1, 0, ['forge', '⚒️ ตีบวก']);
     let html = `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${this.tab === k ? 'on' : ''}">${n}</button>`).join('')}<button data-close="1" class="x">✕</button></div><div class="body">`;
     if (this.person) html += this.personHTML();
@@ -474,6 +474,7 @@ export class UI {
     else if (this.tab === 'equip') html += this.equipHTML();
     else if (this.tab === 'rel') html += this.relHTML();
     else if (this.tab === 'quest') html += this.questHTML();
+    else if (this.tab === 'guild') html += this.guildHTML();
     else if (this.tab === 'pets') html += this.petsHTML();
     else if (this.tab === 'build') html += this.buildHTML();
     else if (this.tab === 'bshop') html += this.baseShopHTML();
@@ -706,6 +707,27 @@ export class UI {
       <h3>👨‍👩‍👧 ลูก ๆ</h3>${kids ? `<ul>${kids}</ul>` : '<p class="hint">ยังไม่มีลูก (ต้องเป็นคนรัก/ครอบครัว และอยู่ใกล้เพิงพัก)</p>'}`;
   }
 
+  // 🏰 หน้ากิลด์
+  guildHTML() {
+    const g = this.g, G = g.guild;
+    if (!g.net.online) return '<h3>🏰 กิลด์</h3><p class="hint">กิลด์ใช้ได้เมื่อเล่นออนไลน์</p>';
+    if (!G) {
+      const coins = g.inv.jicoin || 0;
+      return `<h3>🏰 กิลด์</h3><p class="hint">รวมกลุ่มกับเพื่อน บริจาคเงินจิร่วมกันเพื่อเลื่อนเลเวลกิลด์ (รับสมาชิกได้มากขึ้น) มีแชทกิลด์ของตัวเอง<br>สร้างกิลด์ใช้ 🪙 ${GUILD_COST} · มีกิลด์ได้ทีละ 1 แห่ง</p>
+        <p><input id="guild-name" maxlength="16" placeholder="ชื่อกิลด์ (2–16 ตัวอักษร)"> <button data-gcreate="1" ${coins >= GUILD_COST ? '' : 'disabled'}>🏰 สร้างกิลด์ (🪙 ${GUILD_COST})</button> <small>มี 🪙 ${coins}</small></p>
+        ${this.guildInvites?.length ? '<h4>📨 คำเชิญ</h4>' + this.guildInvites.map((i) => `<p>${esc(i.name)} (ชวนโดย ${esc(i.from)}) <button data-gacc="${esc(i.gid)}">เข้าร่วม</button></p>`).join('') : ''}`;
+    }
+    const me = G.members.find((m) => m.id === g.id), boss = me && ['leader', 'officer'].includes(me.r), lead = G.leader === g.id;
+    const pct = G.next ? Math.min(100, Math.floor(((G.fund - GUILD_LV[G.lv]) / (G.next - GUILD_LV[G.lv])) * 100)) : 100;
+    const cands = [...g.ents.remotes.values()].map((r) => [r.id, r.name]).concat((g.friends || []).filter((f) => f.online).map((f) => [f.id, f.name])).filter(([id], i, a) => !G.members.some((m) => m.id === id) && a.findIndex((x) => x[0] === id) === i);
+    return `<h3>🏰 ${esc(G.name)} · เลเวล ${G.lv}/${GUILD_MAX}</h3>
+      <p>🏦 กองทุนกิลด์ <b>🪙 ${G.fund}</b>${G.next ? ` / ${G.next} เพื่อเลเวล ${G.lv + 1}` : ' (เลเวลสูงสุด)'} <progress value="${pct}" max="100"></progress> · สมาชิก ${G.members.length}/${G.max}</p>
+      <p>บริจาค: ${[50, 200, 1000].map((q) => `<button data-gdon="${q}" ${(g.inv.jicoin || 0) >= q ? '' : 'disabled'}>🪙 ${q}</button>`).join(' ')} <small>มี 🪙 ${g.inv.jicoin || 0} · เลเวลกิลด์ 2 = รับ ${GUILD_MEMBERS[2]} คน · 3 = ${GUILD_MEMBERS[3]} · 4 = ${GUILD_MEMBERS[4]} · 5 = ${GUILD_MEMBERS[5]}</small></p>
+      <h4>👥 สมาชิก</h4><div class="recipes">${G.members.map((m) => `<div class="recipe"><div><b>${m.r === 'leader' ? '👑 ' : m.r === 'officer' ? '🎖️ ' : ''}${esc(m.name)}</b> ${m.online ? '🟢' : '⚪'}${m.id === g.id ? ' <small>(คุณ)</small>' : ''}</div>${lead && m.id !== g.id ? `<button data-gpro="${esc(m.id)}">${m.r === 'officer' ? '⬇️ ถอดรอง' : '🎖️ ตั้งรอง'}</button> <button data-gtr="${esc(m.id)}">👑 โอนหัวหน้า</button>` : ''}${boss && m.id !== g.id && m.r !== 'leader' && !(m.r === 'officer' && !lead) ? ` <button data-gkick="${esc(m.id)}">นำออก</button>` : ''}</div>`).join('')}</div>
+      ${boss ? `<p><b>➕ เชิญ:</b> ${cands.map(([id, n]) => `<button data-ginv="${esc(id)}">${esc(n)}</button>`).join(' ') || '<span class="hint">ไม่มีผู้เล่น/เพื่อนออนไลน์ใกล้ ๆ</span>'}</p>` : ''}
+      <p><button data-gleave="1">🚪 ออกจากกิลด์</button> ${lead ? '<button data-gdis="1">💥 ยุบกิลด์</button>' : ''}</p>
+      <p class="hint">💬 แชทกิลด์: กดปุ่มช่องแชทที่มุมจอสลับเป็น 🏰 กิลด์ · <small>หมู่บ้านกิลด์ ร้านชุดกิลด์ และโรงตีเหล็ก/เตาหลอมกิลด์ จะเปิดในอัปเดตถัดไป</small></p>`;
+  }
   partyHTML() {
     const g = this.g, P = g.party;
     if (!g.net.online) return '';
@@ -840,7 +862,15 @@ export class UI {
     if (d.stq) { this.stQty = d.stq === 'all' ? 'all' : +d.stq; return this.refreshPanels(); }
     if (d.pwd) { const have = this.struct.pi?.[g.id]?.[d.pwd] || 1; g.home.op(this.struct, { o: 'pitem', item: d.pwd, qty: -(ev.button === 2 ? have : this.stAmt(have)) }); return this.refreshPanels(); }
     if (d.pdep) { const q = ev.button === 2 ? g.inv[d.pdep] : this.stAmt(g.inv[d.pdep] || 0); if (g.hasItem(d.pdep, q)) g.home.op(this.struct, { o: 'pitem', item: d.pdep, qty: q }); return this.refreshPanels(); }
-    if (d.hadd) { const r = prompt(`ตั้ง ${d.n} เป็นหน้าที่อะไร?\nพิมพ์: deputy = รองเจ้าบ้าน · animal = ผู้ดูแลสัตว์ · plant = ผู้ดูแลพืช · resident = ผู้อาศัย`, 'resident'); if (r && ROLES[r.trim()]) g.home.op(this.struct, { o: 'member', id: d.hadd, name: d.n, role: r.trim() }); return this.refreshPanels(); }
+    if (d.hadd) { // เลือกสิทธิ์ของเพื่อนที่จะเพิ่มเข้าฐาน
+      const st = this.struct, add = (role) => { g.home.op(st, { o: 'member', id: d.hadd, name: d.n, role }); setTimeout(() => this.refreshPanels(), 300); };
+      this.choice(`👥 ให้ ${d.n} มีสิทธิ์อะไรในฐาน`, [
+        { label: '🎖️ รองเจ้าบ้าน — ช่วยดูแลได้เกือบทุกอย่าง (อัปเกรดรั้ว ซ่อมแซม จัดการสมาชิก)', run: () => add('deputy') },
+        { label: '🐄 ผู้ดูแลสัตว์ — ให้อาหาร/น้ำ เก็บผลผลิต เพาะพันธุ์สัตว์ในคอก', run: () => add('animal') },
+        { label: '🌱 ผู้ดูแลพืช — ปลูก รดน้ำ เก็บเกี่ยวแปลงผัก', run: () => add('plant') },
+        { label: '🏠 ผู้อาศัย — นอนเตียง เปิดหีบส่วนรวม ใช้ประตู และเข้าออกได้', run: () => add('resident') },
+      ]); return;
+    }
     if (d.hrole !== undefined) { g.home.op(this.struct, { o: 'member', id: d.hrole, role: d.r || null }); return this.refreshPanels(); }
     if (d.slist) {
       const s = this.struct, k = d.slist, have = g.inv[k] || 0;
@@ -856,6 +886,15 @@ export class UI {
     if (d.statup) { g.auth.do('statup', { job: d.statup }); return this.refreshPanels(); }
     if (d.petsup) { g.callPetsUp(); return; }
     if (d.treq) { g.net.send({ t: 'trade', a: 'req', to: d.treq }); return; }
+    if (d.gcreate) { const n = ($('#guild-name')?.value || '').trim(); if (n.length < 2) return this.toast('ตั้งชื่อกิลด์ก่อน (อย่างน้อย 2 ตัวอักษร)', 'warn'); g.auth.do('gcreate', { name: n }); setTimeout(() => g.net.send({ t: 'guild', a: 'hello' }), 600); return; }
+    if (d.gdon) { g.auth.do('gdonate', { q: +d.gdon }); return; }
+    if (d.ginv) { g.net.send({ t: 'guild', a: 'invite', to: d.ginv }); return; }
+    if (d.gacc) { g.net.send({ t: 'guild', a: 'accept', gid: d.gacc }); this.guildInvites = (this.guildInvites || []).filter((i) => i.gid !== d.gacc); return; }
+    if (d.gkick) { g.net.send({ t: 'guild', a: 'kick', to: d.gkick }); return; }
+    if (d.gpro) { g.net.send({ t: 'guild', a: 'promote', to: d.gpro }); return; }
+    if (d.gtr) { this.confirm('โอนตำแหน่งหัวหน้ากิลด์ให้คนนี้? (คุณจะเป็นรองหัวหน้า)', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'transfer', to: d.gtr }); }); return; }
+    if (d.gleave) { this.confirm('ออกจากกิลด์?', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'leave' }); }); return; }
+    if (d.gdis) { this.confirm('ยุบกิลด์? สมาชิกทุกคนจะถูกนำออก และกองทุนจะหายไป', (ok) => { if (ok) g.net.send({ t: 'guild', a: 'disband' }); }); return; }
     if (d.pinv) { if (!g.net.online) return this.toast('ปาร์ตี้ใช้ได้เมื่อเล่นออนไลน์', 'warn'); g.net.send({ t: 'party', a: 'invite', to: d.pinv }); return; }
     if (d.pkick) { g.net.send({ t: 'party', a: 'kick', to: d.pkick }); return; }
     if (d.pleave) { g.net.send({ t: 'party', a: 'leave' }); return; }

@@ -844,7 +844,7 @@ export class Game {
           this.timeOffset = m.now - Date.now(); this.startTime = m.startTime;
           if (m.theme) setTheme(m.theme, true);
           for (const [i, until] of Object.entries(m.hearth || {})) this.setHearth(+i, until);
-          this.lib = m.lib || {};
+          this.lib = m.lib || {}; this.guild = m.guild || null;
           for (const [id, until] of Object.entries(m.res)) if (until > m.now) this.world.setResState(+id, until - this.timeOffset);
           for (const [id, until] of Object.entries(m.loot)) if (until > m.now) this.world.setLootState(id, until - this.timeOffset);
           {
@@ -866,6 +866,8 @@ export class Game {
         case 'chat': if (m.ch === 'pm' && m.from !== this.id) this.lastPm = m.name; this.ui.chat(m.name, m.text, m.from === 'system', m.ch, m.toName, m.from === this.id); break;
         case 'theme': setTheme(m.v, true); this.ui.toast(m.v === 'halloween' ? '🎃 เจ้าของเซิร์ฟเวอร์เปิดธีมฮาโลวีน!' : '🌆 เจ้าของเซิร์ฟเวอร์เปลี่ยนกลับเป็นธีมโลกล่มสลาย'); break;
         case 'party': this.party = m.id ? m : null; this.ui.refreshPanels(); break;
+        case 'guild': this.guild = m.g; if (this.ui.open === 'panel' && this.ui.tab === 'guild') this.ui.refreshPanels(); break;
+        case 'guildinv': this.sfx.play('love'); (this.ui.guildInvites ||= []).push({ gid: m.gid, name: m.name, from: m.from }); this.ui.toast(`🏰 ${m.from} ชวนคุณเข้ากิลด์ ${m.name} (ดูที่แท็บ 🏰 กิลด์)`); break;
         case 'partyinv': this.sfx.play('love'); this.ui.confirm(`👥 ${m.name} ชวนคุณเข้าปาร์ตี้ ตกลงไหม?`, (ok) => { if (ok) this.net.send({ t: 'party', a: 'accept', pid: m.pid }); }); break;
         case 'res': this.world.setResState(m.id, m.until - this.timeOffset); break;
         case 'loot': this.world.setLootState(m.id, m.until - this.timeOffset); break;

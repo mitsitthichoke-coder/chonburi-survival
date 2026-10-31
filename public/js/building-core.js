@@ -22,6 +22,10 @@ export function cageCatch(s, now) {
   return list[Math.floor(hash2(Math.floor(s.bt / 1000), s.id.length * 977) * list.length)];
 }
 
+// 🏰 กิลด์: เลเวลขึ้นด้วยเงินจิที่สมาชิกบริจาครวมกัน
+export const GUILD_LV = [0, 0, 1500, 5000, 12000, 30000]; // เงินบริจาคสะสมที่ต้องใช้ของเลเวล 1..5
+export const GUILD_MAX = 5, GUILD_COST = 500, GUILD_MEMBERS = [0, 10, 15, 20, 30, 40];
+export const guildLevel = (fund) => { let l = 1; for (let i = 2; i <= GUILD_MAX; i++) if (fund >= GUILD_LV[i]) l = i; return l; };
 export const MAT_TYPES = new Set(['wall', 'window', 'door', 'roof', 'slope', 'foundation']);
 export const G = 3;        // ขนาดช่องกริด (1 ช่อง = 3 หน่วย ≈ 150 ม. ในสเกลแผนที่ แต่ในเกมคือห้องขนาดพอดีตัว)
 export const WALL_H = 3;   // ความสูงผนัง

@@ -1,6 +1,8 @@
 // โหมดเซิร์ฟเวอร์สาธารณะ: ตัวละครเก็บที่เซิร์ฟเวอร์ และทุกการได้/เสียไอเท็มผ่านกฎของ economy.js (กันโกง)
 // ติดตั้งลงบน WorldCore ด้วย installEconomy(core) — ใช้เฉพาะ server.js (Node)
 import { runAction, applyResult, sopCost, killReward, refundReward, maxSlots } from './economy.js';
+import { refundFor } from './building-core.js';
+import { baseSites } from './basesites.js';
 import { getLayout } from './citygen.js';
 import { getResources } from './resources-core.js';
 import { applyOp, collidersFor, flowersNear, accessFor, canDemolish } from './building-core.js';
@@ -36,6 +38,28 @@ export function installEconomy(core) {
       smithNear: (P) => { for (const [oid, o] of self.players) { if (oid === id || !o.p) continue; const c = self.chars.get(oid); if (c && hasPerk(c, 'blacksmith', 0) && Math.hypot(o.p[0] - P.x, o.p[2] - P.z) < 6) return { ch: c, name: o.name }; } return null; },
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
+      // 🏡 ฐานสำเร็จรูป: เปลี่ยนเจ้าของทั้งชุด / คืนสู่ตลาด
+      claimBase: (key, uid, cost, nm) => {
+        for (const o of self.db.structures) if (o.prefab === key) { o.owner = uid; if (o.type === 'basecore') Object.assign(o, { paid: cost, name: `บ้านของ${nm || 'ฉัน'}`.slice(0, 20), prot: Date.now(), mem: {} }); }
+        self.rebuildWalls(); self.broadcast({ t: 'pfsync', key, structs: self.db.structures.filter((o) => o.prefab === key) }); self.dirty();
+      },
+      releaseBase: (key, uid) => {
+        const core = self.db.structures.find((o) => o.type === 'basecore' && o.prefab === key), give = {}, add = (g) => { for (const [k, q] of Object.entries(g)) give[k] = (give[k] || 0) + q; };
+        if (core) { // เฉพาะเงิน/ของที่เก็บไว้ในคลัง (ไม่รวมค่าฐานและวัสดุของชิ้นส่วนสำเร็จรูป)
+          if (core.bank) add({ jicoin: core.bank }); for (const v of Object.values(core.pv || {})) if (v) add({ jicoin: v });
+          for (const m of Object.values(core.pi || {})) add(m || {}); for (const [k, q] of Object.entries(core.up || {})) add({ [k]: q });
+        }
+        const gone = [];
+        for (const o of [...self.db.structures]) {
+          if (o.prefab === key) { if (o.type === 'storage' && o.items) { add(o.items); delete o.items; } continue; }
+          if (o.owner === uid && core?.box && o.x > core.box[0] - 1 && o.x < core.box[2] + 1 && o.z > core.box[1] - 1 && o.z < core.box[3] + 1 && o.type !== 'vehicle') { add(refundFor(o)); gone.push(o.id); }
+        }
+        if (gone.length) { self.db.structures = self.db.structures.filter((o) => !gone.includes(o.id)); for (const gid of gone) self.broadcast({ t: 'sdel', id: gid }); }
+        const site = baseSites().find((x) => x.key === key);
+        for (const o of self.db.structures) if (o.prefab === key) { o.owner = null; if (o.type === 'basecore') { for (const f of ['bank', 'pv', 'pi', 'paid', 'col', 'up', 'prot']) delete o[f]; Object.assign(o, { mem: {}, lv: 1, name: `ฐาน${site?.n}×${site?.n} (ขาย)` }); } }
+        self.rebuildWalls(); self.broadcast({ t: 'pfsync', key, structs: self.db.structures.filter((o) => o.prefab === key) }); self.dirty();
+        return give;
+      },
       pos: () => { const p = me()?.p || [0, 0, 0]; return { x: p[0], y: p[1], z: p[2] }; },
       walls: () => self.baseWalls || [],
       pav: (i) => getLayout().pavilions[i] || null, hearthUntil: (i) => self.db.hearth?.[i] || 0,
@@ -125,6 +149,7 @@ export function installEconomy(core) {
       case 'sdel': {
         const i = this.db.structures.findIndex((x) => x.id === m.id); if (i < 0) return;
         const st = this.db.structures[i];
+        if (st.prefab) return this.send(id, { t: 'notice', text: '🏡 ชิ้นส่วนของฐานสำเร็จรูปรื้อไม่ได้ — ถ้าไม่ต้องการแล้วให้สละฐานที่หลักบ้าน' });
         if (st.owner && st.owner !== id) return this.send(id, { t: 'notice', text: 'รื้อได้เฉพาะของที่ตัวเองสร้าง' });
         const P = me.p; if (Math.hypot(P[0] - st.x, P[2] - st.z) > 10) return this.send(id, { t: 'notice', text: 'อยู่ไกลเกินไป' });
         const why = canDemolish(st, id); if (why) return this.send(id, { t: 'notice', text: why });

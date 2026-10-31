@@ -558,7 +558,7 @@ export const HOUSE_LV = [null, { bank: 500, pv: 300, ps: 6 }, { bank: 1500, pv: 
 export const HOUSE_UP = [null, null, { wood: 40, stone: 30, fiber: 20 }, { wood: 80, stone: 60, scrap: 20, cloth: 10 }, { wood: 140, stone: 110, scrap: 45, cloth: 25, copper_wire: 10 }, { wood: 220, stone: 180, scrap: 80, cloth: 40, copper_wire: 25, jicoin: 2000 }];
 export const REPAIR_BASE = (lv) => ({ wood: 10 * lv, stone: 8 * lv });
 export const PROTECT_DAYS = 60, GAME_DAY_MS = 36 * 60000;
-export const protectLeft = (b, now) => (b?.ok ? Math.max(0, (b.prot || 0) + PROTECT_DAYS * GAME_DAY_MS - now) : 0);
+export const protectLeft = (b, now) => (b?.ok ? (b.prefab ? 1e15 : Math.max(0, (b.prot || 0) + PROTECT_DAYS * GAME_DAY_MS - now)) : 0); // ฐานสำเร็จรูปกันผู้ติดเชื้อถาวร
 const FARM_TYPES = new Set(['coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'pond', 'hive', 'pot']);
 export const needsBase = (t) => FARM_TYPES.has(t) || String(t).startsWith('plot_');
 export const inBox = (b, x, z, pad = 0) => !!b && x > b[0] - pad && x < b[2] + pad && z > b[1] - pad && z < b[3] + pad;

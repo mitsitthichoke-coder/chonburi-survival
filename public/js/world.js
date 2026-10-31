@@ -502,7 +502,7 @@ export class World {
   retint(s) {
     const m = this.structureMeshes.get(s.id); if (!m) return;
     const b = baseAt(this.structures, s.x, s.z), col = b?.col;
-    if (m.userData.signLabel) m.userData.signLabel.userData.set(b ? `🏡 ${b.name}` : 'ป้ายชื่อฐาน (วางในรั้วของฐาน)', '#ffd166');
+    if (m.userData.signLabel) m.userData.signLabel.userData.set(b ? (b.prefab && !b.owner ? `🏷️ ขายฐาน ${b.n}×${b.n} · 🪙 ${b.price}` : `🏡 ${b.name}`) : 'ป้ายชื่อฐาน (วางในรั้วของฐาน)', '#ffd166');
     // 🙂 หน้าตัวละครเจ้าของฐานบนป้าย
     if (m.userData.signLabel) {
       const key = b?.ol ? JSON.stringify(b.ol) + b.os : '';
@@ -542,7 +542,7 @@ export class World {
     // บ้านโปร่ง: เมื่อเข้าไปอยู่ในบ้าน ซ่อนหลังคา/พื้นชั้นบนที่อยู่เหนือหัวในระยะ 12 ม. เพื่อให้มองเห็นภายใน
     const inHouse = this.shelterAt(P.x, P.z, P.y)?.kind === 'house';
     for (const s of this.structures) {
-      if (s.type !== 'roof') continue;
+      if (s.type !== 'roof' && s.type !== 'slope') continue;
       const rm = this.structureMeshes.get(s.id); if (!rm) continue;
       rm.visible = !(inHouse && s.y > P.y + 1.2 && Math.abs(s.x - P.x) < 12 && Math.abs(s.z - P.z) < 12);
     }

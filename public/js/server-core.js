@@ -2,6 +2,7 @@
 // ดูแล: ผู้เล่น, ทรัพยากร/เสบียง, สิ่งก่อสร้าง, ความสัมพันธ์, การตั้งครรภ์, ลูก และผู้ติดเชื้อ (AI ฝั่งเซิร์ฟเวอร์)
 import { pairKey, newRel, canDo, applyAction, ACTIONS, relName } from './social-core.js';
 import { FAUNA_KINDS, tradeable, PREG_MS, CHILD_NAMES, DAY_MS, TOWNS, NPCS, WILD, pickWild, inTownAt, FIRE_SAFE, nearFireOf, ITEMS, REGION_FAUNA, BODY_R, MELEE_MAX, HEARTH_MS } from './data.js';
+import { baseSites, baseSiteStructs } from './basesites.js';
 import { npcCampSpot } from './quest-core.js';
 import { relLevel, giftValue } from './social-core.js';
 import { applyOp, collidersFor, refundFor, flowersNear, accessFor, canDemolish, safeBaseAt, fenceClosed, inBox } from './building-core.js';
@@ -23,6 +24,7 @@ export class WorldCore {
     this.players = new Map(); this.requests = new Map(); this.reqSeq = 1;
     this.zombies = new Map(); this.zseq = 1;
     const L = getLayout(); this.baseWalls = [...L.buildings, ...L.fence, ...Object.values(L.gates)];
+    this.ensureBaseSites();
     this.rebuildWalls();
     this.tSpawn = 0; this.tZs = 0; this.tSlow = 0; this.tMs = 0; this.tBoss = BOSS_EVERY * 0.5;
     // สัตว์ป่า สัตว์จรจัด และ NPC — คำนวณที่นี่เพื่อให้ทุกคนเห็นตัวเดียวกัน
@@ -621,6 +623,10 @@ export class WorldCore {
     }
   }
 
+  // 🏡 ฐานสำเร็จรูปประจำอำเภอ: สร้างครั้งแรกที่เซิร์ฟเวอร์เริ่ม (ฐานที่มีอยู่แล้วในเซฟไม่ถูกแตะ)
+  ensureBaseSites() {
+    for (const site of baseSites()) if (!this.db.structures.some((s) => s.prefab === site.key)) this.db.structures.push(...baseSiteStructs(site));
+  }
   // 🛡️ บอสประจำอำเภอ: มีผู้เล่นเข้าใกล้เมือง → เกิดกลางเมือง 1 ตัวต่ออำเภอ · ล้มแล้วอำเภอถูกปลดแอก (บัฟ) และบอสเกิดใหม่หลัง 40 นาที
   districtBosses(alive) {
     this.lib ||= {}; this.dbRespawn ||= {}; const now = Date.now();

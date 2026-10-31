@@ -638,7 +638,7 @@ export class Game {
   // ชิ้นส่วนบ้าน/รั้วของเราที่หันหน้าเข้าหา (รื้อได้ทันทีด้วย X ไม่ต้องเข้าโหมดรื้อ)
   myPiece() {
     const P = this.player.pos, f = this.facingPoint(1.4);
-    return this.world.nearestStructure(f.x, f.z, 1.9, (s) => PIECES[s.type] && s.type !== 'vehicle' && (!s.owner || s.owner === this.id) && Math.abs(baseY(s) - P.y) < 3.2);
+    return this.world.nearestStructure(f.x, f.z, 1.9, (s) => PIECES[s.type] && s.type !== 'vehicle' && !s.prefab && (!s.owner || s.owner === this.id) && Math.abs(baseY(s) - P.y) < 3.2);
   }
   quickDemolish() {
     const s = this.myPiece(); if (!s) return false;
@@ -854,6 +854,7 @@ export class Game {
         case 'loot': this.world.setLootState(m.id, m.until - this.timeOffset); break;
         case 'place': this.world.addStructure({ ...m.s }); this.home.onPlaced(m.s); break;
         case 'supd': case 'sdel': case 'give': this.home.onNet(m); break;
+        case 'pfsync': for (const s of m.structs) { if (this.world.structures.some((x) => x.id === s.id)) { const old = this.world.structures.find((x) => x.id === s.id); this.world.updateStructure(s.id, { ...s, owner: s.owner ?? null }); void old; } else this.world.addStructure({ ...s }); } this.ui.refreshPanels?.(); break;
         case 'ms': this.ents.syncNetFauna(m.m); break;
         case 'mdie': this.ents.netMobDied(m.id, m.by === this.id, m.k); break;
         case 'tamed': case 'tameprog': break; // ความเชื่องคิดในเครื่อง/ที่เซิร์ฟเวอร์ผ่าน econ แล้ว

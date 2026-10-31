@@ -413,6 +413,26 @@ const A = {
     return { take: { jicoin: cost }, xp: { building: Math.min(60, list.length) }, sfx: 'place', msg: `🪵 ล้อมรั้ว ${n}×${n} ช่อง (${list.length - g} รั้ว · ${g} ประตู) แล้ว — จ่าย 🪙 ${cost}` };
   },
 
+  // 🏡 ซื้อฐานสำเร็จรูปประจำอำเภอ (อำเภอละ 1 ฐาน · คนละ 1 ฐาน) ด้วยเงินจิที่ป้ายราคา
+  buybase(ch, p, env) {
+    const ST = env.structs?.() || [], core = ST.find((o) => o.type === 'basecore' && o.prefab === p.key);
+    if (!core) return { err: 'ไม่พบฐานนี้' };
+    if (core.owner) return { err: core.owner === env.myId ? 'นี่คือฐานของคุณอยู่แล้ว' : '🔒 ฐานนี้มีเจ้าของแล้ว' };
+    if (ST.some((o) => o.type === 'basecore' && o.owner === env.myId)) return { err: '🏡 คุณมีฐานอยู่แล้ว (มีได้คนละ 1 ฐาน) — สละฐานเดิมก่อนจึงจะซื้อฐานใหม่ได้' };
+    const P = env.pos(ch); if (Math.hypot(core.x - P.x, core.z - P.z) > 40) return { err: 'อยู่ไกลจากฐานเกินไป' };
+    const cost = core.price | 0; if (!has(ch, 'jicoin', cost)) return { err: `🪙 เงินจิไม่พอ (ฐานนี้ราคา ${cost})` };
+    env.claimBase?.(core.prefab, env.myId, cost, ch.name);
+    return { take: { jicoin: cost }, sfx: 'level', xp: { building: 20 }, msg: `🏡 ซื้อฐาน ${core.n}×${core.n} แล้ว! ผู้ติดเชื้อและสัตว์ร้ายเข้ามาไม่ได้ · ทางเข้ามีประตูเดียวเปิดให้คุณอัตโนมัติ · ทำฟาร์มในฐานได้` };
+  },
+  // 🏳️ สละฐานสำเร็จรูป: ได้เงินคืน 50% · ของในหีบ/คลัง/สิ่งที่สร้างเองในรั้วคืนให้ครบ · ฐานกลับไปวางขายใหม่
+  renouncebase(ch, p, env) {
+    const ST = env.structs?.() || [], core = ST.find((o) => o.type === 'basecore' && o.prefab === p.key);
+    if (!core || core.owner !== env.myId) return { err: 'ไม่ใช่ฐานของคุณ' };
+    const P = env.pos(ch); if (Math.hypot(core.x - P.x, core.z - P.z) > 40) return { err: 'อยู่ไกลจากฐานเกินไป' };
+    const refund = Math.floor((core.paid | 0) * 0.5), give = env.releaseBase?.(core.prefab, env.myId) || {}; give.jicoin = (give.jicoin || 0) + refund;
+    return { give, sfx: 'place', msg: `🏳️ สละฐานแล้ว — คืนเงิน 50% (🪙 ${refund}) พร้อมของที่เก็บไว้ในฐาน ฐานกลับไปวางขายใหม่` };
+  },
+
   // 🏠 ซื้อบ้านน็อคดาวน์ด้วยเงินจิ: ตั้งบ้านทั้งหลังตรงหน้า (ฐานราก ผนัง ประตู หน้าต่าง หลังคา) · รื้อแล้วได้เงินจิคืน
   prefab(ch, p, env) {
     const n = Math.min(PREFAB_MAX, Math.max(PREFAB_MIN, p.n | 0)), door = (p.door | 0) & 3, cx0 = p.cx | 0, cz0 = p.cz | 0;
@@ -678,8 +698,8 @@ export function sopCost(ch, s, op, env) {
       return { take: { [C.seed]: 1 }, xp: { farming: 3 }, opx: rf ? { hs: 0.35, wet: hasPerk(ch, 'ricefarmer', 2) ? 1 : 0 } : { hs: 0, wet: 0 } };
     }
     case 'water': {
+      if (op.pipe && env.structs && isPiped(env.structs(), s.x, s.z)) return op.silent ? {} : { xp: { farming: 3 } }; // 🚰 รดน้ำจากท่อ (อัตโนมัติ/กดเอง)
       if (op.silent || env.raining()) return {};
-      if (op.pipe && env.structs && isPiped(env.structs(), s.x, s.z)) return { xp: { farming: 3 } }; // 🚰 รดน้ำจากท่อ
       if (ch.equipped && ITEMS[ch.equipped]?.tool?.water && has(ch, ch.equipped)) return { xp: { farming: 3 } }; // ถือบัวรดน้ำ = ไม่ต้องใช้น้ำขวด
       const w = ['dirty_water', 'clean_water'].find((k) => has(ch, k)); if (!w) return { err: 'ต้องมีน้ำ 1 ขวด' };
       return { take: { [w]: 1 }, give: { bottle: 1 }, xp: { farming: 2 } };

@@ -5,7 +5,7 @@ import { ridePose } from './models.js';
 import { ITEMS , hasPerk, PET_TYPES } from './data.js';
 
 const VEH = { bicycle: { spd: 9.5, name: 'จักรยาน', seat: 0.55 }, motorbike: { spd: 17, name: 'มอเตอร์ไซค์', seat: 0.6, fuel: 0.04 }, pickup: { spd: 21, name: 'รถกระบะดัดแปลง', seat: 0.95, fuel: 0.05 }, ev_car: { spd: 22, name: 'รถยนต์ไฟฟ้า EV', seat: 0.95, fuel: 0.045, electric: true }, ev_bike: { spd: 18, name: 'มอเตอร์ไซค์ไฟฟ้า', seat: 0.6, fuel: 0.035, electric: true }, raft: { spd: 6, name: 'แพไม้ไผ่', seat: 0.3 } };
-const INTERACT = new Set(['fireplace', 'door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
+const INTERACT = new Set(['sign', 'fireplace', 'door', 'gate', 'fence', 'bed', 'chair', 'ricemill', 'anvil', 'watertank', 'boiler', 'desal', 'watertower', 'pipe', 'storage', 'plot', 'coop', 'duckpen', 'pigpen', 'boarpen', 'cowpen', 'buffalopen', 'sheeppen', 'hive', 'stall', 'basecore', 'pot', 'pond', 'pethouse', 'vehicle', 'cage']);
 export const pieceInfo = (s) => PIECES[s.type] || (s.type === 'pot' ? { name: 'กระถางดอกไม้', icon: '🪴' } : { name: s.type, icon: '📦' });
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
@@ -57,6 +57,7 @@ export class Homestead {
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
       case 'watertank': return { text: `🛢️ ถังเก็บน้ำ ${s.wl || 0}/${TANK_L} ลิตร (${!(s.wl > 0) ? 'ว่าง' : s.wc ? 'น้ำสะอาด' : 'น้ำดิบ'})`, act: () => this.tankMenu(s) };
+      case 'sign': { if (!s.prefab) return null; const core = g.world.structures.find((o) => o.type === 'basecore' && o.prefab === s.prefab); if (!core) return null; return { text: core.owner ? `🏡 ${core.name}` : `🏷️ ขายฐาน ${core.n}×${core.n} ราคา 🪙 ${core.price} — ดูรายละเอียด/ซื้อ`, act: () => g.ui.openStructure(core) }; }
       case 'fireplace': { const left = Math.max(0, (s.fu || 0) - g.now()), hrs = Math.round(left / (GAME_DAY_MS / 24)); return { text: `🧱 เตาผิง ${left > 0 ? `🔥 ติดอยู่ อีก ~${hrs} ชม.เกม (ฟืน ${Math.ceil(left / (GAME_DAY_MS / 6))} ท่อน)` : 'ดับอยู่'} — ใส่ฟืน`, act: () => this.fireplaceMenu(s) }; }
       case 'boiler': return { text: `♨️ เตาต้มน้ำ ${s.wl || 0}/${BOILER_L} ลิตร (น้ำต้มสุก)`, act: () => this.boilerMenu(s) };
       case 'desal': return { text: `🧂 กรองน้ำทะเล (มี 🌊 ${g.inv.sea_water || 0} ขวด)`, act: () => { g.ui.craftQ = 'กรองน้ำทะเล'; g.ui.rcat = 'all'; g.ui.rfilter = 'all'; if (!(g.ui.open === 'panel' && g.ui.tab === 'inv')) g.ui.togglePanel('inv'); else g.ui.refreshPanels(); } };
@@ -216,6 +217,12 @@ export class Homestead {
     }
     if (s.type === 'basecore') {
       const role = roleIn(s, g.id);
+      if (s.prefab && !s.owner) { // 🏡 ฐานสำเร็จรูปที่ยังไม่มีเจ้าของ
+        const have = g.world.structures.some((o) => o.type === 'basecore' && o.owner === g.id), coins = g.inv.jicoin || 0;
+        info = `🏷️ <b>ฐานสำเร็จรูป ${s.n}×${s.n} ช่อง</b> ราคา <b>🪙 ${s.price}</b><br>มีรั้วรอบ ประตูเดียวทางเหนือ บ้านหลังเล็ก เตียง หีบเก็บของ และหลักบ้าน · ผู้ติดเชื้อและสัตว์ร้ายเข้า/เกิดในฐานไม่ได้ · ทำฟาร์มในฐานได้<br><small>มีฐานได้คนละ 1 ฐาน · สละฐานภายหลังได้เงินคืน 50% และได้ของที่เก็บไว้คืน</small>`;
+        acts.push({ label: `🪙 ซื้อฐานนี้ (${s.price})`, dis: (have && 'คุณมีฐานอยู่แล้ว') || (coins < s.price && `เงินจิไม่พอ (มี ${coins})`), run: () => g.auth.do('buybase', { key: s.prefab }) });
+        return { info, acts };
+      }
       if (!s.ok) {
         const c = baseCheck(g.world.structures, s);
         info = `หลักบ้านยังไม่ได้ประกาศเป็นฐาน<br>ต้องมี (รอบหลักบ้าน 30 หน่วย): ${Object.values(BASE_NEED).map(([n, name]) => `${name} ${n}`).join(' · ')}<br>${c.ok ? '<b class="have">✅ ครบแล้ว ประกาศฐานได้เลย</b>' : `<b class="miss">ยังขาด: ${c.missing.join(' · ')}</b>`}<br><small>หลังประกาศฐาน: มาร์คบนแผนที่ · คอกสัตว์/แปลงผัก/กระถาง/กล่องผึ้ง/บ่อปลา สร้างได้เฉพาะในรั้ว · รั้วและบ้านกันผู้ติดเชื้อ 60 วัน</small>`;
@@ -224,7 +231,7 @@ export class Homestead {
       }
       const L = HOUSE_LV[s.lv || 1], pl = protectLeft(s, now), boss = role === 'owner' || role === 'deputy';
       info = `🏡 <b>${s.name}</b> · ระดับบ้าน <b>${s.lv || 1}</b>/5 · หน้าที่ของคุณ: ${role ? ROLES[role] : 'ไม่ใช่สมาชิก'}
-        <br>🛡️ กันผู้ติดเชื้อ: ${pl ? `<b class="have">เหลือ ${(pl / GAME_DAY_MS).toFixed(1)} วันในเกม</b>` : '<b class="miss">หมดแล้ว — ซ่อมแซมเพื่อเริ่มนับใหม่</b>'}
+        <br>🛡️ กันผู้ติดเชื้อ: ${s.prefab ? '<b class="have">ถาวร (ฐานสำเร็จรูป)</b>' : pl ? `<b class="have">เหลือ ${(pl / GAME_DAY_MS).toFixed(1)} วันในเกม</b>` : '<b class="miss">หมดแล้ว — ซ่อมแซมเพื่อเริ่มนับใหม่</b>'}
         ${role ? `<br>🏦 คลังส่วนรวม: <b>${s.bank || 0}</b>/${L.bank} · 🔐 คลังส่วนตัวของคุณ: <b>${s.pv?.[g.id] || 0}</b>/${L.pv} · 🪙 ในกระเป๋า ${g.inv.jicoin || 0}` : ''}
         <br><small>เงินในคลังไม่หายเมื่อตาย (เงินที่พกติดตัว: ตายครั้งที่ 4–10 ของวันหาย 10% · ครั้งที่ 11+ หาย 20%)</small>`;
       if (!role) return { info, acts };
@@ -234,6 +241,7 @@ export class Homestead {
       acts.push({ label: '🔐 ฝากเข้าคลังส่วนตัว', dis: !g.inv.jicoin, run: () => { const a = ask('ฝากเงินจิเข้าคลังส่วนตัวกี่เหรียญ?', g.inv.jicoin || 0); if (a) this.op(s, { o: 'bank', amt: a, priv: 1 }); } });
       acts.push({ label: '🔐 ถอนจากคลังส่วนตัว', dis: !s.pv?.[g.id], run: () => { const a = ask('ถอนกี่เหรียญ?', s.pv?.[g.id] || 0); if (a) this.op(s, { o: 'bank', amt: -a, priv: 1 }); } });
       if (boss) { const rc = REPAIR_BASE(s.lv || 1); acts.push({ label: `🔧 ซ่อมแซมรั้วและบ้าน (${Object.entries(rc).map(([k, q]) => `${ITEMS[k].icon}${q}`).join(' ')}) — นับ 60 วันใหม่`, run: () => this.op(s, { o: 'repair' }) }); }
+      if (s.prefab && s.owner === g.id) acts.push({ label: '🏳️ สละฐานสำเร็จรูป (คืนเงิน 50% + ของในฐาน)', run: () => g.ui.confirm('สละฐานนี้? ได้เงินคืน 50% ของที่ซื้อ ของในหีบ/คลัง/สิ่งที่คุณสร้างในรั้วจะคืนให้ครบ แล้วฐานกลับไปวางขายใหม่', (ok) => { if (ok) g.auth.do('renouncebase', { key: s.prefab }); }) });
       if (role !== 'owner') acts.push({ label: '🚪 ออกจากบ้านนี้', run: () => { if (confirm('ออกจากบ้านนี้?')) this.op(s, { o: 'leave' }); } });
       return { info, acts };
     }
@@ -340,6 +348,16 @@ export class Homestead {
     if ((this.beeT = (this.beeT || 0) - dt) <= 0) {
       this.beeT = 20;
       for (const s of g.world.structures) if (s.type === 'hive' && s.owner === g.id && Math.hypot(s.x - P.x, s.z - P.z) < 80) { const fl = flowersNear(g.world.structures, s, g.now()); if ((!s.bees && fl) || (s.bees && fl !== (s.fl || 0))) this.op(s, { o: 'bees', silent: true }); }
+    }
+    // 🚪 ประตูฐานสำเร็จรูปของเรา: เปิดเองเมื่อเข้าใกล้ ปิดเองเมื่อเดินออกห่าง (คนอื่นต้องเปิดเอง)
+    if ((this.pfGateT = (this.pfGateT || 0) - dt) <= 0) {
+      this.pfGateT = 0.6;
+      for (const s of g.world.structures) if (s.type === 'gate' && s.prefab && s.owner === g.id) { const d = Math.hypot(s.x - P.x, s.z - P.z); if (!s.open && d < 5) this.op(s, { o: 'door', silent: true }); else if (s.open && d > 9) this.op(s, { o: 'door', silent: true }); }
+    }
+    // 🚰 แปลงผักของเราที่ต่อท่อน้ำ: รดน้ำให้อัตโนมัติ (ไม่ต้องมีขวดน้ำ)
+    if ((this.pipeT = (this.pipeT || 0) - dt) <= 0) {
+      this.pipeT = 12;
+      for (const s of g.world.structures) if (s.owner === g.id && isGrow(s.type) && s.crop && !s.wt && Math.hypot(s.x - P.x, s.z - P.z) < 70 && isPiped(g.world.structures, s.x, s.z)) this.op(s, { o: 'water', pipe: 1, silent: true });
     }
     // ฝนรดน้ำแปลงผักให้
     this.rainT -= dt;

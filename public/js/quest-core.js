@@ -8,7 +8,7 @@ const town = (k) => TOWNS.find((t) => t.key === k);
 const P = (lat, lon) => ({ x: lonToX(lon), z: latToZ(lat) });
 const land = (x, z) => heightAt(x, z) > 1.2 && !waterAt(x, z);
 // จุดบนบกใกล้ (x,z) แบบคงที่
-function landNear(x, z, seed, r0 = 4, r1 = 18) {
+export function landNear(x, z, seed, r0 = 4, r1 = 18) {
   if (land(x, z)) return { x: +x.toFixed(2), z: +z.toFixed(2) };
   for (let i = 0; i < 60; i++) { const a = hash2(seed, i) * 6.283, r = r0 + hash2(i, seed) * (r1 - r0), px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r; if (land(px, pz)) return { x: +px.toFixed(2), z: +pz.toFixed(2) }; }
   return { x, z };

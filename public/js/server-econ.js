@@ -1,6 +1,7 @@
 // โหมดเซิร์ฟเวอร์สาธารณะ: ตัวละครเก็บที่เซิร์ฟเวอร์ และทุกการได้/เสียไอเท็มผ่านกฎของ economy.js (กันโกง)
 // ติดตั้งลงบน WorldCore ด้วย installEconomy(core) — ใช้เฉพาะ server.js (Node)
 import { runAction, applyResult, sopCost, killReward, refundReward, maxSlots } from './economy.js';
+import { forts } from './fortress.js';
 import { refundFor } from './building-core.js';
 import { baseSites } from './basesites.js';
 import { getLayout } from './citygen.js';
@@ -38,7 +39,7 @@ export function installEconomy(core) {
       smithNear: (P) => { for (const [oid, o] of self.players) { if (oid === id || !o.p) continue; const c = self.chars.get(oid); if (c && hasPerk(c, 'blacksmith', 0) && Math.hypot(o.p[0] - P.x, o.p[2] - P.z) < 6) return { ch: c, name: o.name }; } return null; },
       isFriend: (o) => self.isFriend(id, o),
       ownCount: (type) => self.db.structures.filter((s) => s.type === type && s.owner === id).length,
-      fortPerm: (key) => self.fortPerm(id, key), guildCreate: (name) => self.guildCreate(id, name), guildDonate: (amt) => self.guildDonate(id, amt),
+      fortPerm: (key) => self.fortPerm(id, key), fortForge: (P) => forts().some((F) => Math.hypot(F.x - P.x, F.z - P.z) < F.r && (self.fortPerm(id, F.key)?.r.power | 0) >= 2), guildCreate: (name) => self.guildCreate(id, name), guildDonate: (amt) => self.guildDonate(id, amt),
       // 🏡 ฐานสำเร็จรูป: เปลี่ยนเจ้าของทั้งชุด / คืนสู่ตลาด
       claimBase: (key, uid, cost, nm) => {
         for (const o of self.db.structures) if (o.prefab === key) { o.owner = uid; if (o.type === 'basecore') Object.assign(o, { paid: cost, name: `บ้านของ${nm || 'ฉัน'}`.slice(0, 20), prot: Date.now(), mem: {} }); }

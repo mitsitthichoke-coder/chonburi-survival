@@ -492,7 +492,7 @@ const A = {
     if (ch.equipped === k && (ch.inv[k] || 0) <= 1) return { err: 'เลิกถือไอเท็มนี้ก่อนตีบวก' };
     const pet = kind === 'pet', K = parseKey(k), L = K.plus, max = pet ? PET_PLUS_MAX : PLUS_MAX;
     if (L >= max) return { err: `ตีบวกสูงสุดแล้ว (+${max})` };
-    const P = env.pos(ch), anvil = env.near('anvil', P, 6), smith = hasPerk(ch, 'blacksmith', 0) && anvil, npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
+    const P = env.pos(ch), anvil = env.near('anvil', P, 6), gforge = !!env.fortForge?.(P), pro = hasPerk(ch, 'blacksmith', 0) && anvil, smith = pro || gforge, npc = NPCS.find((n) => n.job === 'blacksmith'), np = npc && env.npcPos?.(npc.id);
     const friend = !smith && anvil && env.smithNear?.(P); // จ้างเพื่อนช่างตีเหล็กที่ยืนข้างทั่ง
     const viaNpc = !smith && !friend && np && dist(env, ch, np.x, np.z) <= 7;
     const self = !smith && !friend && !viaNpc; // ตีเองได้ทุกที่ แต่โอกาสสำเร็จต่ำกว่าจ้าง NPC
@@ -500,7 +500,7 @@ const A = {
     const shop = !viaNpc && !pet && !!p.shop, stone = viaNpc ? null : enhanceStone(L, pet, shop), fee = viaNpc ? enhanceFee(L, pet) : 0;
     if (stone && !has(ch, stone)) return { err: `ต้องมี ${ITEMS[stone].icon} ${ITEMS[stone].name} 1 ชิ้น${stone === 'super_stone' ? ' (ผสมจากเหล็กพลัส 3 ก้อนในหน้าประดิษฐ์)' : stone.startsWith('shop_') || stone === 'pet_pin' ? ' (ซื้อในร้านเงินจิ)' : ''}` };
     if (fee && !has(ch, 'jicoin', fee)) return { err: `🪙 ค่าจ้างตีบวก ${fee} เงินจิ` };
-    let R = enhanceRates(L, pet, smith ? ch : friend ? friend.ch : null); if (self) R = shopPenalty(R, L, pet, SELF_PENALTY); if (shop) R = shopPenalty(R, L, pet);
+    let R = enhanceRates(L, pet, pro ? ch : friend ? friend.ch : null); if (self) R = shopPenalty(R, L, pet, SELF_PENALTY); if (shop) R = shopPenalty(R, L, pet);
     const r = env.rand(), take = { [k]: 1 }; if (stone) take[stone] = 1; if (fee) take.jicoin = fee;
     const res = r < R.up ? 'up' : r < R.up + R.stay ? 'stay' : r < R.up + R.stay + R.down ? 'down' : 'brk';
     const to = res === 'up' ? L + 1 : res === 'down' ? L - 1 : L, nk = makeKey({ ...K, plus: to }), nm = ITEMS[makeKey({ ...K, plus: 0, opts: '' })]?.name || ITEMS[k].name;

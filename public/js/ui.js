@@ -724,7 +724,7 @@ export class UI {
       if (own && boss) h += ['water', 'power'].map((sy) => (st[sy] < 3 ? `<button data-fup="${F.key}:${sy}" ${G.fund >= FORT_UP_COST[st[sy] + 1] ? '' : 'disabled'}>${sy === 'water' ? '💧' : '⚡'} ขึ้นระดับ ${st[sy] + 1} (🪙${FORT_UP_COST[st[sy] + 1]})</button>` : '')).join(' ');
       if (own && lead) h += ` <button data-frel="${F.key}">ปล่อยคืน</button>`;
       h += '</div></div>';
-      if (own) h += `<div class="recipe"><div><small>${inside ? '📍 คุณอยู่ในเขตป้อม — ใช้ได้เลย' : '🚶 ต้องเดินทางไปที่ป้อมก่อนถึงจะใช้ได้'}</small><br>${F.fac.map((f) => `<button data-ffac="${F.key}:${f.id}" ${inside && st[f.sys] >= f.lv ? '' : 'disabled'} title="ต้อง${f.sys === 'water' ? 'ระบบน้ำ' : 'ระบบไฟ'}ระดับ ${f.lv}">${f.n}</button>`).join(' ')}<br>🛒 ${F.shop.map(([k, pr, lv]) => `<button data-fbuy="${F.key}:${k}" ${inside && st.power >= lv ? '' : 'disabled'}>${ITEMS[k].icon} ${esc(ITEMS[k].name)} 🪙${pr}${lv ? ` (⚡${lv})` : ''}</button>`).join(' ')}</div></div>`;
+      if (own) h += `<div class="recipe"><div><small>${inside ? '📍 คุณอยู่ในเขตป้อม — ใช้ได้เลย (⚒️ ตีบวกได้ที่นี่เมื่อระบบไฟระดับ 2+)' : '🚶 ต้องเดินทางไปที่ป้อมก่อนถึงจะใช้ได้'}</small><br>${F.fac.map((f) => `<button data-ffac="${F.key}:${f.id}" ${inside && st[f.sys] >= f.lv ? '' : 'disabled'} title="ต้อง${f.sys === 'water' ? 'ระบบน้ำ' : 'ระบบไฟ'}ระดับ ${f.lv}">${f.n}</button>`).join(' ')}<br>🛒 ${F.shop.map(([k, pr, lv]) => `<button data-fbuy="${F.key}:${k}" ${inside && st.power >= lv ? '' : 'disabled'}>${ITEMS[k].icon} ${esc(ITEMS[k].name)} 🪙${pr}${lv ? ` (⚡${lv})` : ''}</button>`).join(' ')}</div></div>`;
       return h;
     }).join('');
   }

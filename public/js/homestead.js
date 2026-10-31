@@ -80,9 +80,9 @@ export class Homestead {
             { label: '🌿 ปล่อยคืนป่า', run: () => this.op(s, { o: 'claim', mode: 'free' }) },
           ]) };
         }
-        if (s.bait) return { text: `🪤 รอสัตว์มาติดกรง... ${Math.min(99, Math.floor(((now - s.bt) / TRAP_MS) * 100))}% (เหยื่อ: ${ITEMS[s.bait].name})`, act: () => {} };
+        if (s.bait) return { text: `🪤 รอสัตว์มาติดกรง... ${Math.min(99, Math.floor(((now - s.bt) / TRAP_MS) * 100))}% (เหยื่อ: ${ITEMS[s.bait].name}) — กดเพื่อเปลี่ยนเหยื่อ`, act: () => this.baitMenu(s) };
         const bait = [...BAIT_MEAT, ...BAIT_PLANT].find((k) => g.hasItem(k));
-        return { text: bait ? `🪤 ใส่เหยื่อ ${ITEMS[bait].icon} ${ITEMS[bait].name} (เนื้อ = ล่อสัตว์กินเนื้อ · พืช = ล่อสัตว์กินพืช)` : '🪤 กรงว่าง — ต้องมีเหยื่อ: เนื้อ/ปลา หรือ ผัก/ข้าวโพด/ผลไม้', act: () => { if (bait) this.op(s, { o: 'bait', item: bait }); } };
+        return { text: bait ? `🪤 ใส่เหยื่อ ${ITEMS[bait].icon} ${ITEMS[bait].name} (เนื้อ = ล่อสัตว์กินเนื้อ · พืช = ล่อสัตว์กินพืช)` : '🪤 กรงว่าง — ต้องมีเหยื่อ: เนื้อ/ปลา หรือ ผัก/ข้าวโพด/ผลไม้', act: () => { if (bait) this.baitMenu(s); } };
       }
       case 'vehicle': {
         const V = VEH[s.vt];
@@ -149,6 +149,11 @@ export class Homestead {
     ]);
   }
   // ♨️ เมนูเตาต้มน้ำ: ต้มน้ำจากถัง/ท่อ · ตักน้ำต้มสุก · ให้น้ำสัตว์ทุกคอกรอบ ๆ
+  // 🪤 เมนูเลือก/เปลี่ยนเหยื่อกรงดักสัตว์
+  baitMenu(s) {
+    const g = this.g, list = [...BAIT_MEAT, ...BAIT_PLANT].filter((k) => g.hasItem(k) && k !== s.bait);
+    g.ui.choice(s.bait ? `🪤 เปลี่ยนเหยื่อ (ตอนนี้: ${ITEMS[s.bait].name})` : '🪤 เลือกเหยื่อ', list.length ? list.map((k) => ({ label: `${ITEMS[k].icon} ${ITEMS[k].name} ${BAIT_MEAT.includes(k) ? '— ล่อสัตว์กินเนื้อ/ไดโนเสาร์นักล่า' : '— ล่อสัตว์กินพืช'} (มี ${g.inv[k]})`, run: () => this.op(s, { o: s.bait ? 'rebait' : 'bait', item: k }) })) : [{ label: 'ไม่มีเหยื่ออื่นในกระเป๋า', dis: 'เนื้อ/ปลา = สัตว์กินเนื้อ · ผัก/ผลไม้ = สัตว์กินพืช' }]);
+  }
   fireplaceMenu(s) {
     const g = this.g, w = g.inv.wood || 0, left = Math.max(0, (s.fu || 0) - g.now()), room = Math.floor((42 * (GAME_DAY_MS / 6) - left) / (GAME_DAY_MS / 6));
     g.ui.choice('🧱 เตาผิง — ฟืน 1 ท่อน = 4 ชั่วโมงเกม (สูงสุด 42 ท่อน) · ให้ความอุ่น ทำให้แห้ง ไล่ซอมบี้/สัตว์ร้าย', [

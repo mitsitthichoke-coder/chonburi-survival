@@ -304,6 +304,13 @@ export function applyOp(s, op, ctx) {
       if (s.bait) return { err: 'มีเหยื่ออยู่ในกรงแล้ว' };
       if (![...BAIT_MEAT, ...BAIT_PLANT].includes(op.item)) return { err: 'ใช้เป็นเหยื่อไม่ได้' };
       return { patch: { bait: op.item, bt: now }, msg: '🪤 วางเหยื่อแล้ว รอสัตว์มาติดกรงประมาณ 3 นาที' };
+    case 'rebait': { // 🪤 เปลี่ยนเหยื่อระหว่างรอ (ได้เหยื่อเดิมคืน · เริ่มนับเวลาใหม่) — เนื้อ=ล่อสัตว์กินเนื้อ/ไดโนเสาร์นักล่า · พืช=ล่อสัตว์กินพืช
+      if (s.type !== 'cage' || !s.bait) return { err: 'ไม่มีเหยื่อให้เปลี่ยน' };
+      if (cageCatch(s, now)) return { err: 'มีสัตว์ติดกรงแล้ว จัดการสัตว์ก่อน' };
+      if (![...BAIT_MEAT, ...BAIT_PLANT].includes(op.item)) return { err: 'ใช้เป็นเหยื่อไม่ได้' };
+      if (op.item === s.bait) return { err: 'เป็นเหยื่อชนิดเดียวกันอยู่แล้ว' };
+      return { patch: { bait: op.item, bt: now }, msg: '🪤 เปลี่ยนเหยื่อแล้ว เริ่มรอสัตว์ใหม่ ~3 นาที (ได้เหยื่อเดิมคืน)' };
+    }
     case 'claim':
       if (s.type !== 'cage' || !cageCatch(s, now)) return { err: 'ยังไม่มีสัตว์ติดกรง' };
       return { patch: { bait: null, bt: null }, msg: { farm: '🏡 ใส่กรงหิ้วแล้ว — นำไปปล่อยที่คอกในฟาร์ม', food: '🍖 แปรรูปเป็นอาหารแล้ว', free: '🌿 ปล่อยสัตว์คืนป่าแล้ว' }[op.mode] || '🐾 เปิดกรงแล้ว' };

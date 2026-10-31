@@ -730,6 +730,7 @@ export function sopCost(ch, s, op, env) {
     case 'buy': { const r = (s.goods || [])[op.i | 0]; if (!r) return { err: 'ไม่พบสินค้า' }; if (!has(ch, 'jicoin', r.p)) return { err: `🪙 เงินจิไม่พอ (ต้องใช้ ${r.p})` }; return { take: { jicoin: r.p } }; }
     case 'stock': if (!['raw_fish', 'golden_fish'].includes(op.item) || !has(ch, op.item)) return { err: 'ไม่มีปลา' }; return { take: { [op.item]: 1 } };
     case 'store': { const q = op.qty | 0; if (q > 0) { if (!has(ch, op.item, q) || ITEMS[op.item]?.quest) return { err: 'ของไม่พอ' }; return { take: { [op.item]: q } }; } return {}; }
+    case 'rebait': { if (!s.bait) return { err: 'ไม่มีเหยื่อให้เปลี่ยน' }; if (!has(ch, op.item)) return { err: 'ไม่มีเหยื่อชนิดนี้' }; return { take: { [op.item]: 1 }, give: { [s.bait]: 1 } }; }
     case 'bait': { if (!has(ch, op.item)) return { err: 'ไม่มีของที่จะใช้เป็นเหยื่อ' }; return { take: { [op.item]: 1 } }; }
     case 'claim': {
       // เปิดกรง: สัตว์ที่ติดมาเป็นสัตว์เลี้ยง (ตรวจจำนวนสูงสุดก่อน)

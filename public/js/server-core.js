@@ -220,7 +220,7 @@ export class WorldCore {
     const db = this.db;
     switch (m.t) {
       case 'state':
-        Object.assign(me, { p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: m.pets || [], safe: !!m.sf, sk: Math.min(1, Math.max(0.3, +m.sk || 1)) });
+        Object.assign(me, { p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: m.pets || [], eq: m.eq, safe: !!m.sf, sk: Math.min(1, Math.max(0.3, +m.sk || 1)) });
         if (this.relayState) this.broadcast({ t: 'state', id, p: m.p, ry: m.ry, anim: m.anim, hp: m.hp, pets: me.pets, eq: m.eq, cb: m.cb | 0, lh: m.lh | 0, st: m.st | 0, en: m.en | 0, ij: m.ij | 0, v: m.v ?? null, cl: m.cl }, id);
         break;
       case 'chat': return this.chatMsg(id, me, m);
@@ -427,7 +427,7 @@ export class WorldCore {
       if (m.angry > 0 && W.noTown && P && inTownAt(P.p[0], P.p[2])) m.angry = 0;
       if (W.leash && Math.hypot(m.x - H.x, m.z - H.z) > W.leash) { m.angry = 0; m.alert = 0; this.moveMob(m, H.x, H.z, W.chase || 3, dt); continue; }
       if (!m._ft || m.t - m._ft > 1) { m._ft = m.t; this._fires = this.fireSpots(); }
-      if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0) && !nearFireOf(this._fires, P.p[0], P.p[2])) { m.angry = 6; m.angryId = P.id; }
+      if (W.hostile && dP < W.hostile && !P.safe && !(m.angry > 0) && !nearFireOf(this._fires, P.p[0], P.p[2]) && !(P.eq === 'torch' && dP < 8)) { m.angry = 6; m.angryId = P.id; }
       if (m.angry > 0 && W.hostile && nearFireOf(this._fires, m.x, m.z, FIRE_SAFE + 2)) m.angry = 0; // นักล่ากลัวไฟ
       if (m.angry > 0) {
         m.angry -= dt;
@@ -545,7 +545,11 @@ export class WorldCore {
         if (zb.ignore[p.id] > zb.t) continue;
         const d = Math.hypot(p.p[0] - zb.x, p.p[2] - zb.z);
         // ย่อ/คลาน = มองเห็นได้ใกล้ลง (sk) ยกเว้นตัวที่ตื่นตัวอยู่แล้ว
-        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1) && !(nearFireOf(fires, p.p[0], p.p[2]) && !T.boss) && !safeBaseAt(bases, p.p[0], p.p[2], now)) { tgt = p; td = d; }
+        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1) && !(nearFireOf(fires, p.p[0], p.p[2]) && !T.boss) && !(p.eq === 'torch' && d < 8 && !T.boss) && !safeBaseAt(bases, p.p[0], p.p[2], now)) { tgt = p; td = d; }
+      }
+      if (!T.boss) for (const p of alive) { // 🔥 ถือคบเพลิงอย่างเดียว: ผู้ติดเชื้อถอยหนี
+        if (p.eq !== 'torch') continue; const dx = zb.x - p.p[0], dz = zb.z - p.p[2], dd = Math.hypot(dx, dz);
+        if (dd < 8) { this.slide(zb, dx / (dd || 1), dz / (dd || 1), 2.8 * dt, 0.35 * T.scale); zb.ry = Math.atan2(dx, dz); zb.spd = 2.8; zb.alert = 0; }
       }
       if (!tgt && zb.alert > 0) { zb.alert -= dt; tgt = this.players.get(zb.alertId) || null; if (tgt && zb.ignore[tgt.id] > zb.t) tgt = null; if (tgt) td = Math.hypot(tgt.p[0] - zb.x, tgt.p[2] - zb.z); if (td > 70) tgt = null; }
       let tx, tz, spd;

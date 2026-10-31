@@ -14,6 +14,7 @@ import { cleanLook } from './public/js/look-core.js';
 import { installEconomy, cleanText } from './public/js/server-econ.js';
 import { newChar, jobKit, applyResult } from './public/js/economy.js';
 import { Store } from './server/store.js';
+import { PgStore } from './server/store-pg.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 8080;
@@ -34,7 +35,7 @@ const TOKEN_DAYS = 30;
 // ค่าเริ่มต้นของเจ้าของเกม (ตั้งค่าใน Environment ทับได้)
 const DONATE = { url: /^https:\/\//.test(process.env.DONATE_URL || '') ? process.env.DONATE_URL : null, promptpay: (process.env.PROMPTPAY || '0863574430').replace(/[^0-9]/g, '').slice(0, 15) || null, note: (process.env.DONATE_NOTE || 'ขอบคุณสำหรับการสนับสนุน 🙏').slice(0, 300) || null };
 
-const store = new Store(DATA_DIR);
+const store = process.env.DATABASE_URL ? await PgStore.open(DATA_DIR, process.env.DATABASE_URL) : new Store(DATA_DIR);
 
 // ---------- โลก ----------
 const sockets = new Map(); // uid -> ws
@@ -359,10 +360,11 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-const shutdown = () => {
+const shutdown = async () => {
   // Render ส่ง SIGTERM ตอนอัปเดตเวอร์ชันใหม่: แจ้งผู้เล่นที่ออนไลน์ก่อนปิด
   try { for (const ws of sockets.values()) sendWs(ws, { t: 'maint', text: '🔧 ' + MAINT_TEXT + ' (เซิร์ฟเวอร์กำลังรีสตาร์ต ตัวละครถูกบันทึกแล้ว กลับมาเล่นได้ในอีกสักครู่)' }); } catch { /* ignore */ }
   try { store.saveWorld(core.snapshot()); for (const [id, ch] of core.chars) store.saveChar(id, ch); store.flush('users.json', store.users); store.flush('sessions.json', store.sessions); } catch (e) { console.error(e); }
+  try { await store.drain?.(); } catch (e) { console.error(e); }
   process.exit(0);
 };
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);

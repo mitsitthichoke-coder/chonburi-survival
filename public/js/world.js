@@ -503,6 +503,14 @@ export class World {
     const m = this.structureMeshes.get(s.id); if (!m) return;
     const b = baseAt(this.structures, s.x, s.z), col = b?.col;
     if (m.userData.signLabel) m.userData.signLabel.userData.set(b ? `🏡 ${b.name}` : 'ป้ายชื่อฐาน (วางในรั้วของฐาน)', '#ffd166');
+    // 🙂 หน้าตัวละครเจ้าของฐานบนป้าย
+    if (m.userData.signLabel) {
+      const key = b?.ol ? JSON.stringify(b.ol) + b.os : '';
+      if (m.userData.signFaceKey !== key) {
+        m.userData.signFaceKey = key; if (m.userData.signFace) { m.remove(m.userData.signFace); m.userData.signFace = null; }
+        if (b?.ol) { try { const h = makeHuman(b.os || 'm', b.ol), head = h.userData.head; if (head) { const grp = new THREE.Group(); head.position.set(0, 0, 0); grp.add(head); grp.position.set(0, 3.6, 0.1); grp.scale.setScalar(1.5); grp.rotation.y = 0; m.add(grp); m.userData.signFace = grp; } } catch { /* หน้าตาผิดรูป ข้าม */ } }
+      }
+    }
     if ((m.userData.tint || null) === (col || null)) return;
     m.userData.tint = col || null;
     m.traverse((o) => {

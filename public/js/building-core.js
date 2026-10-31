@@ -588,6 +588,12 @@ export function roleAllows(role, s, o) {
   if (role === 'plant') return isGrow(s.type) || s.type === 'hive';
   return false;
 }
+// หน้าตาเจ้าของฐาน (แสดงบนป้ายชื่อฐาน): เก็บเฉพาะค่าสั้น ๆ ที่เป็นสี/ตัวเลข/ข้อความสั้น กันข้อมูลแปลกปลอม
+export function cleanLook(l) {
+  if (!l || typeof l !== 'object') return undefined; const o = {};
+  for (const [k, v] of Object.entries(l).slice(0, 24)) if (/^[a-zA-Z]{1,12}$/.test(k) && (typeof v === 'number' || (typeof v === 'string' && v.length <= 24))) o[k] = v;
+  return o;
+}
 export function canDemolish(s, by) {
   if (s.type === 'basecore' && Object.entries(s.pv || {}).some(([id, v]) => id !== by && v > 0)) return 'ยังมีเงินในคลังส่วนตัวของสมาชิกคนอื่น — ให้ถอนออกก่อน';
   if (s.type === 'basecore' && Object.entries(s.pi || {}).some(([id, v]) => id !== by && Object.keys(v || {}).length)) return 'ยังมีของในคลังส่วนตัวของสมาชิกคนอื่น — ให้ถอนออกก่อน';
@@ -600,7 +606,7 @@ function baseOp(s, op, ctx) {
     case 'declare':
       if (s.owner && s.owner !== by) return { err: 'ประกาศฐานได้เฉพาะเจ้าของ' };
       if (!op.box) return { err: 'ยังสร้างไม่ครบ' };
-      return { patch: { ok: 1, box: op.box, name: String(op.name || 'บ้านของฉัน').slice(0, 20), lv: s.lv || 1, prot: now, mem: s.mem || {} }, msg: '🏡 ประกาศเป็นฐานแล้ว! มาร์คบนแผนที่ · รั้วและบ้านกันผู้ติดเชื้อได้ 60 วัน' };
+      return { patch: { ok: 1, box: op.box, name: String(op.name || 'บ้านของฉัน').slice(0, 20), lv: s.lv || 1, prot: now, mem: s.mem || {}, ol: cleanLook(op.look), os: ['m', 'f', 'x'].includes(op.sex) ? op.sex : 'm' }, msg: '🏡 ประกาศเป็นฐานแล้ว! มาร์คบนแผนที่ · รั้วและบ้านกันผู้ติดเชื้อได้ 60 วัน' };
     case 'contrib': {
       if (!s.ok) return { err: 'ประกาศฐานก่อน' };
       if (!role) return { err: 'เฉพาะสมาชิกบ้าน' };

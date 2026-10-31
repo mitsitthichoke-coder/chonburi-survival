@@ -386,7 +386,31 @@ export class Game {
     this.auth.do('craft', { i });
   }
 
+  // 🎯 วางกองไฟ/กรงดักสัตว์: มีเงาโปร่งให้เลือกจุด (ล้อเมาส์ปรับระยะ · คลิกซ้ายหรือ E ยืนยัน · Esc ยกเลิก) วางบนพื้นชั้นเดียวกับที่ยืน
+  startPlacing(k) {
+    this.stopPlacing(); const it = ITEMS[k];
+    const ghost = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 24), new THREE.MeshBasicMaterial({ color: '#52b788', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthTest: false }));
+    ghost.rotation.x = -Math.PI / 2; ghost.renderOrder = 10; this.scene.add(ghost);
+    this.placing = { k, it, d: 2.8, ghost, ok: true };
+    this.ui.toast(`📍 เลือกจุดวาง${it.name} — ล้อเมาส์ปรับระยะ · คลิกซ้าย/E ยืนยัน · Esc ยกเลิก`);
+  }
+  stopPlacing() { if (!this.placing) return; this.scene.remove(this.placing.ghost); this.placing.ghost.geometry.dispose(); this.placing = null; }
+  placingTick() {
+    const p = this.placing; if (!p) return;
+    if (this.dead || !(this.inv[p.k] > 0)) return this.stopPlacing();
+    const P = this.player.pos, a = this.player.ry, x = P.x + Math.sin(a) * p.d, z = P.z + Math.cos(a) * p.d;
+    const onFloor = P.y - heightAt(P.x, P.z) > 0.8, y = onFloor ? P.y : heightAt(x, z);
+    p.x = x; p.z = z; p.y = onFloor ? +P.y.toFixed(2) : undefined; p.ok = !(waterAt(x, z) || heightAt(x, z) < 0.5);
+    p.ghost.position.set(x, y + 0.06, z); p.ghost.material.color.set(p.ok ? '#52b788' : '#e63946');
+  }
+  confirmPlacing() {
+    const p = this.placing; if (!p) return false;
+    if (!p.ok) { this.ui.toast('วางตรงนี้ไม่ได้ (น้ำ/ต่ำเกินไป)', 'warn'); return true; }
+    this.auth.do('place', { item: p.k, s: { type: p.it.place, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: p.y, ry: +this.player.ry.toFixed(2) } });
+    this.stopPlacing(); return true;
+  }
   place(k) {
+    if (['campfire', 'cage'].includes(ITEMS[k]?.place)) { if (this.placing?.k === k) return this.confirmPlacing(); return this.startPlacing(k); }
     const P = this.player.pos, a = this.player.ry, it = ITEMS[k];
     const x = P.x + Math.sin(a) * 2.8, z = P.z + Math.cos(a) * 2.8;
     const wet = waterAt(x, z) || heightAt(x, z) < 0.5;
@@ -618,12 +642,17 @@ export class Game {
   }
   quickDemolish() {
     const s = this.myPiece(); if (!s) return false;
-    this.ui.confirm(`รื้อ ${PIECES[s.type].icon} ${PIECES[s.type].name} ชิ้นนี้? (ได้วัสดุคืนครบ)`, (yes) => { if (yes) this.demolishStructure(s); });
+    const P = PIECES[s.type];
+    this.ui.choice(`${P.icon} ${P.name}`, [
+      { label: '🔀 ย้ายไปวางที่ใหม่ (รื้อ ได้วัสดุคืนครบ แล้วเข้าโหมดวาง)', run: () => { this.demolishStructure(s); if (canBuild(this.inv)) this.builder.start(s.type); } },
+      { label: '🗑️ รื้อทิ้ง (ได้วัสดุคืนครบ)', run: () => this.demolishStructure(s) },
+    ]);
     return true;
   }
 
   interact() {
     if (this.dead) return;
+    if (this.placing) return this.confirmPlacing();
     const t = this.findTarget(); if (!t) return;
     if (t.type === 'demo') return this.quickDemolish();
     if (t.type === 'hearth') { const r = this.auth.do('hearth', { i: this.world.pavilions.indexOf(t.p) }); if (r?.hearth) this.setHearth(r.hearth.i, r.hearth.until, true); if (this.auth.server ? this.hasItem('wood', 2) : r && !r.err) this.sfx.play('place'); return; }
@@ -751,18 +780,18 @@ export class Game {
     const cv = this.renderer.domElement;
     cv.tabIndex = 0;
     cv.addEventListener('click', () => { window.focus(); cv.focus(); if (!this.ui.open && !this.dead && !this.touch) { try { cv.requestPointerLock?.()?.catch?.(() => {}); } catch { /* ไม่รองรับ pointer lock */ } } });
-    addEventListener('mousedown', (e) => { if (document.pointerLockElement === cv && e.button === 0) this.attack(); });
+    addEventListener('mousedown', (e) => { if (document.pointerLockElement === cv && e.button === 0) { if (this.placing) this.confirmPlacing(); else this.attack(); } });
     addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== cv) return;
       this.camYaw -= e.movementX * 0.0035; this.camPitch = clamp(this.camPitch + e.movementY * 0.003, -0.5, 1.2);
     });
-    addEventListener('wheel', (e) => { if (!this.ui.open) this.camDist = clamp(this.camDist + Math.sign(e.deltaY) * 0.8, 2.5, 18); });
+    addEventListener('wheel', (e) => { if (this.placing && !this.ui.open) { this.placing.d = clamp(this.placing.d - Math.sign(e.deltaY) * 0.4, 1.2, 7); return; } if (!this.ui.open) this.camDist = clamp(this.camDist + Math.sign(e.deltaY) * 0.8, 2.5, 18); });
     addEventListener('keydown', (e) => {
       if (this.ui.chatting) return;
       // ใช้ e.code เพื่อให้ปุ่มลัดทำงานแม้แป้นพิมพ์เป็นภาษาไทย
       const k = e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.code.startsWith('Digit') ? e.code.slice(5) : e.key.toLowerCase();
       if (k === 'tab') { e.preventDefault(); this.ui.togglePanel('inv'); return; }
-      if (k === 'escape') { if (this.builder.active) this.builder.stop(); this.ui.closeAll(); return; }
+      if (k === 'escape') { this.stopPlacing(); if (this.builder.active) this.builder.stop(); this.ui.closeAll(); return; }
       if (k === 'b' && !e.repeat) { if (this.builder.active) { this.builder.stop(); return; } return this.ui.togglePanel('build'); }
       if (k === 'q' && !e.repeat && this.builder.type) return this.builder.rotateNext();
       if (k === 'q' && !e.repeat) return this.ui.togglePanel('quest');
@@ -936,7 +965,7 @@ export class Game {
     S('ภารกิจ', () => { this.quest.update(dt); this.boxUI.update(dt); });
     S('สัตว์เลี้ยง', () => tickPetTraits(this, dt));
     S('มือถือ', () => this.touch?.update());
-    S('ก่อสร้าง', () => { this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
+    S('ก่อสร้าง', () => { this.placingTick(); this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
     if (this._bClass !== this.builder.active) { this._bClass = this.builder.active; document.body.classList.toggle('building', this.builder.active); }
     S('สภาพแวดล้อม', () => this.updateEnv(dt));
     S('กล้อง', () => this.updateCamera());

@@ -51,7 +51,9 @@ export class Homestead {
     if (!s) return null;
     const now = g.now(), mine = !s.owner || s.owner === g.id;
     switch (s.type) {
-      case 'door': case 'gate': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
+      case 'gate': if (mine && FENCE_TIERS[(s.tier || 0) + 1]) return { text: `⛩️ ประตูรั้ว${s.open ? ' (เปิดอยู่)' : ''} — เปิด/ปิด · อัปเกรด`, act: () => g.ui.choice(`⛩️ ${FENCE_TIERS[s.tier || 0].name}`, [{ label: s.open ? '🚪 ปิดประตูรั้ว' : '🚪 เปิดประตูรั้ว', run: () => this.op(s, { o: 'door' }) }, { label: '🛠️ อัปเกรดประตูรั้ว', run: () => this.fenceMenu(s) }]), s };
+      // falls through
+      case 'door': return { text: `${s.open ? '🚪 ปิด' : '🚪 เปิด'}${s.type === 'gate' ? 'ประตูรั้ว' : 'ประตู'}${s.lock ? ' 🔒' : ''}${mine && !g.touch ? ' · L = ล็อก' : ''}`, act: () => this.op(s, { o: 'door' }), s };
       case 'bed': return { text: '🛏️ นอนพัก / ตั้งจุดเกิดที่นี่', act: () => this.sleep(s) };
       case 'chair': return { text: '🪑 นั่งพักบนเก้าอี้', act: () => g.sitChair(s) };
       case 'watertank': return { text: `🛢️ ถังเก็บน้ำ ${s.wl || 0}/${TANK_L} ลิตร (${!(s.wl > 0) ? 'ว่าง' : s.wc ? 'น้ำสะอาด' : 'น้ำดิบ'})`, act: () => this.tankMenu(s) };
@@ -212,7 +214,7 @@ export class Homestead {
       if (!s.ok) {
         const c = baseCheck(g.world.structures, s);
         info = `หลักบ้านยังไม่ได้ประกาศเป็นฐาน<br>ต้องมี (รอบหลักบ้าน 30 หน่วย): ${Object.values(BASE_NEED).map(([n, name]) => `${name} ${n}`).join(' · ')}<br>${c.ok ? '<b class="have">✅ ครบแล้ว ประกาศฐานได้เลย</b>' : `<b class="miss">ยังขาด: ${c.missing.join(' · ')}</b>`}<br><small>หลังประกาศฐาน: มาร์คบนแผนที่ · คอกสัตว์/แปลงผัก/กระถาง/กล่องผึ้ง/บ่อปลา สร้างได้เฉพาะในรั้ว · รั้วและบ้านกันผู้ติดเชื้อ 60 วัน</small>`;
-        if (s.owner === g.id) acts.push({ label: '🏡 ประกาศเป็นฐาน', dis: !c.ok, run: () => { const name = prompt('ตั้งชื่อฐาน', `บ้านของ${g.profile.name}`); if (name !== null) this.op(s, { o: 'declare', name }); } });
+        if (s.owner === g.id) acts.push({ label: '🏡 ประกาศเป็นฐาน', dis: !c.ok, run: () => { const name = prompt('ตั้งชื่อฐาน', `บ้านของ${g.profile.name}`); if (name !== null) this.op(s, { o: 'declare', name, look: g.profile.look, sex: g.profile.sex }); } });
         return { info, acts };
       }
       const L = HOUSE_LV[s.lv || 1], pl = protectLeft(s, now), boss = role === 'owner' || role === 'deputy';

@@ -524,7 +524,7 @@ const A = {
       return { take: cost, place: pl, xp: { building: 4 }, sfx: 'place' };
     }
     const it = ITEMS[p.item]; if (!it?.place || !has(ch, p.item)) return { err: 'ไม่มีของชิ้นนี้' };
-    const st = { ...clean, type: it.place }; if (it.place !== 'pot') delete st.y;
+    const st = { ...clean, type: it.place }; if (it.place !== 'pot' && !(['campfire', 'cage'].includes(it.place) && typeof st.y === 'number' && st.y > -5 && st.y < 400)) delete st.y;
     if (it.vt) { st.vt = it.vt; if (['motorbike', 'pickup', 'ev_car', 'ev_bike'].includes(it.vt)) st.fuel = 60; }
     return { take: { [p.item]: 1 }, place: st, xp: { survival: 5 }, sfx: 'place' };
   },

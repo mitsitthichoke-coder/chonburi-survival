@@ -739,7 +739,7 @@ export class Game {
     const blur = Math.round(inf * 1.2 * 2) / 2, // เบลอเบามาก (สูงสุด ~1px) เพื่อไม่ให้ตัวละครดูไม่คมตอนติดเชื้อ
        key = blur + ':' + Math.round(inf * 10) + ':' + Math.round(fear * 10);
     if (key !== this.fxKey) { this.fxKey = key; els.wrap.style.filter = blur > 0 ? `blur(${blur}px) saturate(${1 - inf * 0.25})` : ''; els.sick.style.opacity = inf; els.fear.style.opacity = fear * 0.9; }
-    this.shakeAmp = this.dead ? 0 : Math.max(inf * 0.035, fear * 0.045);
+    this.shakeAmp = this.dead ? 0 : Math.max(inf * 0.012, fear * 0.016);
   }
   // กากบาทกลางจอ: ถือปืน/ธนู/หน้าไม้/หนังสติ๊กแล้วขยายเป็นวงเล็ง
   tickCrosshair() {
@@ -1311,7 +1311,7 @@ export class Game {
     const cam = head.clone().add(off);
     const gy = heightAt(cam.x, cam.z) + 0.4; if (cam.y < gy) cam.y = gy;
     this.camera.position.copy(cam); this.camera.lookAt(head);
-    if (this.shakeAmp > 0.001) { const t = performance.now() * 0.03; this.camera.position.x += Math.sin(t * 1.7) * this.shakeAmp; this.camera.position.y += Math.cos(t * 2.3) * this.shakeAmp; this.camera.rotation.z += Math.sin(t) * this.shakeAmp * 0.4; }
+    if (this.shakeAmp > 0.001) { const t = performance.now() * 0.03; this.camera.position.x += Math.sin(t * 1.7) * this.shakeAmp; this.camera.position.y += Math.cos(t * 2.3) * this.shakeAmp; this.camera.rotation.z += Math.sin(t) * this.shakeAmp * 0.15; }
   }
 
   timers(dt) {

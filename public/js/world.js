@@ -313,26 +313,32 @@ export class World {
     }
     g.visible = false; this.scene.add(g); this.halloween = g;
   }
-  // 🎅 ธีมคริสต์มาส: ยามซานต้ายืนเฝ้าสองข้างประตูทุกค่ายกักกัน (แค่ตั้งประดับ ไม่มีบทบาทในระบบ NPC)
+  // 💂 ยามเฝ้าประตูค่ายกักกัน: เปลี่ยนชุดตามธีมเกม (ปกติ=ยามรปภ. · ฮาโลวีน=ผีฟักทอง · คริสต์มาส=ซานต้า · ปีใหม่=หมวกปาร์ตี้)
   buildSanta() {
+    if (this.santa) { this.scene.remove(this.santa); }
     this.santa = new THREE.Group();
+    const th = theme();
+    const S = {
+      apocalypse: { shirt: '#1d3557', pants: '#14213d', hair: '#222', label: '🛡️ ยามรักษาความปลอดภัย', hat: (h) => { const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.3, 0.2, 10), mat('#14213d')); cap.position.y = 0.3; const bill = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.04, 0.2), mat('#0b132b')); bill.position.set(0, 0.22, 0.28); h.add(cap, bill); } },
+      halloween: { shirt: '#2b2d42', pants: '#1b1b1b', hair: '#f77f00', label: '🎃 ยามฮาโลวีน', hat: (h) => { const pk = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8).scale(1, 0.9, 1), mat('#f77f00')); pk.position.y = 0.05; const st = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.08), mat('#2d6a4f')); st.position.y = 0.4; h.add(pk, st); } },
+      christmas: { shirt: '#c1121f', pants: '#8d0801', hair: '#f8f9fa', label: '🎅 ยามซานต้า', hat: (h) => { const hat = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.5, 8), mat('#d00000')); hat.position.y = 0.42; const pom = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#ffffff')); pom.position.y = 0.7; const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), mat('#ffffff')); brim.position.y = 0.2; const beard = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.26, 0.1), mat('#ffffff')); beard.position.set(0, -0.18, 0.2); h.add(hat, pom, brim, beard); } },
+      newyear: { shirt: '#7b2cbf', pants: '#240046', hair: '#ffd166', label: '🎆 ยามปีใหม่', hat: (h) => { const hat = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 8), mat('#ffd166')); hat.position.y = 0.4; const pom = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), mat('#ff70a6')); pom.position.y = 0.68; h.add(hat, pom); } },
+    }[th] || null;
+    const cfg = S || { shirt: '#1d3557', pants: '#14213d', hair: '#222', label: '🛡️ ยามรักษาความปลอดภัย', hat: () => {} };
     for (const c of CAMPS) {
       const g = this.layout.gates[c.key]; if (!g) continue;
       for (const sd of [-1, 1]) {
         const x = g.x + sd * (g.w / 2 + 1.4), z = c.z - c.size / 2 - 1.4;
-        const m = makeHuman('m', { skin: SKINS[0], shirt: '#c1121f', pants: '#8d0801', hair: '#f8f9fa' });
+        const m = makeHuman('m', { skin: SKINS[0], shirt: cfg.shirt, pants: cfg.pants, hair: cfg.hair });
         m.position.set(x, heightAt(x, z), z); m.rotation.y = Math.PI;
-        const hat = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.5, 8), mat('#d00000')); hat.position.y = 0.42;
-        const pom = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#ffffff')); pom.position.y = 0.7;
-        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), mat('#ffffff')); brim.position.y = 0.2;
-        m.userData.head?.add(hat, pom, brim);
-        const lb = makeLabel('🎅 ยามรักษาความปลอดภัย', '#ffd166'); lb.position.y = 2.3; m.add(lb);
+        if (m.userData.head) cfg.hat(m.userData.head);
+        const lb = makeLabel(cfg.label, '#ffd166'); lb.position.y = 2.3; m.add(lb);
         this.santa.add(m);
       }
     }
     this.scene.add(this.santa);
   }
-  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); if (this.santa) this.santa.visible = true; /* ยามซานต้าประจำค่ายอยู่ตลอดปี */ }
+  applyTheme() { if (this.halloween) this.halloween.visible = isHalloween(); if (this.santa) this.buildSanta(); }
   tickHalloween(dt, P, night) {
     if (!this.halloween?.visible) return;
     for (const b of this.bats) {

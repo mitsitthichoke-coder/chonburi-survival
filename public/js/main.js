@@ -94,7 +94,7 @@ initPreview3d($('#f-preview'));
 drawPreview();
 
 // คุณภาพกราฟิก (จำไว้ในเครื่อง)
-let gfx = 'normal'; try { gfx = localStorage.getItem('cbs_gfx') || (isTouchDevice() ? 'low' : 'normal'); } catch { /* ignore */ }
+const gfx = 'toon'; // แสดงผลแบบเดียว: การ์ตูนสว่างใส (ตัดตัวเลือกกราฟิกออก)
 // ธีม: โลกล่มสลาย / ฮาโลวีน
 const syncTitle = () => { $('#title-sub').textContent = isHalloween() ? 'คืนฮาโลวีน 🎃' : theme() === 'christmas' ? 'คริสต์มาสล่มสลาย 🎄' : theme() === 'newyear' ? 'ปีใหม่ 2027 🎆' : 'วันล่มสลาย'; };
 $('#guide-btn').onclick = (e) => { e.preventDefault(); openGuide(); };
@@ -105,7 +105,6 @@ let seenVer = null; try { seenVer = localStorage.getItem('cbs_seen_ver'); } catc
 if (seenVer !== VERSION) $('#ver-news').textContent = '🆕 ดูว่าอัปเดตอะไรบ้าง';
 $('#ver-news').onclick = (e) => { e.preventDefault(); openGuide('news'); try { localStorage.setItem('cbs_seen_ver', VERSION); } catch { /* ignore */ } $('#ver-news').textContent = 'ดูว่าอัปเดตอะไรบ้าง'; };
 syncTitle(); // ธีมเปลี่ยนได้เฉพาะเจ้าของเซิร์ฟเวอร์ (/theme)
-seg($('#f-gfx'), [], () => gfx, (v) => { gfx = v; try { localStorage.setItem('cbs_gfx', v); } catch { /* ignore */ } });
 const useRoom = RoomNet.available();
 if (useRoom) { $('#server-row').hidden = true; $('#room-row').hidden = false; }
 if (isTouchDevice()) $('#keys-hint').textContent = 'มือถือ: จอยสติ๊กซ้าย = เดิน · ลากจอ = หมุนกล้อง · หยิกสองนิ้ว = ซูม · ⚔️ ตี/เก็บ · ✋ โต้ตอบ · ⤒ กระโดด · 🏃 วิ่ง (แนะนำให้ถือแนวนอน)';

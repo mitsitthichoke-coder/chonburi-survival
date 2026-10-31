@@ -7,7 +7,7 @@ export const HAIR_STYLES = { short: 'สั้น', buzz: 'เกรียน', 
 export const EYES = { normal: 'ปกติ', round: 'ตากลมโต', sleepy: 'ตาง่วง', sharp: 'ตาคม', happy: 'ตายิ้ม', wink: 'ขยิบตา' };
 export const MOUTHS = { smile: 'ยิ้ม', flat: 'เฉย', grin: 'ยิ้มกว้าง', open: 'อ้าปาก', smirk: 'มุมปาก', frown: 'บึ้ง' };
 export const BROWS = { none: 'ไม่มี', thin: 'บาง', thick: 'หนา', angry: 'ขมวด' };
-export const EXTRAS = { none: 'ไม่มี', glasses: 'แว่นตา', sunglasses: 'แว่นกันแดด', beard: 'เครา', mustache: 'หนวด', goatee: 'เคราแพะ', freckles: 'กระ', blush: 'แก้มแดง', scar: 'แผลเป็น', bandana: 'ผ้าคาดหัว' };
+export const EXTRAS = { none: 'ไม่มี', glasses: 'แว่นตา', sunglasses: 'แว่นกันแดด', beard: 'เครา', mustache: 'หนวด', goatee: 'เคราแพะ', freckles: 'กระ', blush: 'แก้มแดง', scar: 'แผลเป็น', bandana: 'ผ้าคาดหัว', hardhat: 'หมวกนิรภัย', strawhat: 'หมวกฟาง', chefhat: 'หมวกเชฟ', cap: 'หมวกแก๊ป' };
 
 const pick = (rand, arr) => arr[Math.floor(rand() * arr.length)];
 const keys = Object.keys;
@@ -26,14 +26,14 @@ export function cleanLook(l) {
 // 🎭 หน้าตา/ชุดมาตรฐานของแต่ละอาชีพ (ตามการ์ดอาชีพ) — ใช้เมื่อผู้เล่นไม่ได้ปรับแต่งหน้าตาเอง
 const JL = (shirt, pants, hair, style, extra = 'none', o = {}) => ({ skin: '#f1c27d', shirt, pants, hair, style, eyes: 'normal', mouth: 'smile', brows: 'thin', extra, ...o });
 export const JOB_LOOKS = {
-  engineer: JL('#f4f1de', '#1d3557', '#4a2c1a', 'sidepart'), mechanic: JL('#d1495b', '#1d3557', '#4a2c1a', 'short'),
-  farmer: JL('#f4f1de', '#1d3557', '#1b1b1b', 'sidepart'), fisher: JL('#e9c46a', '#6c584c', '#1b1b1b', 'short'),
-  builder: JL('#d1495b', '#1d3557', '#4a2c1a', 'short', 'none', { brows: 'thick' }), hunter: JL('#6c584c', '#6c584c', '#4a2c1a', 'mullet', 'none', { eyes: 'sharp' }),
+  engineer: JL('#f4f1de', '#1d3557', '#4a2c1a', 'sidepart'), mechanic: JL('#d1495b', '#1d3557', '#4a2c1a', 'short', 'strawhat'),
+  farmer: JL('#f4f1de', '#1d3557', '#1b1b1b', 'sidepart'), fisher: JL('#e9c46a', '#6c584c', '#1b1b1b', 'short', 'cap'),
+  builder: JL('#d1495b', '#1d3557', '#4a2c1a', 'short', 'hardhat', { brows: 'thick' }), hunter: JL('#6c584c', '#6c584c', '#4a2c1a', 'mullet', 'none', { eyes: 'sharp' }),
   it: JL('#1b1b1b', '#222222', '#1b1b1b', 'sidepart', 'glasses'), monk: JL('#fb8500', '#fb8500', '#1b1b1b', 'bald', 'none', { eyes: 'sleepy', mouth: 'flat' }),
   electrician: JL('#f4f1de', '#1d3557', '#1b1b1b', 'spiky'), doctor: JL('#f4f1de', '#222222', '#1b1b1b', 'sidepart', 'glasses'),
   entertainer: JL('#9b5de5', '#3d405b', '#a4161a', 'curly', 'none', { mouth: 'grin' }), athlete: JL('#d1495b', '#6c584c', '#4a2c1a', 'short', 'bandana', { brows: 'thick' }),
-  livestock: JL('#6a994e', '#6c584c', '#8d5524', 'short'), ricefarmer: JL('#d1495b', '#a98467', '#4a2c1a', 'ponytail', 'freckles'),
-  blacksmith: JL('#3d405b', '#222222', '#1b1b1b', 'short', 'beard', { brows: 'thick' }), chef: JL('#f4f1de', '#3d405b', '#1b1b1b', 'short'),
+  livestock: JL('#6a994e', '#6c584c', '#8d5524', 'short'), ricefarmer: JL('#d1495b', '#a98467', '#4a2c1a', 'ponytail', 'strawhat'),
+  blacksmith: JL('#3d405b', '#222222', '#1b1b1b', 'short', 'beard', { brows: 'thick' }), chef: JL('#f4f1de', '#3d405b', '#1b1b1b', 'short', 'chefhat'),
   developer: JL('#3d405b', '#222222', '#1b1b1b', 'buzz', 'glasses'), freelancer: JL('#2e86ab', '#3d405b', '#1b1b1b', 'short'),
 };
 export const jobLook = (job, sex) => { const l = { ...(JOB_LOOKS[job] || JOB_LOOKS.freelancer) }; if (sex === 'f' && ['short', 'sidepart', 'buzz', 'mullet', 'spiky', 'bald'].includes(l.style)) l.style = 'bob'; if (sex === 'f') l.extra = ['beard', 'mustache', 'goatee'].includes(l.extra) ? 'none' : l.extra; return l; };

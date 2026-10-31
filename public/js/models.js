@@ -99,6 +99,10 @@ function addFace(head, L, eyeC, hair, skin) {
     case 'freckles': for (const [x, y] of [[-0.11, 0.1], [-0.07, 0.09], [-0.09, 0.075], [0.11, 0.1], [0.07, 0.09], [0.09, 0.075]]) F(0.015, 0.015, '#8d5524', x, y, 0.18); break;
     case 'blush': for (const sx of [-1, 1]) F(0.06, 0.03, '#f28482', 0.11 * sx, 0.09, 0.18); break;
     case 'scar': { const m = F(0.02, 0.12, '#9d4b4b', 0.1, 0.14, 0.19); m.rotation.z = 0.4; break; }
+    case 'hardhat': head.add(box(0.42, 0.13, 0.42, '#ffd60a', 0, 0.4, 0)); head.add(box(0.44, 0.04, 0.2, '#ffd60a', 0, 0.35, 0.22)); head.add(box(0.1, 0.06, 0.3, '#e9b800', 0, 0.48, 0)); break;
+    case 'strawhat': head.add(box(0.7, 0.04, 0.7, '#e9c46a', 0, 0.37, 0)); head.add(box(0.4, 0.16, 0.4, '#d4a373', 0, 0.45, 0)); head.add(box(0.41, 0.04, 0.41, '#c1121f', 0, 0.4, 0)); break;
+    case 'chefhat': head.add(box(0.38, 0.1, 0.38, '#ffffff', 0, 0.37, 0)); head.add(box(0.46, 0.26, 0.46, '#ffffff', 0, 0.54, 0)); break;
+    case 'cap': head.add(box(0.4, 0.12, 0.4, '#457b9d', 0, 0.38, 0)); head.add(box(0.36, 0.03, 0.2, '#2d5d7b', 0, 0.34, 0.27)); break;
     case 'bandana': head.add(box(0.37, 0.07, 0.37, '#c1121f', 0, 0.24, 0)); head.add(box(0.06, 0.14, 0.04, '#c1121f', 0.05, 0.18, -0.19)); break;
   }
   void skin;

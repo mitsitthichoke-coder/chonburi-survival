@@ -799,9 +799,9 @@ export function killReward(ch, kind, rand, tier = 0) {
   const give = rollDrops(kind, rand);
   // ระดับสูงดรอปมากขึ้น · บอสดรอปของพิเศษ
   if (T && T.drops > 1) for (let i = 1; i < T.drops; i++) for (const [k, q] of Object.entries(rollDrops(kind, rand))) give[k] = (give[k] || 0) + q;
-  const cr = T ? (T.warlord ? [50, 90] : ZCOIN[T.key]) : WCOIN[kind]; if (cr) give.jicoin = (give.jicoin || 0) + coinRoll(rand, cr);
+  const cr = T ? (T.warlord ? [50, 90] : T.area ? [30, 60] : ZCOIN[T.key]) : WCOIN[kind]; if (cr) give.jicoin = (give.jicoin || 0) + coinRoll(rand, cr);
   if (T?.key === 'admiral') { for (const [k, q] of Object.entries(ADMIRAL_DROPS)) give[k] = (give[k] || 0) + q; for (let i = 0; i < 3; i++) for (const k of Object.keys(rollLoot(rand, 'mil')).slice(0, 1)) give[k] = (give[k] || 0) + 1; }
-  else if (T?.boss) { const bd = rollBoss(rand); if (T.warlord) { delete bd.king_fang; for (const [k, q] of Object.entries(T.bossDrops || {})) give[k] = (give[k] || 0) + q; } for (const [k, q] of Object.entries(bd)) give[k] = (give[k] || 0) + q; }
+  else if (T?.boss) { const bd = rollBoss(rand); if (T.warlord || T.area) { delete bd.king_fang; for (const [k, q] of Object.entries(T.bossDrops || {})) give[k] = (give[k] || 0) + q; } for (const [k, q] of Object.entries(bd)) give[k] = (give[k] || 0) + q; }
   else if (T?.loot && rand() < 0.5) for (const k of Object.keys(rollLoot(rand, T.loot)).slice(0, 1)) give[k] = (give[k] || 0) + 1; // ทหารผู้ติดเชื้อดรอปยุทธภัณฑ์
   if (T?.key === 'toxic' && rand() < 0.4) give.herb = (give.herb || 0) + 1;
   if (T?.boss) { give.plus_stone = (give.plus_stone || 0) + 2 + Math.floor(rand() * 3); if (rand() < 0.35) give.super_stone = (give.super_stone || 0) + 1; } // บอสดรอปหินตีบวก

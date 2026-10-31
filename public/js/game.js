@@ -5,7 +5,7 @@ import { Social } from './social.js';
 import { UI, coordText } from './ui.js';
 import { makeHuman, animateHuman, setHeldTool, setOutfit, GFX, setInjury, tickInjury, injuryBits, sleepPose, sitPose, ridePose, makeLabel } from './models.js';
 import { heightAt, waterAt, WORLD, LAKES, ISLANDS, MOUNTAINS } from './terrain.js';
-import { ZTIERS } from './zombies-core.js';
+import { ZTIERS, districtOf, DISTRICT_NAME } from './zombies-core.js';
 import { jobOf, freePts, jobPts, PERK_PTS, canBuild, maxHpOf, maxStamOf, extraSlots, hasPerk, killPerk, KILL_PERKS, dmgMulOf, JOBS, PET_SLOTS, WEAR_SLOTS, BASE_SLOTS, stackOf, wearStats, SKILLS, ITEMS, RECIPES, TOWNS, SPAWN_TOWN, DAY_MS, PREG_MS, BABY_MS, CHILD_MS, skillLevel, PET_TYPES, RADIO, pickAmmo, ammoDmg, meleeReach, HAPPY_EVERY, HAPPY_EVERY_FREE, happyPower, isFreelancer } from './data.js';
 import { distToCoast } from './terrain.js';
 import { inCamp } from './citygen.js';
@@ -839,7 +839,7 @@ export class Game {
         case 'zs': this.ents.syncNetZombies(m.z); break;
         case 'zdie': this.ents.netZombieDied(m.id, m.by === this.id, m.tier); break;
         case 'announce': this.onAnnounce(m); break;
-        case 'liberate': (this.lib ||= {})[m.town] = m.until; { const T = TOWNS.find((t) => t.key === m.town); this.sfx.play('level'); this.ui.toast(`🕊️ ${T?.name || 'อำเภอ'}ถูกปลดแอกแล้ว! ทุกคนในอำเภอได้รับบัฟ 60 นาที`); this.ui.chat('', `🕊️ ${ZTIERS.find((z) => z.town === m.town)?.name || 'บอส'}ถูกล้มแล้ว — ${T?.name || 'อำเภอ'}ปลดแอก 60 นาที: ${BUFF_NAME[m.buff] || ''} (${m.buffText || ''})`, true); } break;
+        case 'liberate': (this.lib ||= {})[m.town] = m.until; { const T = { name: DISTRICT_NAME[m.town] || m.town }; this.sfx.play('level'); this.ui.toast(`🕊️ ${T.name}ถูกปลดแอกแล้ว! ทุกคนในอำเภอได้รับบัฟ 60 นาที`); this.ui.chat('', `🕊️ ${ZTIERS.find((z) => z.town === m.town)?.name || 'บอส'}ถูกล้มแล้ว — ${T?.name || 'อำเภอ'}ปลดแอก 60 นาที: ${BUFF_NAME[m.buff] || ''} (${m.buffText || ''})`, true); } break;
         case 'friends': this.friends = m.list || []; this.friendReqs = m.reqs || []; if (this.ui.open === 'panel' && this.ui.tab === 'rel') this.ui.refreshPanels(); break;
         case 'friendmsg': this.ui.toast(m.text); break;
         case 'tradereq': this.sfx.play('click'); this.ui.confirm(`🔄 ${m.name} ขอแลกของกับคุณ ตกลงไหม?`, (ok) => this.net.send({ t: 'trade', a: ok ? 'accept' : 'decline', to: m.from })); break;
@@ -1119,7 +1119,11 @@ export class Game {
       this.sfx.play('groan', { vol: 1 });
       this.ui.toast(`🛡️ ${m.boss || 'จอมทมิฬ'}ปรากฏตัวที่${m.name}! ล้มมันเพื่อปลดแอกอำเภอและชิงของรางวัล`, 'warn');
       this.ui.chat('', `🛡️ ${m.boss || 'จอมทมิฬ'} ยึดครอง${m.name}! รวมพลังกันล้มมัน — ปลดแอกแล้วทั้งอำเภอได้บัฟ`, true);
-    } else if (m.kind === 'admiral') {
+    } else if (m.kind === 'abos') {
+      this.sfx.play('groan', { vol: 0.8 });
+      this.ui.toast(`🗺️ ${m.boss || 'บอสพื้นที่'}ปรากฏตัวที่${m.name}`, 'warn');
+    } else if (m.kind === 'abosdown') this.ui.chat('', `🗺️ ${m.name}ถูกล้มแล้ว`, true);
+    else if (m.kind === 'admiral') {
       this.sfx.play('groan', { vol: 1 }); this.sfx.play('gate');
       this.ui.toast('🎖️ ผู้บัญชาการผู้ติดเชื้อปรากฏตัวที่ฐานทัพเรือสัตหีบ! ล้มมันเพื่อชิงยุทธภัณฑ์และเหรียญกล้าหาญ', 'warn');
       this.ui.chat('', '⚓ สัญญาณเตือนภัยดังทั่วฐานทัพเรือ... ผู้บัญชาการผู้ติดเชื้อนำทหารออกตรวจการณ์!', true);
@@ -1129,8 +1133,8 @@ export class Game {
   // 🕊️ บัฟอำเภอที่ปลดแอกแล้ว (ยืนอยู่ในเขตอำเภอนั้น)
   libBuff(kind) {
     if (!this.lib) return null; const P = this.player.pos, now = Date.now();
-    const t = TOWNS.find((t) => this.lib[t.key] > now && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 20); if (!t) return null;
-    const b = ZTIERS.find((z) => z.town === t.key); return !kind || b?.buff === kind ? { ...t, buff: b?.buff, text: b?.buffText } : null;
+    const t = TOWNS.find((t) => this.lib[districtOf(t.key)] > now && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 20); if (!t) return null;
+    const d = districtOf(t.key), b = ZTIERS.find((z) => z.town === d); return !kind || b?.buff === kind ? { ...t, name: DISTRICT_NAME[d] || t.name, buff: b?.buff, text: b?.buffText } : null;
   }
   updateStats(dt) {
     const s = this.stats, preg = this.social.preg[this.id], surv = skillLevel(this.skills.survival);

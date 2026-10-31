@@ -716,6 +716,8 @@ export function sopCost(ch, s, op, env) {
     }
     case 'tpipe': return { xp: { survival: 2 } };
     case 'boil': if (!has(ch, 'wood', 2)) return { err: '♨️ ต้องใช้ไม้ 2 ชิ้นเป็นเชื้อเพลิง' }; return { take: { wood: 2 }, xp: { cooking: 4, farming: 2 } };
+    case 'plaster': { if (!has(ch, 'concrete', 2)) return { err: '🧱 ต้องมีคอนกรีต 2 (ประดิษฐ์ได้โดยสาย 🧑‍💻 นักพัฒนา: หิน 4 + เศษเหล็ก 1 + น้ำสะอาด 1)' }; return { take: { concrete: 2 }, xp: { building: 4 } }; }
+    case 'rubberize': { if (!has(ch, 'rubber_sheet', 2)) return { err: '🟢 ต้องมีแผ่นยาง 2' }; return { take: { rubber_sheet: 2 }, xp: { building: 3 } }; }
     case 'bfeed': return { xp: { farming: 4 } };
     case 'fpfeed': { const q = Math.min(Math.max(1, op.q | 0), ch.inv.wood || 0); if (q <= 0) return { err: '🪵 ไม่มีไม้ฟืน' }; return { take: { wood: q }, opx: { q } }; }
     case 'upfence': { const T = FENCE_TIERS[(s.tier || 0) + 1]; if (!T) return { err: 'เป็นรั้วเหล็กแล้ว' }; for (const [k, q] of Object.entries(T.cost)) if (!has(ch, k, q)) return { err: `อัปเกรดเป็น${T.name}ต้องใช้ ${Object.entries(T.cost).map(([i, n]) => `${ITEMS[i].icon}${ITEMS[i].name} ${n}`).join(' + ')}` }; return { take: { ...T.cost }, xp: { building: 3 } }; }

@@ -83,6 +83,8 @@
   .slot .n { position: absolute; left: 4px; top: 1px; font-size: 11px; color: #aaa; } .slot .q { position: absolute; right: 4px; bottom: 1px; font-size: 12px; font-weight: 700; }
   #prompt { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,.6); padding: 6px 14px; border-radius: 8px; display: none; pointer-events: none; white-space: nowrap; }
   kbd { background: #fff; color: #000; border-radius: 4px; padding: 0 6px; font-weight: 800; }
+  #crosshair.ranged { width: 26px; height: 26px; margin: -13px; background: transparent; border: 2px solid rgba(255,214,102,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.4), inset 0 0 0 1px rgba(0,0,0,.3); }
+  #crosshair.ranged::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255,214,102,.95); }
   #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,.7); pointer-events: none; }
   #toasts { position: absolute; right: 14px; top: 250px; width: 330px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
   .toast { background: rgba(0,0,0,.7); padding: 7px 12px; border-radius: 8px; font-size: 14px; border-left: 4px solid #888; transition: opacity .6s; }

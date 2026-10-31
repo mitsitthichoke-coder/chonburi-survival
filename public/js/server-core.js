@@ -348,7 +348,21 @@ export class WorldCore {
   }
 
   // ---------- สิ่งก่อสร้าง ----------
-  rebuildWalls() { this.walls = [...this.baseWalls, ...this.db.structures.flatMap(collidersFor)]; }
+  rebuildWalls() {
+    this.walls = [...this.baseWalls, ...this.db.structures.flatMap(collidersFor)];
+    this.sightWalls = this.db.structures.filter((s) => s.type === 'bamboo_wall'); // ผนังไม้ไผ่ทึบ บังสายตาผู้ติดเชื้อ
+  }
+  // เส้นสายตาจากผู้ติดเชื้อไปผู้เล่นถูกผนังไม้ไผ่ตัดผ่านไหม (ถ้าอยู่ใกล้กันเกิน 4 หน่วยยังได้กลิ่น/เสียง)
+  sightBlocked(zb, p) {
+    if (!this.sightWalls?.length) return false;
+    const ax = zb.x, az = zb.z, bx = p.p[0], bz = p.p[2], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (L2 < 16) return false;
+    for (const w of this.sightWalls) {
+      if (Math.abs(w.x - ax) > 40 || Math.abs(w.z - az) > 40) continue;
+      const t = Math.max(0, Math.min(1, ((w.x - ax) * dx + (w.z - az) * dz) / L2)), cx = ax + dx * t, cz = az + dz * t;
+      if (Math.hypot(cx - w.x, cz - w.z) < 1.6) return true;
+    }
+    return false;
+  }
   structureOp(me, m) {
     const s = this.db.structures.find((x) => x.id === m.id); if (!s || !m.op) return;
     const fr = !s.owner || s.owner === me.id || relLevel(this.getRel(me.id, s.owner)) >= 2, role = accessFor(this.db.structures, s, me.id, fr), canAccess = fr || !!role;
@@ -547,7 +561,7 @@ export class WorldCore {
         if (zb.ignore[p.id] > zb.t) continue;
         const d = Math.hypot(p.p[0] - zb.x, p.p[2] - zb.z);
         // ย่อ/คลาน = มองเห็นได้ใกล้ลง (sk) ยกเว้นตัวที่ตื่นตัวอยู่แล้ว
-        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1) && !(nearFireOf(fires, p.p[0], p.p[2]) && !T.boss) && !(p.eq === 'torch' && d < 8 && !T.boss) && !safeBaseAt(bases, p.p[0], p.p[2], now)) { tgt = p; td = d; }
+        if (d < Math.min(td, see * (zb.alert > 0 && zb.alertId === p.id ? 1 : p.sk || 1)) && !inCamp(p.p[0], p.p[2], 1) && !(nearFireOf(fires, p.p[0], p.p[2]) && !T.boss) && !(p.eq === 'torch' && d < 8 && !T.boss) && !(!T.boss && this.sightBlocked(zb, p)) && !safeBaseAt(bases, p.p[0], p.p[2], now)) { tgt = p; td = d; }
       }
       if (!T.boss) for (const p of alive) { // 🔥 ถือคบเพลิงอย่างเดียว: ผู้ติดเชื้อถอยหนี
         if (p.eq !== 'torch') continue; const dx = zb.x - p.p[0], dz = zb.z - p.p[2], dd = Math.hypot(dx, dz);

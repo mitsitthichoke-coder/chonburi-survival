@@ -22,6 +22,7 @@ export function cageCatch(s, now) {
   return list[Math.floor(hash2(Math.floor(s.bt / 1000), s.id.length * 977) * list.length)];
 }
 
+export const MAT_TYPES = new Set(['wall', 'window', 'door', 'roof', 'slope', 'foundation']);
 export const G = 3;        // ขนาดช่องกริด (1 ช่อง = 3 หน่วย ≈ 150 ม. ในสเกลแผนที่ แต่ในเกมคือห้องขนาดพอดีตัว)
 export const WALL_H = 3;   // ความสูงผนัง
 export const FENCE_H = 1.8;
@@ -299,6 +300,14 @@ export function applyOp(s, op, ctx) {
   if (s.type === 'basecore') { const r = baseOp(s, op, ctx); if (r) return r; }
   if (ctx.role !== undefined && !roleAllows(ctx.role, s, op.o)) return { err: '🔒 เฉพาะเจ้าบ้าน/ผู้มีหน้าที่ดูแล (ผู้ดูแลสัตว์/ผู้ดูแลพืช) เท่านั้น' };
   switch (op.o) {
+    // 🧱 โบกปูนเป็นคอนกรีต (ทนทุกสภาพอากาศ) / 🟢 หุ้มยาง (กันหนาว) — ใช้กับชิ้นส่วนไม้ (ไม่รวมไม้ไผ่)
+    case 'plaster': case 'rubberize': {
+      if (!MAT_TYPES.has(s.type)) return { err: s.type === 'bamboo_wall' ? 'ผนังไม้ไผ่โบกปูน/หุ้มยางไม่ได้' : 'ชิ้นส่วนนี้โบกปูน/หุ้มยางไม่ได้' };
+      if (s.owner && s.owner !== ctx.by && !['owner', 'deputy'].includes(ctx.role)) return { err: '🔒 ทำได้เฉพาะเจ้าของ/รองเจ้าบ้าน' };
+      if (op.o === 'plaster') { if (s.mat === 'concrete') return { err: 'เป็นคอนกรีตอยู่แล้ว' }; return { patch: { mat: 'concrete' }, msg: '🧱 โบกปูนเป็นคอนกรีตแล้ว — ทนร้อน/หนาว/ฝน' }; }
+      if (s.mat) return { err: s.mat === 'rubber' ? 'หุ้มยางอยู่แล้ว' : 'เป็นคอนกรีตแล้ว หุ้มยางไม่ได้' };
+      return { patch: { mat: 'rubber' }, msg: '🟢 หุ้มยางแล้ว — กันหนาวและความชื้น' };
+    }
     case 'bait':
       if (s.type !== 'cage') return { err: 'ใส่เหยื่อได้เฉพาะกรงดักสัตว์' };
       if (s.bait) return { err: 'มีเหยื่ออยู่ในกรงแล้ว' };

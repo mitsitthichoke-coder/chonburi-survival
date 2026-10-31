@@ -20,7 +20,7 @@ import { rollPet, ensurePet, petStats, gainPetXp, tickPetTraits, petNearbyWith, 
 import { Builder } from './building.js';
 import { isHalloween, setTheme } from './theme.js';
 import { weatherAt, airTemp, bodyTarget, fogName } from './weather-core.js';
-import { PIECES, baseY, safeBaseAt } from './building-core.js';
+import { PIECES, baseY, safeBaseAt, MAT_TYPES } from './building-core.js';
 import { Fishing } from './fishing.js';
 import { Homestead } from './homestead.js';
 import { Authority } from './authority.js';
@@ -224,7 +224,13 @@ export class Game {
     // ลูกเห็บ: โดนทุก 3 วินาทีถ้าอยู่กลางแจ้ง (หลบในที่กำบัง/ค่าย/รถได้)
     if (W.hail && !inside && !this.dead && !this.vehicle?.s?.vt?.includes?.('car')) { this.hailT = (this.hailT || 0) - dt; if (this.hailT <= 0) { this.hailT = 3; this.player.hurt(2, { src: 'ลูกเห็บ' }); } }
     // อุณหภูมิ
-    const air = airTemp(W, this.isNight(), P.y), warm = wearStats(this.wear).warm + (inside && sh?.warm ? 0.3 : 0);
+    // 🏠 วัสดุบ้านมีผลต่ออากาศข้างใน: ไม้ = ร้อนง่าย · ยาง = กันหนาว · คอนกรีต = ทนทุกอย่าง
+    let air = airTemp(W, this.isNight(), P.y);
+    if (sh?.kind === 'house') {
+      const hm = this.houseMat(), hot = air > 28, cold = air < 22;
+      air += hm === 'concrete' ? (hot ? -4 : cold ? 3 : 0) : hm === 'rubber' ? (cold ? 4 : hot ? 1 : 0) : (hot ? 3 : 0);
+    }
+    const warm = wearStats(this.wear).warm + (inside && sh?.warm ? 0.3 : 0);
     const target = bodyTarget({ air, wet: s.wet, warm, fire, shelter: inside });
     s.temp = clamp(s.temp + (target - s.temp) * Math.min(1, dt * 0.01), 32, 40); // ค่อย ๆ เปลี่ยน ไม่หนาวเร็วเกินไป
     const was = this.tempState || 'ok', st = s.temp < 35 ? 'freeze' : s.temp < 36.2 ? 'cold' : s.temp > 38.6 ? 'hot' : 'ok';
@@ -645,6 +651,10 @@ export class Game {
     const P = PIECES[s.type];
     this.ui.choice(`${P.icon} ${P.name}`, [
       { label: '🔀 ย้ายไปวางที่ใหม่ (รื้อ ได้วัสดุคืนครบ แล้วเข้าโหมดวาง)', run: () => { this.demolishStructure(s); if (canBuild(this.inv)) this.builder.start(s.type); } },
+      ...(MAT_TYPES.has(s.type) ? [
+        { label: '🧱 โบกปูนเป็นคอนกรีต (คอนกรีต 2) — ทนทุกสภาพอากาศ', dis: (s.mat === 'concrete' && 'เป็นคอนกรีตแล้ว') || (!this.hasItem('concrete', 2) && 'ต้องมีคอนกรีต 2 (สายนักพัฒนาประดิษฐ์ได้)'), run: () => this.home.op(s, { o: 'plaster' }) },
+        { label: '🟢 หุ้มยาง (แผ่นยาง 2) — กันหนาว/ชื้น', dis: (s.mat && 'มีวัสดุเสริมแล้ว') || (!this.hasItem('rubber_sheet', 2) && 'ต้องมีแผ่นยาง 2'), run: () => this.home.op(s, { o: 'rubberize' }) },
+      ] : []),
       { label: '🗑️ รื้อทิ้ง (ได้วัสดุคืนครบ)', run: () => this.demolishStructure(s) },
     ]);
     return true;
@@ -720,6 +730,12 @@ export class Game {
     this.auth.do('hit', { id: r.id, hand });
   }
 
+  // กากบาทกลางจอ: ถือปืน/ธนู/หน้าไม้/หนังสติ๊กแล้วขยายเป็นวงเล็ง
+  tickCrosshair() {
+    const el = this.xhEl ||= document.getElementById('crosshair'); if (!el) return;
+    const on = !!ITEMS[this.equipped]?.tool?.ranged && !this.builder.active && !this.ui.open;
+    if (el.classList.contains('ranged') !== on) el.classList.toggle('ranged', on);
+  }
   attack() {
     if (this.dead || this.atkCd > 0) return;
     if (this.builder.active) { this.atkCd = 0.3; return this.builder.confirm(); }
@@ -740,8 +756,9 @@ export class Game {
       if (!ammo) return this.ui.toast(`ไม่มี${ITEMS[tool.ammo].icon} ${ITEMS[tool.ammo].name} — ประดิษฐ์ในแท็บกระเป๋า`, 'warn');
       this.auth.do('shoot', { ammo }); this.atkCd = 0.7;
       const adm = tool.dmg + ammoDmg(ammo);
-      let best = null, bd = tool.range;
-      for (const e of this.ents.list) { if (e.dead || !(e.kind === 'zombie' || e.kind === 'animal')) continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d < bd && v.normalize().dot(dir) > 0.93) { bd = d; best = e; } }
+      // ช่วยเล็งเล็กน้อย: เลือกเป้าที่ใกล้แนวกากบาทกลางจอที่สุด (ภายใน ~18°) ถ้าไม่มีเป้า กระสุนบินตรงตามกากบาท
+      let best = null, bd = tool.range, bestDot = 0.95;
+      for (const e of this.ents.list) { if (e.dead || !(e.kind === 'zombie' || e.kind === 'animal')) continue; const v = e.pos.clone().sub(this.player.pos); v.y = 0; const d = v.length(); if (d >= tool.range) continue; const dot = v.normalize().dot(dir); if (dot > bestDot) { bestDot = dot; bd = d; best = e; } }
       this.fireProjectile(dir, best ? bd : tool.range, ammo);
       if (best) { setTimeout(() => { if (!best.dead) { this.ents.damage(best, adm * this.dmgMul() * this.handMul(), this.player.pos, null, true); this.sfx.play('hit'); } }, Math.min(400, bd * 18)); }
       return;
@@ -966,7 +983,7 @@ export class Game {
     S('ภารกิจ', () => { this.quest.update(dt); this.boxUI.update(dt); });
     S('สัตว์เลี้ยง', () => tickPetTraits(this, dt));
     S('มือถือ', () => this.touch?.update());
-    S('ก่อสร้าง', () => { this.placingTick(); this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
+    S('ก่อสร้าง', () => { this.tickCrosshair(); this.placingTick(); this.builder.update(); this.fishing.update(dt); this.home.tick(dt); });
     if (this._bClass !== this.builder.active) { this._bClass = this.builder.active; document.body.classList.toggle('building', this.builder.active); }
     S('สภาพแวดล้อม', () => this.updateEnv(dt));
     S('กล้อง', () => this.updateCamera());
@@ -1160,6 +1177,14 @@ export class Game {
     } else if (m.kind === 'bossdown') this.ui.chat('', `👑 ราชาผู้ติดเชื้อถูกล้มแล้ว!`, true);
   }
 
+  // วัสดุหลักของบ้านที่ยืนอยู่ (นับผนัง/หลังคา/พื้นในรัศมี 7 หน่วย · แคช 2 วินาที)
+  houseMat() {
+    const t = performance.now(); if (this._hm && t - this._hm.t < 2000) return this._hm.v;
+    const P = this.player.pos, c = { wood: 0, rubber: 0, concrete: 0 };
+    for (const s of this.world.structures) if (MAT_TYPES.has(s.type) && Math.abs(s.x - P.x) < 7 && Math.abs(s.z - P.z) < 7) c[s.mat || 'wood']++;
+    const v = c.concrete >= c.rubber && c.concrete >= c.wood && c.concrete > 0 ? 'concrete' : c.rubber >= c.wood && c.rubber > 0 ? 'rubber' : 'wood';
+    this._hm = { t, v }; return v;
+  }
   // 🕊️ บัฟอำเภอที่ปลดแอกแล้ว (ยืนอยู่ในเขตอำเภอนั้น)
   libBuff(kind) {
     if (!this.lib) return null; const P = this.player.pos, now = Date.now();

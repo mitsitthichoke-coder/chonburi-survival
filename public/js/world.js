@@ -501,7 +501,7 @@ export class World {
   // สีฐาน: ชิ้นส่วนบ้าน/รั้วในรั้วของฐานเปลี่ยนสีตามที่เจ้าบ้านเลือก · ป้ายแสดงชื่อฐาน
   retint(s) {
     const m = this.structureMeshes.get(s.id); if (!m) return;
-    const b = baseAt(this.structures, s.x, s.z), col = b?.col;
+    const b = baseAt(this.structures, s.x, s.z), col = s.mat === 'concrete' ? '#b8bcc2' : s.mat === 'rubber' ? '#2f6b3c' : b?.col;
     if (m.userData.signLabel) m.userData.signLabel.userData.set(b ? (b.prefab && !b.owner ? `🏷️ ขายฐาน ${b.n}×${b.n} · 🪙 ${b.price}` : `🏡 ${b.name}`) : 'ป้ายชื่อฐาน (วางในรั้วของฐาน)', '#ffd166');
     // 🙂 หน้าตัวละครเจ้าของฐานบนป้าย
     if (m.userData.signLabel) {
@@ -528,6 +528,7 @@ export class World {
     if (m && ('x' in patch || 'z' in patch)) { m.position.x = s.x; m.position.z = s.z; m.rotation.y = s.type === 'vehicle' ? s.ry || 0 : m.rotation.y; }
     if ('tier' in patch && m) { this.scene.remove(m); const nm = makeStructureMesh(s); this.scene.add(nm); this.structureMeshes.set(id, nm); if (TINTABLE.has(s.type)) this.retint(s); }
     if ('open' in patch || 'x' in patch || 'tier' in patch) this.rebuildColliders();
+    if ('mat' in patch && TINTABLE.has(s.type)) this.retint(s);
     if (s.type === 'basecore' && ('col' in patch || 'ok' in patch || 'name' in patch || 'box' in patch)) this.retintAll();
     return s;
   }

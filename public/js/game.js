@@ -29,7 +29,7 @@ const SAVE_KEY = 'cbs_save_v1';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // วัสดุก่อสร้างพื้นฐาน: ไม่กินช่องกระเป๋า
-const SLOT_FREE = new Set(['wood', 'stone', 'scrap', 'fiber', 'raw_fiber', 'twig', 'pebble', 'bamboo', 'rubber_wood', 'concrete', 'house_mat']);
+const SLOT_FREE = new Set(['wood', 'stone', 'scrap', 'fiber', 'raw_fiber', 'twig', 'pebble', 'bamboo', 'rubber_wood', 'latex', 'rubber_sheet', 'concrete', 'house_mat']);
 export class Game {
   constructor(profile, net, sfx = new Sfx()) {
     this.profile = profile; this.net = net; this.id = profile.id; this.sfx = sfx;
@@ -480,6 +480,7 @@ export class Game {
     const f = this.facingPoint(1.6);
     const w = waterAt(f.x, f.z) || waterAt(P.x, P.z);
     if (w) return { type: 'water', w, text: w.fresh ? (this.hasItem('bottle') ? 'ตักน้ำใส่ขวด (น้ำดิบ)' : 'ดื่มน้ำจากอ่าง (เสี่ยง)') : ITEMS[this.equipped]?.tool?.fish ? 'แทงปลา' : this.hasItem('bottle') ? '🌊 ตักน้ำทะเลใส่ขวด (ต้องกรองก่อนดื่ม)' : 'น้ำทะเลดื่มไม่ได้' };
+    if (ITEMS[this.equipped]?.tool?.tap) { const tr = this.world.nearRes(P.x, P.z, 2.6).find((o) => o.type === 'rubber_tree' || o.type === 'yang_na'); if (tr) return { type: 'tap', r: tr, text: '🔪 กรีดยาง (ได้น้ำยาง)' }; }
     const r = this.world.nearRes(P.x, P.z, 2.2).find((o) => ['bush', 'herb', 'grass', 'pebble', 'twig'].includes(o.type));
     if (r) return { type: 'res', r, text: `เก็บ${RES_TYPES[r.type].name}` };
     if (e0?.kind === 'pet') return PET_TYPES[e0.type]?.ride && !(e0.pet.down > 0) ? { type: 'ride', e: e0, text: `🐃 ขี่${e0.pet.name} (ลูบหัวด้วย)` } : { type: 'pet', e: e0, text: `ลูบหัว ${e0.pet.name}` };
@@ -653,6 +654,7 @@ export class Game {
         if (this.hasItem('bottle')) this.auth.do('fill', { kind: 'fresh' });
         else { s.thirst = clamp(s.thirst + 15, 0, 100); if (Math.random() < 0.35) { s.sick = 60; this.ui.toast('🤢 น้ำไม่สะอาด ท้องเสีย!', 'warn'); } }
         return;
+      case 'tap': this.sfx.play('pickup'); return this.auth.do('tap', { id: t.r.id });
       case 'res': {
         this.sfx.play('pickup'); return this.auth.do('hit', { id: t.r.id, hand: true });
       }

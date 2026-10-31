@@ -307,6 +307,18 @@ const A = {
     return { give, xp: { gathering: R.type === 'tree' || R.type === 'rock' || R.type === 'orange_tree' || R.type === 'palm' || R.type === 'durian_tree' || R.type === 'bamboo' ? 6 : 2 }, res: { id: p.id, until: env.now() + T.respawn * 60000 }, raw: !tool && T.drops.some(([k]) => RAW[k]) };
   },
 
+  // 🔪 กรีดยาง: ต้องถือมีดกรีดยาง · ยางพารา 2–3 น้ำยาง · ยางนา 1 · ต้นเดิมกรีดซ้ำได้ทุก 10 นาที
+  tap(ch, p, env) {
+    const R = env.res(p.id); if (!R || (R.type !== 'rubber_tree' && R.type !== 'yang_na')) return { err: 'ต้นไม้นี้กรีดยางไม่ได้' };
+    if (!(ch.equipped && has(ch, ch.equipped) && ITEMS[ch.equipped].tool?.tap)) return { err: '🔪 ต้องถือมีดกรีดยาง (ไม้ 1 + เศษเหล็ก 2 + เส้นใย 1)' };
+    if (dist(env, ch, R.x, R.z) > 4.5) return { err: 'อยู่ไกลเกินไป', silent: true };
+    if (env.resUntil(p.id) > env.now()) return { silent: true, err: 'ต้นนี้ถูกตัดไปแล้ว' };
+    const t = ((ch.t ||= {}).tap ||= {}), now = env.now();
+    if (now - (t[p.id] || 0) < 600000) return { err: `ต้นนี้เพิ่งกรีดไป รออีก ${Math.ceil((600000 - (now - t[p.id])) / 60000)} นาที` };
+    t[p.id] = now; const q = R.type === 'rubber_tree' ? 2 + Math.floor(env.rand() * 2) : 1;
+    return { give: { latex: q }, xp: { gathering: 4 }, msg: `🥛 กรีดยางได้น้ำยาง ×${q}` };
+  },
+
   craft(ch, p, env) {
     const r = RECIPES[p.i]; if (!r) return { err: 'ไม่มีสูตรนี้' };
     if (r.job && !hasPerk(ch, r.job, 0)) return { err: `สูตรนี้ต้องมีสเตตัสสาย${JOBS[r.job].name}อย่างน้อย ${PERK_PTS[0]}` };
